@@ -1,0 +1,262 @@
+/* Токени (--primary, --bg-soft) приходять з HomePage.css через Layout */
+
+.gallery-page {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 20px 50px;
+  box-sizing: border-box;
+}
+
+.gallery-intro {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.gallery-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 8px;
+}
+
+.gallery-subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Панель фільтрів зліва; сітка карток справа */
+.gallery-body {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 28px;
+}
+
+.gallery-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Панель зліва, окремо від сітки; липне під час скролу */
+.filters-panel {
+  width: min(300px, 34vw);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  background: var(--white);
+  padding: 22px 20px;
+  border-radius: 24px;
+  box-shadow: var(--shadow-soft);
+  border: 1px solid rgba(45, 52, 54, 0.08);
+  position: sticky;
+  top: 100px;
+  align-self: flex-start;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.filters-panel-title {
+  margin: 0 0 18px;
+  font-size: 1.05rem;
+  color: var(--text-main);
+}
+
+.filter-group {
+  margin-bottom: 18px;
+}
+
+.filter-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.filter-group select,
+.filter-group input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(45, 52, 54, 0.12);
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  background: var(--white);
+}
+
+.filter-group select:focus,
+.filter-group input[type="text"]:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.urgency-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-urgency {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 2px solid rgba(45, 52, 54, 0.12);
+  background: var(--white);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-main);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.btn-urgency:hover {
+  border-color: var(--primary);
+}
+
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 22px;
+}
+
+.cat-card {
+  background: var(--white);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.cat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+}
+
+.image-wrapper {
+  position: relative;
+}
+
+.cat-card img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.cat-info {
+  padding: 18px 20px 20px;
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.cat-info h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--text-main);
+}
+
+.specs {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.ai-tag {
+  background-color: var(--primary);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 5px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  text-transform: capitalize;
+}
+
+.badge.shelter {
+  background: #6c5ce7;
+}
+
+.badge.private {
+  background: #fdcb6e;
+  color: #2d3436;
+}
+
+.urgency-banner {
+  margin-top: 12px;
+  padding: 8px;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.urgency-banner.immediate {
+  background: #ffeaa7;
+  color: #d63031;
+  border: 1px solid #d63031;
+}
+
+.urgency-banner.medium {
+  background: #fab1a0;
+  color: #e17055;
+}
+
+.urgency-banner.low {
+  background: #e0f2f1;
+  color: #00796b;
+}
+
+@media (max-width: 900px) {
+  .gallery-body {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 24px;
+  }
+
+  /* Фільтри зверху (aside перший у DOM), картки нижче — однакова ширина колонки */
+  .filters-panel {
+    width: 100%;
+    max-width: 100%;
+    max-height: none;
+    position: static;
+    align-self: stretch;
+    box-sizing: border-box;
+  }
+
+  .gallery-main {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+  }
+
+  .cat-grid {
+    grid-template-columns: 1fr;
+  }
+}

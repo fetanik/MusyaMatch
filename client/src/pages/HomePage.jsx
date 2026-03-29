@@ -1,28 +1,20 @@
 import React from 'react';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
 import { 
   Sparkles, Calendar, Heart, MapPin, 
   Video, LayoutDashboard, Gamepad2, Trophy, Cat 
 } from 'lucide-react';
+import Layout from '../components/Layout';
 import '../styles/HomePage.css';
 
 const HomePage = () => {
-    
+    const [cats, setCats] = useState([]);
   const greyIconStyle = { background: '#f1f2f6', color: '#2d3436' };
 
   return (
-    <div className="home-wrapper">
-      
-      <header className="header">
-        <div className="header-logo">
-          <Cat color="white" size={28} />
-        </div>
-        <div className="header-text">
-          <h1>MusyaMatch</h1>
-          <p>Cat Adoption & Care</p>
-        </div>
-      </header>
-
+    <Layout>
       <div className="content-container">
         
         {/* HERO SECTION*/}
@@ -87,9 +79,13 @@ const HomePage = () => {
           <button className="btn-outline">Foster a Cat</button>
         </div>
         
-        <button className="btn-outline" style={{ marginTop: '10px', width: '100%' }}>
+        <Link
+          to="/gallery"
+          className="btn-outline btn-outline-block"
+          style={{ marginTop: '10px' }}
+        >
           Browse All Cats
-        </button>
+        </Link>
 
         <p style={{ fontSize: '0.9rem', color: '#999', marginTop: '20px' }}>
           100% free • No credit card required
@@ -136,8 +132,8 @@ const HomePage = () => {
         <footer className="footer-text">
           Join thousands of happy cat parents! 🐱
         </footer>
-      </div>
-    </div>
+        </div>
+        </Layout>
   );
 };
 
