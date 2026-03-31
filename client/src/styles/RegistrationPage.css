@@ -1,0 +1,132 @@
+.auth-wrapper {
+  background-color: var(--bg-cream, #FFF5EC);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  font-family: 'Poppins', sans-serif;
+}
+
+.auth-card {
+  background: white;
+  width: 100%;
+  max-width: 420px;
+  border-radius: 30px;
+  padding: 40px 30px;
+  box-shadow: 0 10px 25px rgba(255, 179, 71, 0.15);
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.auth-header h2 {
+  font-size: 1.8rem;
+  color: var(--text-dark, #1A1A1A);
+  margin-bottom: 8px;
+}
+
+.auth-header p {
+  color: #636E72;
+  font-size: 0.95rem;
+}
+
+.tab-switcher {
+  display: flex;
+  background-color: #F5F6FA;
+  border-radius: 20px;
+  padding: 5px;
+  margin-bottom: 30px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 12px 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #636E72;
+  cursor: pointer;
+  border-radius: 15px;
+  transition: all 0.3s ease;
+}
+
+.tab-btn.active {
+  background-color: white;
+  color: var(--primary-orange, #FFB347);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-group label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-dark, #1A1A1A);
+  margin-bottom: 8px;
+  padding-left: 5px;
+}
+
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 15px;
+  color: #A4B0BE;
+}
+
+.input-with-icon input {
+  width: 100%;
+  padding: 15px 15px 15px 45px;
+  border: 2px solid #F1F2F6;
+  border-radius: 18px;
+  font-family: inherit;
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+.input-with-icon input:focus {
+  outline: none;
+  border-color: var(--primary-orange, #FFB347);
+  background-color: white;
+}
+
+.btn-submit {
+  width: 100%;
+  padding: 18px;
+  background: var(--primary-orange, #FFB347);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  margin-top: 15px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 8px 20px rgba(255, 179, 71, 0.3);
+}
+
+.btn-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(255, 179, 71, 0.4);
+}
