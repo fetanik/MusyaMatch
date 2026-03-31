@@ -8,7 +8,7 @@ function Layout({ children }) {
     <div className="home-wrapper">
       <header className="app-header">
         <div className="app-header-brand">
-          <Link to="/" className="header-logo-link" aria-label="На головну">
+          <Link to="/home" className="header-logo-link" aria-label="На головну">
             <div className="header-logo">
               <Cat color="white" size={28} />
             </div>

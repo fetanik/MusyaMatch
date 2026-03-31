@@ -48,6 +48,14 @@ const Gallery = () => {
                 </div>
 
                 <div className="filter-group">
+                    <label>Sex</label>
+                    <div className="urgency-filters">
+                       <button type="button" className="btn-urgency low">Male</button>
+                       <button type="button" className="btn-urgency med">Female</button>
+                    </div>
+                </div>
+
+                <div className="filter-group">
                     <label>Urgency Level</label>
                     <div className="urgency-filters">
                         <button type="button" className="btn-urgency low">Low</button>
