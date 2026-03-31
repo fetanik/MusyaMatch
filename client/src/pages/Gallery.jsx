@@ -7,7 +7,7 @@ const catsData = [
         name: "Oliver",
         age: "2 years",
         breed: "British Shorthair",
-        source: "Shelter", // Shelter or Private
+        source: "Shelter", 
         urgency: null,
         personality: "Calm",
         imageUrl: "https://images.unsplash.com/photo-1513245533132-31f507417b26?q=80&w=500"
@@ -18,7 +18,7 @@ const catsData = [
         age: "4 months",
         breed: "Mixed",
         source: "Private",
-        urgency: "Immediate", // Low, Medium, Immediate
+        urgency: "Immediate", 
         personality: "Energetic",
         imageUrl: "https://images.unsplash.com/photo-1519052537078-e6302a4968d4?q=80&w=500"
     }

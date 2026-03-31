@@ -1,4 +1,3 @@
-/* Токени (--primary, --bg-soft) приходять з HomePage.css через Layout */
 
 .gallery-page {
   width: 100%;
@@ -30,7 +29,6 @@
   margin-right: auto;
 }
 
-/* Панель фільтрів зліва; сітка карток справа */
 .gallery-body {
   display: flex;
   flex-direction: row;
@@ -43,7 +41,6 @@
   min-width: 0;
 }
 
-/* Панель зліва, окремо від сітки; липне під час скролу */
 .filters-panel {
   width: min(300px, 34vw);
   flex-shrink: 0;
@@ -238,7 +235,6 @@
     gap: 24px;
   }
 
-  /* Фільтри зверху (aside перший у DOM), картки нижче — однакова ширина колонки */
   .filters-panel {
     width: 100%;
     max-width: 100%;
