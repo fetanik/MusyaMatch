@@ -130,3 +130,48 @@
   transform: translateY(-2px);
   box-shadow: 0 10px 25px rgba(255, 179, 71, 0.4);
 }
+
+.role-selector {
+  display: flex;
+  gap: 15px;
+  margin-top: 5px;
+}
+
+.role-option {
+  flex: 1;
+  cursor: pointer;
+}
+
+.role-option input[type="radio"] {
+  display: none; 
+}
+
+/* Стилізуємо саму картку вибору */
+.role-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 15px 10px;
+  border: 2px solid #F1F2F6;
+  border-radius: 18px;
+  color: #A4B0BE;
+  background-color: white;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Стилі при наведенні мишки */
+.role-option:hover .role-content {
+  border-color: #dfe6e9;
+  color: #636E72;
+}
+
+/* Стилі для обраної картки */
+.role-option.selected .role-content {
+  border-color: var(--primary-orange, #FFB347);
+  background-color: rgba(255, 179, 71, 0.08); 
+  color: var(--primary-orange, #FFB347);
+}
