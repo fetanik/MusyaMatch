@@ -1,5 +1,5 @@
 import React from 'react';
-
+import { useNavigate } from 'react-router-dom';
 import { 
   Sparkles, Calendar, Heart, MapPin, 
   Video, LayoutDashboard, Gamepad2, Trophy, Cat 
@@ -7,7 +7,7 @@ import {
 import '../styles/HomePage.css';
 
 const HomePage = () => {
-    
+  const navigate = useNavigate();
   const greyIconStyle = { background: '#f1f2f6', color: '#2d3436' };
 
   return (
@@ -80,7 +80,7 @@ const HomePage = () => {
         </div>
 
 
-        <button className="btn-main">Get Started 😻</button>
+        <button className="btn-main" onClick={() => navigate('/register')}>Get Started 😻</button>
         
         <div className="btn-secondary-group">
           <button className="btn-outline">💬 Chat with AI</button>
