@@ -21,7 +21,7 @@ const ProfilePage = () => {
             </div>
             <div className="text-info">
               <h1>Hello, Alex Johnson!</h1>
-              <p>Level 5 Cat Parent</p>
+              <p>Level 1 Cat Parent</p>
             </div>
           </div>
           <button className="notification-btn">
