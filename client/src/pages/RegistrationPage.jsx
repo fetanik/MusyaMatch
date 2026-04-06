@@ -37,7 +37,18 @@ const RegistrationPage = () => {
       return;
     }
 
-    navigate('/profile'); 
+    // Логіка редиректу залежно від дії та обраної ролі
+    if (isLogin) {
+      // Для логіну поки направляємо на звичайний профіль
+      navigate('/profile'); 
+    } else {
+      // Для реєстрації перевіряємо обрану роль
+      if (role === 'manager') {
+        navigate('/manager/profile');
+      } else {
+        navigate('/profile');
+      }
+    }
   };
 
   return (
