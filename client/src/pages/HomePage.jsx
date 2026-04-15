@@ -25,7 +25,7 @@ const HomePage = () => {
 
       <div className="content-container">
         
-        {/* HERO SECTION*/}
+        {/* HERO SECTION */}
         <section className="hero">
           <div className="hero-avatar">🐱</div>
           <h2>Welcome to <span>MusyaMatch</span></h2>
@@ -34,7 +34,7 @@ const HomePage = () => {
           </p>
         </section>
 
-        {/* Matching, Health, Foster, Vet */}
+        {/* Кнопки-картки */}
         <section className="grid-cards">
           <button className="action-card-btn">
             <div className="icon-box"><Sparkles size={24} /></div>
@@ -42,7 +42,8 @@ const HomePage = () => {
             <p>Find cats that match your lifestyle</p>
           </button>
           
-          <button className="action-card-btn">
+          
+          <button className="action-card-btn" onClick={() => navigate('/calendar')}>
             <div className="icon-box"><Calendar size={24} /></div>
             <h3>Health Tracking</h3>
             <p>Manage vaccinations & feeding</p>
@@ -61,7 +62,7 @@ const HomePage = () => {
           </button>
         </section>
 
-        {/* банер з Purr-Points  */}
+        {/* банер з Purr-Points */}
         <div className="points-banner">
           <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
             <Trophy size={35} />
@@ -79,7 +80,7 @@ const HomePage = () => {
           </div>
         </div>
 
-
+        {/* Головні кнопки дії */}
         <button className="btn-main" onClick={() => navigate('/register')}>Get Started 😻</button>
         
         <div className="btn-secondary-group">
@@ -95,7 +96,7 @@ const HomePage = () => {
           100% free • No credit card required
         </p>
 
-
+        {/* Список особливостей */}
         <section className="features-section">
           <h3>What Makes MusyaMatch Special?</h3>
           
@@ -107,7 +108,8 @@ const HomePage = () => {
             </div>
           </button>
 
-          <button className="feature-btn">
+          {/* (Health Dashboard) */}
+          <button className="feature-btn" onClick={() => navigate('/calendar')}>
             <div className="icon-box grey" style={greyIconStyle}><LayoutDashboard size={24}/></div>
             <div>
               <h4>Health Dashboard</h4>
@@ -122,7 +124,6 @@ const HomePage = () => {
               <p>Earn points and unlock achievements</p>
             </div>
           </button>
-          
           
           <button className="feature-btn">
             <div className="icon-box grey" style={greyIconStyle}><MapPin size={24}/></div>
