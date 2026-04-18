@@ -1,3 +1,6 @@
+CREATE DATABASE musyamatch;
+
+USE musyamatch;
 
 -- CLEAN START (optional for dev)
 DROP TABLE IF EXISTS Cat_photo;
