@@ -1,6 +1,6 @@
 import React from 'react';
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   Sparkles, Calendar, Heart, MapPin, 
   Video, LayoutDashboard, Gamepad2, Trophy, Cat 
@@ -9,7 +9,6 @@ import Layout from '../components/Layout';
 import '../styles/HomePage.css';
 
 const HomePage = () => {
-    const [cats, setCats] = useState([]);
   const navigate = useNavigate();
   const greyIconStyle = { background: '#f1f2f6', color: '#2d3436' };
 
