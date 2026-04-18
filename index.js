@@ -20,6 +20,18 @@ app.get('/health', (req, res) => {
 
 app.use('/api/cats', catsRouter);
 
+app.post('/api/chat', async (req, res) => {
+  const { message } = req.body;
+
+  try {
+    const reply = `🐱 AI: я отримав твоє повідомлення → "${message}"`;
+
+    res.json({ reply });
+  } catch (err) {
+    res.status(500).json({ message: 'Chat error' });
+  }
+});
+
 /** Central error handler for async route errors passed via next(err). */
 app.use((err, req, res, next) => {
   console.error(err);
