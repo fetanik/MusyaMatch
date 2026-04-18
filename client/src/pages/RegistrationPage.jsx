@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/RegistrationPage.css';
-import { Mail, Lock, User, Sparkles, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, Sparkles, AlertCircle, Home, Cat } from 'lucide-react';
 
 const RegistrationPage = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -12,12 +12,15 @@ const RegistrationPage = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  
+  const [role, setRole] = useState('user');
 
   const handleTabSwitch = (mode) => {
     setIsLogin(mode);
     setError('');
     setPassword('');
     setConfirmPassword('');
+    setRole('user');
   };
 
   const handleSubmit = (e) => {
@@ -25,25 +28,24 @@ const RegistrationPage = () => {
     setError('');
 
     if (password.length < 8) {
-      setError('Пароль має містити щонайменше 8 символів');
+      setError('Password must be at least 8 characters long');
       return;
     }
 
     if (!isLogin && password !== confirmPassword) {
-      setError('Паролі не збігаються');
+      setError('Passwords do not match');
       return;
     }
 
-    console.log(isLogin ? 'Авторизація успішна' : 'Реєстрація успішна');
-    navigate('/home'); 
+    navigate('/'); 
   };
 
   return (
     <div className="auth-wrapper">
       <div className="auth-card">
         <div className="auth-header">
-          <h2>{isLogin ? 'З поверненням!' : 'Створити акаунт'}</h2>
-          <p>{isLogin ? 'Увійдіть, щоб знайти свого котика 🐱' : 'Приєднуйтесь до MusyaMatch ✨'}</p>
+          <h2>{isLogin ? 'Welcome Back!' : 'Create an Account'}</h2>
+          <p>{isLogin ? 'Log in to find your purrfect match 🐱' : 'Join MusyaMatch ✨'}</p>
         </div>
 
         <div className="tab-switcher">
@@ -51,13 +53,13 @@ const RegistrationPage = () => {
             className={`tab-btn ${isLogin ? 'active' : ''}`} 
             onClick={() => handleTabSwitch(true)}
           >
-            Увійти
+            Log In
           </button>
           <button 
             className={`tab-btn ${!isLogin ? 'active' : ''}`} 
             onClick={() => handleTabSwitch(false)}
           >
-            Реєстрація
+            Sign Up
           </button>
         </div>
 
@@ -69,14 +71,50 @@ const RegistrationPage = () => {
         )}
 
         <form onSubmit={handleSubmit} className="auth-form">
+          
           {!isLogin && (
             <div className="input-group">
-              <label>Ваше ім'я</label>
+              <label>Who are you?</label>
+              <div className="role-selector">
+                <label className={`role-option ${role === 'user' ? 'selected' : ''}`}>
+                  <input 
+                    type="radio" 
+                    name="role" 
+                    value="user" 
+                    checked={role === 'user'}
+                    onChange={(e) => setRole(e.target.value)} 
+                  />
+                  <div className="role-content">
+                    <Cat size={24} />
+                    <span>Looking for a cat</span>
+                  </div>
+                </label>
+                
+                <label className={`role-option ${role === 'manager' ? 'selected' : ''}`}>
+                  <input 
+                    type="radio" 
+                    name="role" 
+                    value="manager" 
+                    checked={role === 'manager'}
+                    onChange={(e) => setRole(e.target.value)} 
+                  />
+                  <div className="role-content">
+                    <Home size={24} />
+                    <span>Shelter</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {!isLogin && (
+            <div className="input-group">
+              <label>Full Name {role === 'manager' && '(or Shelter Name)'}</label>
               <div className="input-with-icon">
                 <User size={20} className="input-icon" />
                 <input 
                   type="text" 
-                  placeholder="Як вас звати?" 
+                  placeholder={role === 'user' ? "What's your name?" : "Your shelter's name"} 
                   required 
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -91,7 +129,7 @@ const RegistrationPage = () => {
               <Mail size={20} className="input-icon" />
               <input 
                 type="email" 
-                placeholder="Введіть ваш email" 
+                placeholder="Enter your email" 
                 required 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -100,12 +138,12 @@ const RegistrationPage = () => {
           </div>
 
           <div className="input-group">
-            <label>Пароль</label>
+            <label>Password</label>
             <div className="input-with-icon">
               <Lock size={20} className="input-icon" />
               <input 
                 type="password" 
-                placeholder="Введіть пароль" 
+                placeholder="Enter your password" 
                 required 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -115,12 +153,12 @@ const RegistrationPage = () => {
 
           {!isLogin && (
             <div className="input-group">
-              <label>Повторіть пароль</label>
+              <label>Confirm Password</label>
               <div className="input-with-icon">
                 <Lock size={20} className="input-icon" />
                 <input 
                   type="password" 
-                  placeholder="Повторіть пароль" 
+                  placeholder="Confirm your password" 
                   required 
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -130,7 +168,7 @@ const RegistrationPage = () => {
           )}
 
           <button type="submit" className="btn-submit">
-            {isLogin ? 'Увійти' : 'Зареєструватися'}
+            {isLogin ? 'Log In' : 'Sign Up'}
             {!isLogin && <Sparkles size={18} style={{marginLeft: '8px'}}/>}
           </button>
         </form>

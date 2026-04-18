@@ -1,0 +1,104 @@
+.pharmacies-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 70px); 
+  background-color: #fdf8f4;
+}
+
+.header-section {
+  padding: 20px;
+  background: white;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.header-section .title {
+  margin: 0 0 5px 0;
+}
+
+.header-section .subtitle {
+  margin: 0 0 20px 0;
+  color: #666;
+}
+
+.filters-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.filter-group label {
+  font-weight: 500;
+  color: #333;
+}
+
+.city-input, .sort-select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  font-size: 14px;
+  width: 200px;
+}
+
+.sort-select {
+  width: auto;
+}
+
+.distance {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-top: 5px;
+}
+
+.pharmacies-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 15px;
+  padding: 20px;
+  overflow-y: auto;
+  background-color: #fdf8f4;
+}
+
+.pharma-item {
+  padding: 15px;
+  border: 1px solid #eee;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.pharma-item:hover, .pharma-item.active {
+  border-color: #ffb347;
+  background-color: #fff9f0;
+}
+
+.btn-directions {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px;
+  background: #ffb347;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.map-section {
+  height: 400px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.map-section {
+  height: 400px;
+  position: relative;
+  flex-shrink: 0;
+}

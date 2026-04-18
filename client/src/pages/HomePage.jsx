@@ -1,7 +1,6 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-
+import { useNavigate } from 'react-router-dom';
 import { 
   Sparkles, Calendar, Heart, MapPin, 
   Video, LayoutDashboard, Gamepad2, Trophy, Cat 
@@ -11,13 +10,13 @@ import '../styles/HomePage.css';
 
 const HomePage = () => {
     const [cats, setCats] = useState([]);
+  const navigate = useNavigate();
   const greyIconStyle = { background: '#f1f2f6', color: '#2d3436' };
 
   return (
     <Layout>
       <div className="content-container">
-        
-        {/* HERO SECTION*/}
+       
         <section className="hero">
           <div className="hero-avatar">🐱</div>
           <h2>Welcome to <span>MusyaMatch</span></h2>
@@ -26,7 +25,6 @@ const HomePage = () => {
           </p>
         </section>
 
-        {/* Matching, Health, Foster, Vet */}
         <section className="grid-cards">
           <button className="action-card-btn">
             <div className="icon-box"><Sparkles size={24} /></div>
@@ -53,7 +51,6 @@ const HomePage = () => {
           </button>
         </section>
 
-        {/* банер з Purr-Points  */}
         <div className="points-banner">
           <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
             <Trophy size={35} />
@@ -72,7 +69,7 @@ const HomePage = () => {
         </div>
 
 
-        <button className="btn-main">Get Started 😻</button>
+        <button className="btn-main" onClick={() => navigate('/register')}>Get Started 😻</button>
         
         <div className="btn-secondary-group">
           <button className="btn-outline">💬 Chat with AI</button>
