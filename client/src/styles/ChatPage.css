@@ -1,0 +1,210 @@
+/* Основний контейнер */
+.musya-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  background-color: #fdf2e9; /* Світло-персиковий фон як на скріні */
+  font-family: 'Inter', sans-serif, Arial;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* HEADER */
+.musya-header {
+  background: linear-gradient(to right, #fca34d, #ffcc33);
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.musya-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.musya-back-btn {
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.musya-header-avatar {
+  width: 42px;
+  height: 42px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.musya-header-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.musya-header-status {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  opacity: 0.9;
+}
+
+.musya-status-dot { color: #44ff44; font-size: 10px; }
+
+.musya-header-star {
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  padding: 8px;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+}
+
+/* CHAT AREA */
+.musya-chat-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.musya-msg-row {
+  display: flex;
+  gap: 10px;
+  max-width: 85%;
+}
+
+.musya-msg-row.user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.musya-msg-avatar {
+  width: 35px;
+  height: 35px;
+  background: #ffdbac;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.musya-bubble {
+  background: white;
+  padding: 12px 18px;
+  border-radius: 20px;
+  border-top-left-radius: 4px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: #333;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.musya-msg-row.user .musya-bubble {
+  background: #fff;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 4px;
+}
+
+.musya-time {
+  font-size: 11px;
+  color: #888;
+  margin-top: 5px;
+  display: block;
+}
+
+/* QUICK ACTIONS (CHIPS) */
+.musya-chips-wrapper {
+  background: white;
+  padding-top: 10px;
+  flex-shrink: 0;
+}
+
+.musya-chips-scroll {
+  display: flex;
+  gap: 10px;
+  padding: 0 15px 10px;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+}
+
+.musya-chips-scroll::-webkit-scrollbar { display: none; } /* Chrome */
+
+.musya-chip {
+  background: white;
+  border: 1.5px solid #ffaa44;
+  color: #f08a24;
+  padding: 8px 16px;
+  border-radius: 25px;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.musya-chips-line {
+  height: 4px;
+  background: #e0e0e0;
+  margin: 0 10px;
+  border-radius: 2px;
+}
+
+/* INPUT BAR */
+.musya-input-wrapper {
+  background: white;
+  padding: 15px;
+  padding-bottom: 25px; /* Для зручності на мобільних */
+}
+
+.musya-input-container {
+  display: flex;
+  align-items: center;
+  background: #f0f2f5;
+  border-radius: 30px;
+  padding: 5px 15px;
+}
+
+.musya-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 12px;
+  font-size: 16px;
+  outline: none;
+}
+
+.musya-send-btn {
+  background: #d1d5db;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10px;
+}
+
+.musya-send-icon {
+  color: white;
+  font-size: 18px;
+  transform: rotate(-45deg); /* Щоб стрілочка виглядала як на кнопці */
+}
