@@ -83,7 +83,7 @@ const HomePage = () => {
         <button className="btn-main" onClick={() => navigate('/register')}>Get Started 😻</button>
         
         <div className="btn-secondary-group">
-          <button className="btn-outline">💬 Chat with AI</button>
+          <button className="btn-outline" onClick={() => navigate('/chat')}>💬 Chat with AI</button>
           <button className="btn-outline">Foster a Cat</button>
         </div>
         
