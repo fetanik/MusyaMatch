@@ -1,0 +1,130 @@
+.profile-settings-page {
+  background-color: #FFF5EC;
+  min-height: 100vh;
+  font-family: 'Poppins', sans-serif;
+  padding-bottom: 90px;
+}
+
+.settings-header-bg {
+  background: linear-gradient(135deg, #FFB347 0%, #FF8A00 100%);
+  padding: 40px 20px 50px 20px;
+  border-bottom-left-radius: 30px;
+  border-bottom-right-radius: 30px;
+  color: white;
+  text-align: center;
+}
+
+.settings-header-bg h2 {
+  margin: 0 0 5px 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.settings-header-bg p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.settings-content {
+  padding: 0 20px;
+  margin-top: -30px; /* Картка трохи "налазить" на шапку */
+}
+
+.settings-form {
+  background: white;
+  border-radius: 20px;
+  padding: 25px 20px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 10;
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #555;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 14px 15px;
+  border: 2px solid #F0F0F0;
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: 'Poppins', sans-serif;
+  color: #333;
+  outline: none;
+  transition: all 0.3s ease;
+  box-sizing: border-box; /* Щоб padding не ламав ширину */
+}
+
+.input-group input:focus {
+  border-color: #FFB347;
+  box-shadow: 0 0 0 4px rgba(255, 179, 71, 0.15);
+}
+
+.save-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #FFB347 0%, #FF8A00 100%);
+  color: white;
+  border: none;
+  padding: 16px;
+  border-radius: 15px;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+}
+
+.save-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(255, 138, 0, 0.25);
+}
+
+/* --- Стилі для нижньої навігації (ідентичні Dashboard) --- */
+.bottom-nav {
+  position: fixed; 
+  bottom: 0; 
+  left: 0;
+  width: 100%; 
+  background: white; 
+  display: flex; 
+  justify-content: space-around;
+  padding: 15px 0 25px 0; 
+  box-shadow: 0 -5px 20px rgba(0,0,0,0.05); 
+  border-top-left-radius: 25px; 
+  border-top-right-radius: 25px; 
+  z-index: 100;
+}
+
+.nav-item { background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 5px; color: #888; font-size: 12px; cursor: pointer; transition: all 0.3s ease; }
+.nav-item:hover:not(.active) { transform: translateY(-3px); color: #FFB347; }
+.nav-item.active { color: #FF8A00; }
+
+@media (min-width: 768px) {
+  .profile-settings-page {
+    max-width: 1000px; 
+    margin: 0 auto; 
+    box-shadow: 0 0 20px rgba(0,0,0,0.05);
+  }
+  .bottom-nav {
+    max-width: 1000px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 25px 25px 0 0;
+  }
+}

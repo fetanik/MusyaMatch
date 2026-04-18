@@ -1,7 +1,9 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import HomePage from './pages/HomePage';
+import HomePage from './pages/HomePage'; 
 import RegistrationPage from './pages/RegistrationPage';
+import ProfilePage from './pages/ProfilePage'; 
+import DashboardPage from './pages/DashboardPage'; 
 import Gallery from './pages/Gallery';
 import PharmaciesPage from './pages/PharmaciesPage';
 
@@ -14,6 +16,8 @@ function App() {
           <Route path="/home" element={<HomePage />} />
           <Route path="/gallery" element={<Gallery />} />
           <Route path="/register" element={<RegistrationPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/dashboard" element={<DashboardPage />} /> 
           <Route path="/pharmacies" element={<PharmaciesPage />} />
         </Routes>
       </div>
