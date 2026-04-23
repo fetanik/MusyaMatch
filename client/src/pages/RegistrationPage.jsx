@@ -37,7 +37,7 @@ const RegistrationPage = () => {
       return;
     }
 
-    navigate('/'); 
+    navigate('/profile'); 
   };
 
   return (
