@@ -1,24 +1,153 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // 1. Імпортуємо хук для навігації
+import { useNavigate } from 'react-router-dom';
 import '../styles/ChatPage.css';
 
 export default function ChatPage() {
-  const navigate = useNavigate(); // 2. Ініціалізуємо навігацію всередині компонента
+  const navigate = useNavigate();
   
-  const [messages, setMessages] = useState([
+  const [mode, setMode] = useState('initial'); // 'initial', 'matching', 'chat'
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [showResults, setShowResults] = useState(false);
+  const [matches, setMatches] = useState([]);
+  const [customAnswer, setCustomAnswer] = useState('');
+
+  const questions = [
     {
-      role: 'ai',
-      text: "Hi there! I'm Musya, your AI cat expert! 🐱 I'm here to help you find the purrfect feline companion.",
-      time: "1:39 PM"
+      id: 'experience',
+      text: 'Will this be your first cat, or are you already an experienced cat owner?',
+      options: [
+        { value: 'first_time', label: 'First time, a bit nervous' },
+        { value: 'experienced', label: 'Experienced owner' },
+        { value: 'returning', label: 'Had cats before, returning to it' }
+      ]
     },
     {
-      role: 'ai',
-      text: "I can help you with cat care tips, breed information, or find the perfect match for your lifestyle. What would you like to know?",
-      time: "1:39 PM"
+      id: 'household',
+      text: 'Who else will live with the fluffy friend? Do you have small children or other pets (especially dogs)?',
+      options: [
+        { value: 'alone', label: 'I live alone' },
+        { value: 'kids', label: 'I have small children' },
+        { value: 'pets', label: 'I have other pets' },
+        { value: 'kids_pets', label: 'I have both children and pets' }
+      ]
+    },
+    {
+      id: 'space',
+      text: 'Do you live in a spacious house where there\'s room to play, or in a cozy small apartment?',
+      options: [
+        { value: 'apartment_small', label: 'Small apartment' },
+        { value: 'apartment_large', label: 'Spacious apartment' },
+        { value: 'house', label: 'House with yard' }
+      ]
+    },
+    {
+      id: 'preference',
+      text: 'Who are you looking for: a playful kitten that will turn the house upside down, or an adult and calm cat that you can just watch movies with?',
+      options: [
+        { value: 'kitten_playful', label: 'Playful kitten' },
+        { value: 'kitten_calm', label: 'Calm kitten' },
+        { value: 'adult_playful', label: 'Playful adult cat' },
+        { value: 'adult_calm', label: 'Calm adult cat' }
+      ]
+    },
+    {
+      id: 'special_needs',
+      text: 'Sometimes shelters have cats that need a little more care - for example, special food or regular vet visits. Are you considering such tail-friends?',
+      options: [
+        { value: 'yes', label: 'Yes, I\'m ready to help' },
+        { value: 'no', label: 'No, looking for no special needs' },
+        { value: 'maybe', label: 'Maybe, depends on the situation' }
+      ]
     }
-  ]);
+  ];
 
-  const [input, setInput] = useState('');
+  const quickReplies = [
+    "Kitten nutrition",
+    "Cat communication",
+    "Playtime ideas 🧶",
+    "Cat comfort zones 🛏️",
+    "Feline behavior 😻",
+    "Cat health secrets 🌟"
+  ];
+
+  const handleAnswer = (option) => {
+    const newAnswers = { ...answers, [questions[currentQuestion].id]: option.value };
+    setAnswers(newAnswers);
+    
+    if (currentQuestion < questions.length - 1) {
+      setCurrentQuestion((prev) => prev + 1);
+    } else {
+      setShowResults(true);
+      findMatches(newAnswers);
+    }
+  };
+
+  const handleCustomAnswer = () => {
+    const newAnswers = { ...answers, [questions[currentQuestion].id]: customAnswer };
+    setAnswers(newAnswers);
+    
+    if (currentQuestion < questions.length - 1) {
+      setCurrentQuestion((prev) => prev + 1);
+    } else {
+      setShowResults(true);
+      findMatches(newAnswers);
+    }
+  };
+
+  const findMatches = async (userAnswers) => {
+    try {
+      const response = await fetch('http://localhost:3000/api/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: userAnswers })
+      });
+      const data = await response.json();
+      setMatches(data.recommendations || []);
+    } catch (error) {
+      console.error('Error finding matches:', error);
+      setMatches([]);
+    }
+  };
+
+  const handleInitialChoice = (choice) => {
+    if (choice === 'matching') {
+      setMode('matching');
+      setMessages([
+        {
+          role: 'ai',
+          text: "Great! Let me help you find your perfect cat companion. I'll ask you a few questions to understand your preferences and lifestyle.",
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    } else if (choice === 'care') {
+      setMode('chat');
+      setMessages([
+        {
+          role: 'ai',
+          text: " Oh hello there, fellow cat lover! I'm Musya, your purr-fect AI cat companion!  I absolutely adore everything about our feline friends - from their tiny toe beans to their majestic whiskers!",
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        },
+        {
+          role: 'ai',
+          text: " Whether you need kitten care wisdom, cat behavior insights, or just want to talk about how amazing cats are, I'm here for you! What's on your mind today?",
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    }
+  };
+
+  const formatMessage = (text) => {
+    // Convert markdown-style bold to HTML strong
+    let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Convert line breaks to <br>
+    formatted = formatted.replace(/\n/g, '<br>');
+    
+    return formatted;
+  };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -36,10 +165,24 @@ export default function ChatPage() {
         body: JSON.stringify({ message: userMsg })
       });
       const data = await res.json();
-      setMessages(prev => [...prev, { role: 'ai', text: data.reply, time: currentTime }]);
+      setMessages(prev => [...prev, { 
+        role: 'ai', 
+        text: data.reply, 
+        time: currentTime,
+        formatted: formatMessage(data.reply)
+      }]);
     } catch {
-      setMessages(prev => [...prev, { role: 'ai', text: "⚠️ Помилка сервера", time: currentTime }]);
+      setMessages(prev => [...prev, { 
+        role: 'ai', 
+        text: "⚠️ Sorry, I'm having trouble responding. Please try again! 🐱", 
+        time: currentTime,
+        formatted: formatMessage("⚠️ Sorry, I'm having trouble responding. Please try again! 🐱")
+      }]);
     }
+  };
+
+  const handleQuickReply = (reply) => {
+    setInput(reply);
   };
 
   return (
@@ -47,75 +190,210 @@ export default function ChatPage() {
       {/* HEADER */}
       <header className="musya-header">
         <div className="musya-header-left">
-          {/* 3. Додаємо onClick до кнопки. '/' — це шлях до головної сторінки */}
-          <button className="musya-back-btn" onClick={() => navigate('/')}>
+          <button className="musya-back-btn" onClick={() => navigate('/dashboard')}>
             ←
           </button>
           <div className="musya-header-avatar">🤖</div>
           <div className="musya-header-text">
-            <h1 className="musya-header-title">Talk to Musya (AI Expert)</h1>
+            <h1 className="musya-header-title">
+              {mode === 'initial' ? 'Talk to Musya (AI Expert)' : 
+               mode === 'matching' ? 'Find Your Perfect Cat Match' : 
+               'Talk to Musya (AI Expert)'}
+            </h1>
             <div className="musya-header-status">
-              <span className="musya-status-dot">●</span> Online
+              <span className="musya-status-dot">●</span> 
+              {mode === 'initial' ? 'Online' : 
+               mode === 'matching' ? `Question ${currentQuestion + 1} of ${questions.length}` : 
+               'Online'}
             </div>
           </div>
         </div>
         <button className="musya-header-star">✨</button>
       </header>
 
-      {/* MESSAGES AREA */}
-      <main className="musya-chat-area">
-        {messages.map((m, i) => (
-          <div key={i} className={`musya-msg-row ${m.role}`}>
-            <div className="musya-msg-avatar">🐱</div>
-            <div className="musya-msg-content">
-              <div className="musya-bubble">{m.text}</div>
-              <span className="musya-time">{m.time}</span>
+      {/* INITIAL CHOICE */}
+      {mode === 'initial' && (
+        <main className="initial-choice-area">
+          <div className="choice-card">
+            <div className="choice-avatar">🐱</div>
+            <h2 className="choice-title">Welcome to MusyaMatch!</h2>
+            <p className="choice-description">How can I help you today?</p>
+            
+            <div className="choice-buttons">
+              <button 
+                className="choice-btn primary"
+                onClick={() => handleInitialChoice('matching')}
+              >
+                <div className="choice-icon">🔍</div>
+                <div className="choice-text">
+                  <h3>Find a Cat</h3>
+                  <p>Get matched with your perfect feline companion</p>
+                </div>
+              </button>
+              
+              <button 
+                className="choice-btn secondary"
+                onClick={() => handleInitialChoice('care')}
+              >
+                <div className="choice-icon">💡</div>
+                <div className="choice-text">
+                  <h3>Care Advice</h3>
+                  <p>Get tips and help with cat care</p>
+                </div>
+              </button>
             </div>
           </div>
-        ))}
-      </main>
+        </main>
+      )}
 
-      {/* QUICK ACTIONS (CHIPS) */}
-      <section className="musya-chips-wrapper">
-        <div className="musya-chips-scroll">
-          <button className="musya-chip" onClick={() => setInput("I want a kitten 🐱")}>
-            I want a kitten 🐱
-          </button>
-          <button className="musya-chip" onClick={() => setInput("Tell me about seniors 👵")}>
-            Tell me about seniors 👵
-          </button>
-          <button className="musya-chip" onClick={() => setInput("Budget for a cat 💰")}>
-            Budget for a cat 💰
-          </button>
-          <button className="musya-chip" onClick={() => setInput("Low maintenance cats 😌")}>
-            Low maintenance cats 😌
-          </button>
-          <button className="musya-chip" onClick={() => setInput("Playful & energetic ⚡")}>
-            Playful & energetic ⚡
-          </button>
-          <button className="musya-chip" onClick={() => setInput("Good for apartments 🏠")}>
-            Good for apartments 🏠
-          </button>
-        </div>
-        <div className="musya-chips-line"></div>
-      </section>
+      {/* MATCHING MODE */}
+      {mode === 'matching' && !showResults && (
+        <>
+          {/* PROGRESS BAR */}
+          <div className="question-progress">
+            <div className="progress-bar">
+              <div 
+                className="progress-fill" 
+                style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
+              ></div>
+            </div>
+          </div>
 
-      {/* INPUT BAR */}
-      <footer className="musya-input-wrapper">
-        <div className="musya-input-container">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && sendMessage()} 
-            placeholder="Ask Musya anything..."
-            className="musya-input"
-          />
-          <button onClick={sendMessage} className="musya-send-btn">
-            <span className="musya-send-icon">➤</span>
-          </button>
-        </div>
-      </footer>
+          {/* QUESTION AREA */}
+          <main className="questionnaire-area">
+            <div className="question-card">
+              <div className="question-avatar">🐱</div>
+              <div className="question-content">
+                <h2 className="question-text">{questions[currentQuestion].text}</h2>
+                
+                <div className="answer-options">
+                  {questions[currentQuestion].options.map((option) => (
+                    <button
+                      key={option.value}
+                      className="answer-btn"
+                      onClick={() => handleAnswer(option)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                  
+                  <div className="custom-answer-section">
+                    <input
+                      type="text"
+                      value={customAnswer}
+                      onChange={(e) => setCustomAnswer(e.target.value)}
+                      placeholder="Type your own answer..."
+                      className="custom-answer-input"
+                    />
+                    <button
+                      className="custom-answer-btn"
+                      onClick={handleCustomAnswer}
+                      disabled={!customAnswer.trim()}
+                    >
+                      Send
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </>
+      )}
+
+      {/* CHAT MODE */}
+      {mode === 'chat' && (
+        <>
+          {/* MESSAGES AREA */}
+          <main className="musya-chat-area">
+            {messages.map((m, i) => (
+              <div key={i} className={`musya-msg-row ${m.role}`}>
+                <div className="musya-msg-avatar">🐱</div>
+                <div className="musya-msg-content">
+                  <div 
+                    className="musya-bubble" 
+                    dangerouslySetInnerHTML={{ __html: m.formatted || m.text }}
+                  />
+                  <span className="musya-time">{m.time}</span>
+                </div>
+              </div>
+            ))}
+          </main>
+
+          {/* QUICK ACTIONS (CHIPS) */}
+          <section className="musya-chips-wrapper">
+            <div className="musya-chips-scroll">
+              {quickReplies.map((reply, index) => (
+                <button 
+                  key={index} 
+                  className="musya-chip" 
+                  onClick={() => handleQuickReply(reply)}
+                >
+                  {reply}
+                </button>
+              ))}
+            </div>
+            <div className="musya-chips-line"></div>
+          </section>
+
+          {/* INPUT BAR */}
+          <footer className="musya-input-wrapper">
+            <div className="musya-input-container">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendMessage()} 
+                placeholder="Ask Musya anything..."
+                className="musya-input"
+              />
+              <button onClick={sendMessage} className="musya-send-btn">
+                <span className="musya-send-icon">➤</span>
+              </button>
+            </div>
+          </footer>
+        </>
+      )}
+
+      {/* RESULTS AREA */}
+      {mode === 'matching' && showResults && (
+        <main className="results-area">
+          <div className="results-header">
+            <h2>🎉 Your Perfect Cats!</h2>
+            <p>Based on your answers, we found the best companions for you</p>
+          </div>
+          
+          <div className="matches-grid">
+            {matches.length > 0 ? (
+              matches.map((match, index) => (
+                <div key={index} className="cat-match-card">
+                  <div className="match-header">
+                    <div className="cat-avatar">🐱</div>
+                    <div className="match-info">
+                      <h3>{match.cat_name}</h3>
+                      <div className="compatibility-score">
+                        <span className="score-value">{match.compatibility_score}%</span>
+                        <span className="score-label">Compatibility</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="match-reason">
+                    <p>{match.reason}</p>
+                  </div>
+                  <button className="view-cat-btn">
+                    View Profile
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="no-matches">
+                <div className="no-matches-icon">🔍</div>
+                <h3>Finding perfect cats...</h3>
+                <p>Analyzing your answers and database</p>
+              </div>
+            )}
+          </div>
+        </main>
+      )}
     </div>
   );
 }
