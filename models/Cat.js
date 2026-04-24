@@ -28,6 +28,27 @@ export const Cat = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    image_url: {
+      type: DataTypes.STRING(1024),
+      allowNull: false,
+    },
+    source: {
+      type: DataTypes.STRING(64),
+      allowNull: false,
+      defaultValue: 'shelter',
+    },
+    urgency: {
+      type: DataTypes.STRING(64),
+      allowNull: true,
+    },
+    personality: {
+      type: DataTypes.STRING(128),
+      allowNull: true,
+    },
+    sex: {
+      type: DataTypes.STRING(16),
+      allowNull: true,
+    },
     compatibility_score: {
       type: DataTypes.FLOAT,
       allowNull: true,

@@ -37,7 +37,8 @@ const RegistrationPage = () => {
       return;
     }
 
-    navigate('/profile'); 
+    localStorage.setItem('musyamatch_is_registered', 'true');
+    navigate('/dashboard');
   };
 
   return (

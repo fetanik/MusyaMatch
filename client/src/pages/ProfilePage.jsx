@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom'; 
 import '../styles/ProfilePage.css'; 
 
-import { FiUser, FiMail, FiSave, FiHome, FiHeart, FiMapPin } from "react-icons/fi";
+import { User, Mail, Save, Home, Heart, MapPin } from "lucide-react";
 
 const ProfilePage = () => {
   const navigate = useNavigate(); 
@@ -28,7 +28,7 @@ const ProfilePage = () => {
       <div className="settings-content">
         <form className="settings-form" onSubmit={handleSave}>
           <div className="input-group">
-            <label><FiUser /> Full Name</label>
+            <label><User /> Full Name</label>
             <input 
               type="text" 
               value={name} 
@@ -38,7 +38,7 @@ const ProfilePage = () => {
           </div>
 
           <div className="input-group">
-            <label><FiMail /> Email Address</label>
+            <label><Mail /> Email Address</label>
             <input 
               type="email" 
               value={email} 
@@ -48,7 +48,7 @@ const ProfilePage = () => {
           </div>
 
           <button type="submit" className="save-btn">
-            <FiSave /> Save Changes
+            <Save /> Save Changes
           </button>
         </form>
       </div>
@@ -56,20 +56,20 @@ const ProfilePage = () => {
       {/* Нижня навігація (така ж як на Home) */}
       <nav className="bottom-nav">
         <button className="nav-item" onClick={() => navigate('/dashboard')}>
-          <span className="nav-icon"><FiHome size={20} /></span>
+          <span className="nav-icon"><Home size={20} /></span>
           <span>Home</span>
         </button>
         <button className="nav-item">
-          <span className="nav-icon"><FiHeart size={20} /></span>
+          <span className="nav-icon"><Heart size={20} /></span>
           <span>Foster</span>
         </button>
         <button className="nav-item">
-          <span className="nav-icon"><FiMapPin size={20} /></span>
+          <span className="nav-icon"><MapPin size={20} /></span>
           <span>Map</span>
         </button>
         {/* Кнопка Profile тут активна */}
         <button className="nav-item active">
-          <span className="nav-icon"><FiUser size={20} /></span>
+          <span className="nav-icon"><User size={20} /></span>
           <span>Profile</span>
         </button>
       </nav>

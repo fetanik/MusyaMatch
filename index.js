@@ -8,7 +8,7 @@ import catsRouter from './routes/cats.js';
 import './models/Cat.js';
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3306;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -33,7 +33,7 @@ app.use((err, req, res, next) => {
 async function start() {
   try {
     await connectDatabase();
-    await sequelize.sync();
+    await sequelize.sync({ alter: process.env.DB_SYNC_ALTER === 'true' });
     app.listen(PORT, () => {
       console.log(`MusyaMatch API listening on http://localhost:${PORT}`);
     });
