@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom'; // інструмент для �
 import '../styles/DashboardPage.css'; 
 
 import { 
-  FiBell, FiAward, FiStar, FiHeart, FiCpu, FiMessageSquare, 
-  FiCalendar, FiAlertCircle, FiUsers, FiMapPin, FiTrendingUp, 
-  FiHome, FiUser 
-} from "react-icons/fi";
-import { FaCat } from "react-icons/fa6";
+  Bell, Award, Star, Heart, Cpu, MessageSquare, 
+  Calendar, AlertCircle, Users, MapPin, TrendingUp, 
+  Home, User, Cat 
+} from "lucide-react";
 
 const DashboardPage = () => {
   const navigate = useNavigate(); // Ініціалізація навігації
@@ -19,7 +18,7 @@ const DashboardPage = () => {
         <header className="profile-header">
           <div className="user-info">
             <div className="avatar">
-              <FaCat color="#FFB347" size={24} /> 
+              <Cat color="#FFB347" size={24} /> 
             </div>
             <div className="text-info">
               <h1>Hello, Alex Johnson!</h1>
@@ -27,7 +26,7 @@ const DashboardPage = () => {
             </div>
           </div>
           <button className="notification-btn">
-            <FiBell />
+            <Bell />
           </button>
         </header>
 
@@ -35,7 +34,7 @@ const DashboardPage = () => {
           <div className="points-header">
             <p className="points-label">Your Purr-Points</p>
             <div className="points-icon-badge">
-              <FiAward color="white" />
+              <Award color="white" />
             </div>
           </div>
           
@@ -55,10 +54,10 @@ const DashboardPage = () => {
 
           <div className="achievements-row">
             <div className="achievement-badge">
-              <FiStar /> 0 Achievements
+              <Star /> 0 Achievements
             </div>
             <div className="achievement-badge foster-badge">
-              <FiHeart fill="currentColor" /> 0 Fosters
+              <Heart fill="currentColor" /> 0 Fosters
             </div>
           </div>
         </div>
@@ -68,14 +67,14 @@ const DashboardPage = () => {
       <div className="profile-content">
         <div className="ai-banner">
           <div className="ai-icon-wrapper">
-            <FiCpu /> 
+            <Cpu /> 
           </div>
           <div className="ai-text">
             <h3>Chat with Musya AI</h3>
             <p>Get expert advice & find your perfect match</p>
           </div>
           <button className="ai-action-btn">
-            <FiMessageSquare />
+            <MessageSquare />
           </button>
         </div>
 
@@ -86,7 +85,7 @@ const DashboardPage = () => {
 
         <div className="care-card">
           <div className="care-card-header">
-            <span className="icon-calendar"><FiCalendar /></span>
+            <span className="icon-calendar"><Calendar /></span>
             <div className="care-title">
               <h4>Vaccination Calendar</h4>
               <p>2 upcoming</p>
@@ -94,7 +93,7 @@ const DashboardPage = () => {
           </div>
           
           <div className="care-item warning">
-            <span className="alert-icon"><FiAlertCircle /></span>
+            <span className="alert-icon"><AlertCircle /></span>
             <div className="item-details">
               <strong>FVRCP (Distemper)</strong>
               <p>Due: 2026-03-25</p>
@@ -103,7 +102,7 @@ const DashboardPage = () => {
           </div>
 
           <div className="care-item warning">
-            <span className="alert-icon"><FiAlertCircle /></span>
+            <span className="alert-icon"><AlertCircle /></span>
             <div className="item-details">
               <strong>Rabies</strong>
               <p>Due: 2026-04-15</p>
@@ -120,22 +119,22 @@ const DashboardPage = () => {
 
         <div className="quick-actions-grid">
           <div className="action-card">
-            <div className="action-icon"><FiUsers /></div>
+            <div className="action-icon"><Users /></div>
             <h4>Foster a Cat</h4>
             <p>2 cats need help</p>
           </div>
           <div className="action-card">
-            <div className="action-icon"><FiMapPin /></div>
+            <div className="action-icon"><MapPin /></div>
             <h4>Find Vet</h4>
             <p>4 nearby clinics</p>
           </div>
           <div className="action-card">
-            <div className="action-icon"><FiHeart /></div>
+            <div className="action-icon"><Heart /></div>
             <h4>Adopt a Cat</h4>
             <p>8 cats available</p>
           </div>
           <div className="action-card">
-            <div className="action-icon"><FiTrendingUp /></div>
+            <div className="action-icon"><TrendingUp /></div>
             <h4>My Progress</h4>
             <p>View achievements</p>
           </div>
@@ -145,19 +144,19 @@ const DashboardPage = () => {
       {/* Bottom Navigation */}
       <nav className="bottom-nav">
         <button className="nav-item active">
-          <span className="nav-icon"><FiHome size={20} /></span>
+          <span className="nav-icon"><Home size={20} /></span>
           <span>Home</span>
         </button>
         <button className="nav-item">
-          <span className="nav-icon"><FiHeart size={20} /></span>
+          <span className="nav-icon"><Heart size={20} /></span>
           <span>Foster</span>
         </button>
         <button className="nav-item">
-          <span className="nav-icon"><FiMapPin size={20} /></span>
+          <span className="nav-icon"><MapPin size={20} /></span>
           <span>Map</span>
         </button>
         <button className="nav-item" onClick={() => navigate('/profile')}>
-          <span className="nav-icon"><FiUser size={20} /></span>
+          <span className="nav-icon"><User size={20} /></span>
           <span>Profile</span>
         </button>
       </nav>

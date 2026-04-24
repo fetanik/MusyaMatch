@@ -1,0 +1,710 @@
+.manager-dashboard {
+  min-height: 100vh;
+  background: #fff7ef;
+  font-family: 'Poppins', sans-serif;
+  color: #1f2937;
+  padding-bottom: 110px;
+}
+
+.manager-hero {
+  background: linear-gradient(135deg, #ffb347 0%, #ff8a00 100%);
+  padding: 28px 20px 92px;
+  border-bottom-left-radius: 32px;
+  border-bottom-right-radius: 32px;
+}
+
+.manager-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  color: #ffffff;
+}
+
+.brand-block {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.brand-text h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.brand-text p {
+  margin: 4px 0 0;
+  font-size: 0.92rem;
+  opacity: 0.95;
+}
+
+.hero-icon-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.stats-card {
+  margin-top: 24px;
+  background: #ffffff;
+  border-radius: 26px;
+  padding: 22px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.08);
+}
+
+.section-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff1df;
+  color: #ff8a00;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  margin-bottom: 18px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.stat-card {
+  background: #fff8f1;
+  border-radius: 20px;
+  padding: 18px 12px;
+  text-align: center;
+}
+
+.stat-number {
+  display: block;
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: #ff8a00;
+  line-height: 1;
+}
+
+.stat-label {
+  display: block;
+  margin-top: 8px;
+  color: #6b7280;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.manager-content {
+  margin-top: -56px;
+  padding: 0 20px 24px;
+  position: relative;
+  z-index: 2;
+}
+
+.manager-section {
+  margin-bottom: 22px;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.section-head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #1f2937;
+}
+
+.section-head p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 0.92rem;
+}
+
+.section-count {
+  min-width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #ffe8cc;
+  color: #ff8a00;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.requests-list,
+.cats-grid,
+.action-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.request-card,
+.cat-card,
+.empty-card,
+.action-card {
+  background: #ffffff;
+  border-radius: 22px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+}
+
+.request-card {
+  padding: 18px;
+}
+
+.request-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.request-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: #fff2df;
+  color: #ff8a00;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.request-info h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #111827;
+}
+
+.request-info p {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.request-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.approve-btn,
+.reject-btn,
+.primary-btn,
+.secondary-btn {
+  border: none;
+  border-radius: 14px;
+  padding: 11px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.approve-btn,
+.primary-btn {
+  background: #ff8a00;
+  color: #ffffff;
+}
+
+.reject-btn,
+.secondary-btn {
+  background: #fff2df;
+  color: #b45309;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+
+.action-card {
+  border: none;
+  text-align: left;
+  padding: 22px 18px;
+  min-height: 170px;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.action-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px rgba(255, 138, 0, 0.12);
+}
+
+.action-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: #fff2df;
+  color: #ff8a00;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.action-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.08rem;
+  color: #111827;
+  line-height: 1.25;
+}
+
+.action-card p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #6b7280;
+  line-height: 1.45;
+}
+
+.cat-card {
+  padding: 18px;
+}
+
+.clickable-cat-card {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.clickable-cat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(255, 138, 0, 0.1);
+}
+
+.expanded-cat-card {
+  border: 1px solid #ffd7a8;
+}
+
+.cat-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.cat-card-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #111827;
+}
+
+.cat-card-head p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.status-badge.available {
+  background: #e8fff1;
+  color: #15803d;
+}
+
+.status-badge.fostered {
+  background: #fff5d7;
+  color: #b45309;
+}
+
+.status-badge.adopted {
+  background: #e8f0ff;
+  color: #1d4ed8;
+}
+
+.cat-meta {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #4b5563;
+  font-size: 0.9rem;
+}
+
+.cat-expanded-content {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f3e0c8;
+}
+
+.cat-description {
+  margin: 14px 0 0;
+  color: #374151;
+  line-height: 1.5;
+  font-size: 0.94rem;
+}
+
+.cat-card-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.cat-edit-btn,
+.cat-delete-btn {
+  border: none;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cat-edit-btn {
+  background: #ff8a00;
+  color: #ffffff;
+}
+
+.cat-delete-btn {
+  background: #fff1f1;
+  color: #c81e1e;
+}
+
+.cat-vaccination-block {
+  margin-top: 14px;
+}
+
+.cat-vaccination-title {
+  margin: 0 0 10px 0;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.cat-vaccination-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cat-vaccination-chip {
+  display: inline-flex;
+  align-items: center;
+  background: #fff2df;
+  color: #b45309;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.no-vaccinations-text {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.92rem;
+}
+
+.empty-card {
+  padding: 20px;
+}
+
+.empty-card p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 200;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 560px;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 22px;
+  box-shadow: 0 24px 40px rgba(0, 0, 0, 0.18);
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.modal-head h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.modal-close {
+  border: none;
+  background: #fff2df;
+  color: #b45309;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
+.cat-form {
+  display: grid;
+  gap: 14px;
+}
+
+.form-group {
+  display: grid;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  border: 1px solid #f3d3ae;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  background: #fffaf5;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #ff8a00;
+}
+
+.vaccination-builder {
+  display: grid;
+  gap: 12px;
+}
+
+.vaccination-input-row {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.vaccination-input-row input {
+  flex: 1;
+}
+
+.vaccination-add-btn {
+  min-width: 140px;
+  border: none;
+  border-radius: 16px;
+  padding: 0 18px;
+  background: linear-gradient(135deg, #ffb347, #ff8a00);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s ease;
+  box-shadow: 0 8px 20px rgba(255, 138, 0, 0.18);
+  white-space: nowrap;
+}
+
+.vaccination-add-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(255, 138, 0, 0.24);
+  filter: brightness(1.03);
+}
+
+.vaccination-add-btn:active {
+  transform: translateY(0);
+}
+
+.vaccination-add-btn:focus {
+  outline: none;
+  box-shadow:
+    0 0 0 4px rgba(255, 138, 0, 0.15),
+    0 8px 20px rgba(255, 138, 0, 0.18);
+}
+
+.vaccination-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.vaccination-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff2df;
+  color: #b45309;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.vaccination-tag-remove {
+  border: none;
+  background: transparent;
+  color: #b45309;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.manager-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #ffffff;
+  display: flex;
+  justify-content: space-around;
+  padding: 14px 10px 22px;
+  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  z-index: 120;
+}
+
+.bottom-nav-item {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.bottom-nav-item.active {
+  color: #ff8a00;
+  font-weight: 700;
+}
+
+@media (min-width: 768px) {
+  .manager-dashboard {
+    max-width: 1100px;
+    margin: 0 auto;
+    box-shadow: 0 0 30px rgba(15, 23, 42, 0.04);
+  }
+
+  .cats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .manager-bottom-nav {
+    max-width: 1100px;
+    margin: 0 auto;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 992px) {
+  .action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-card {
+    min-height: auto;
+  }
+
+  .cat-card-head {
+    flex-direction: column;
+  }
+
+  .request-actions,
+  .form-actions,
+  .cat-card-actions,
+  .vaccination-input-row {
+    flex-direction: column;
+  }
+
+  .approve-btn,
+  .reject-btn,
+  .primary-btn,
+  .secondary-btn,
+  .cat-edit-btn,
+  .cat-delete-btn,
+  .vaccination-add-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .vaccination-add-btn {
+    min-height: 48px;
+  }
+}

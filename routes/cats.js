@@ -1,8 +1,19 @@
 import { Router } from 'express';
-import { getCats } from '../controllers/catController.js';
+import {
+  getCats,
+  getCatById,
+  createCat,
+  updateCat,
+  deleteCat,
+} from '../controllers/catController.js';
 
 const router = Router();
 
 router.get('/', getCats);
+router.get('/:id', getCatById);
+router.put('/:id', updateCat);
+router.delete('/:id', deleteCat);
+router.post('/', upload.single('image'), createCat);
+router.post('/:id/foster-request', createFosterRequest);
 
 export default router;

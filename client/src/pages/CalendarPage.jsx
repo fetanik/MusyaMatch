@@ -1,40 +1,66 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Syringe, CheckCircle2, Clock, X } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ChevronLeft, Syringe, CheckCircle2, Clock } from 'lucide-react';
 import '../styles/CalendarPage.css';
+
+const LOCAL_CATS_KEY = 'managerCats';
 
 const CalendarPage = () => {
   const navigate = useNavigate();
-  
-  
-  const [vaccinations, setVaccinations] = useState([
-    { id: 1, name: "Rabies Vaccine", date: "2026-05-15", status: "Upcoming", type: "Core" },
-    { id: 2, name: "FVRCP (Distemper)", date: "2026-06-10", status: "Upcoming", type: "Core" },
-    { id: 3, name: "FeLV (Leukemia)", date: "2026-03-01", status: "Completed", type: "Non-core" },
-  ]);
+  const location = useLocation();
+  const { catId } = useParams();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newVax, setNewVax] = useState({ name: '', date: '', type: 'Core' });
+  const catFromState = location.state?.cat || null;
 
-  
-  const upcomingCount = vaccinations.filter(v => v.status === "Upcoming").length;
-  const doneCount = vaccinations.filter(v => v.status === "Completed").length;
+  const cat = useMemo(() => {
+    if (catFromState) return catFromState;
 
-  const handleAddReminder = (e) => {
-    e.preventDefault();
-    const vaxToAdd = {
-      id: Date.now(),
-      ...newVax,
-      status: "Upcoming"
-    };
-    
-    setVaccinations([...vaccinations, vaxToAdd]);
-    setIsModalOpen(false);
-    
-    
-    alert("Success! +150 Purr-Points earned for health tracking! 🐾");
-    
-  };
+    try {
+      const storedCats = JSON.parse(localStorage.getItem(LOCAL_CATS_KEY)) || [];
+      return storedCats.find((item) => String(item.id) === String(catId)) || null;
+    } catch {
+      return null;
+    }
+  }, [catFromState, catId]);
+
+  const vaccinations = useMemo(() => {
+    if (!cat?.vaccinations || !Array.isArray(cat.vaccinations)) return [];
+
+    return cat.vaccinations.map((item, index) => ({
+      id: index + 1,
+      name: item,
+      date: 'No date added',
+      status: 'Upcoming',
+      type: 'Planned',
+    }));
+  }, [cat]);
+
+  const upcomingCount = vaccinations.filter((item) => item.status === 'Upcoming').length;
+  const doneCount = vaccinations.filter((item) => item.status === 'Completed').length;
+
+  if (!cat) {
+    return (
+      <div className="calendar-wrapper">
+        <header className="calendar-header">
+          <button className="back-btn" onClick={() => navigate('/manager/profile')}>
+            <ChevronLeft size={24} />
+          </button>
+          <h1>Vaccination Calendar</h1>
+        </header>
+
+        <main className="calendar-content">
+          <div className="vax-list">
+            <div className="vax-card upcoming">
+              <div className="vax-info">
+                <h3>Cat not found</h3>
+                <p>Please go back and open the vaccination page from the cat card.</p>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="calendar-wrapper">
