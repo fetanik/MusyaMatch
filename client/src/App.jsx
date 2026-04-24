@@ -2,10 +2,11 @@ import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import HomePage from './pages/HomePage'; 
 import RegistrationPage from './pages/RegistrationPage';
-import ProfilePage from './pages/ProfilePage';
+import CalendarPage from './pages/CalendarPage';
+import ProfilePage from './pages/ProfilePage'; 
+import DashboardPage from './pages/DashboardPage'; 
 import ManagerProfile from './pages/ManagerProfile';
 import ManagerSettingsPage from './pages/ManagerSettingsPage';
-import DashboardPage from './pages/DashboardPage';
 import Gallery from './pages/Gallery';
 import PharmaciesPage from './pages/PharmaciesPage';
 import CalendarPage from './pages/CalendarPage';
@@ -25,6 +26,7 @@ function App() {
           />
           <Route path="/home" element={<HomePage />} />
           <Route path="/register" element={<RegistrationPage />} />
+          <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/gallery" element={<Gallery />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/manager" element={<Navigate to="/manager/profile" replace />} />
