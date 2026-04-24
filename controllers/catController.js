@@ -68,10 +68,21 @@ export async function createCat(req, res, next) {
       sourceType,
       listingType,
       listingStatus,
+      age,
+      source,
+      urgency,
+      personality,
+      sex,
     } = req.body;
 
     if (!name?.trim()) {
       return res.status(400).json({ message: 'Name is required' });
+    }
+
+    let imageUrl = req.body.image_url || req.body.imageUrl || null;
+    if (req.file) {
+      const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
+      imageUrl = uploadResult.secure_url;
     }
 
     const cat = await Cat.create({
@@ -81,33 +92,20 @@ export async function createCat(req, res, next) {
       breed: breed?.trim() || null,
       gender: gender || null,
       birthDate: birthDate || null,
+      age: age ? Number(age) : null,
       description: description?.trim() || null,
       vaccinations: normalizeVaccinations(vaccinations),
+      image_url: imageUrl,
+      source: source?.trim()?.toLowerCase() || 'shelter',
+      urgency: urgency?.trim()?.toLowerCase() || null,
+      personality: personality?.trim() || null,
+      sex: sex?.trim()?.toLowerCase() || null,
       sourceType: sourceType || 'shelter',
       listingType: listingType || 'adoption',
       listingStatus: listingStatus || 'active',
     });
 
-    res.status(201).json(cat);
-    if (!req.file) {
-      return res.status(400).json({ message: 'Image file is required' });
-    }
-
-    const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
-
-    const created = await Cat.create({
-      name: name.trim(),
-      breed: breed?.trim() || null,
-      age: age ? Number(age) : null,
-      description: description?.trim() || null,
-      image_url: uploadResult.secure_url,
-      source: source?.trim()?.toLowerCase() || 'shelter',
-      urgency: urgency?.trim()?.toLowerCase() || null,
-      personality: personality?.trim() || null,
-      sex: sex?.trim()?.toLowerCase() || null,
-    });
-
-    return res.status(201).json(created);
+    return res.status(201).json(cat);
   } catch (err) {
     next(err);
   }
@@ -128,14 +126,58 @@ export async function updateCat(req, res, next) {
       sourceType,
       listingType,
       listingStatus,
+      age,
+      source,
+      urgency,
+      personality,
+      sex,
     } = req.body;
 
     const cat = await Cat.findByPk(id);
 
-/**
- * POST /api/cats/:id/foster-request — placeholder foster request endpoint.
- * For now it only validates cat existence and returns accepted response.
- */
+    if (!cat) {
+      return res.status(404).json({ message: 'Cat not found' });
+    }
+
+    let imageUrl = cat.image_url;
+    if (req.file) {
+      const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
+      imageUrl = uploadResult.secure_url;
+    } else if (req.body.image_url || req.body.imageUrl) {
+      imageUrl = req.body.image_url || req.body.imageUrl;
+    }
+
+    await cat.update({
+      shelterId: shelterId !== undefined ? shelterId : cat.shelterId,
+      userId: userId !== undefined ? userId : cat.userId,
+      name: name !== undefined ? (name?.trim() || cat.name) : cat.name,
+      breed: breed !== undefined ? (breed?.trim() || null) : cat.breed,
+      gender: gender !== undefined ? (gender || null) : cat.gender,
+      birthDate: birthDate !== undefined ? (birthDate || null) : cat.birthDate,
+      age: age !== undefined ? (age ? Number(age) : null) : cat.age,
+      description:
+        description !== undefined ? (description?.trim() || null) : cat.description,
+      vaccinations:
+        vaccinations !== undefined
+          ? normalizeVaccinations(vaccinations)
+          : cat.vaccinations,
+      image_url: imageUrl,
+      source: source !== undefined ? (source?.trim()?.toLowerCase() || 'shelter') : cat.source,
+      urgency: urgency !== undefined ? (urgency?.trim()?.toLowerCase() || null) : cat.urgency,
+      personality:
+        personality !== undefined ? (personality?.trim() || null) : cat.personality,
+      sex: sex !== undefined ? (sex?.trim()?.toLowerCase() || null) : cat.sex,
+      sourceType: sourceType || cat.sourceType,
+      listingType: listingType || cat.listingType,
+      listingStatus: listingStatus || cat.listingStatus,
+    });
+
+    return res.json(cat);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function createFosterRequest(req, res, next) {
   try {
     const catId = Number(req.params.id);
@@ -149,25 +191,6 @@ export async function createFosterRequest(req, res, next) {
       return res.status(404).json({ message: 'Cat not found' });
     }
 
-    await cat.update({
-      shelterId: shelterId !== undefined ? shelterId : cat.shelterId,
-      userId: userId !== undefined ? userId : cat.userId,
-      name: name !== undefined ? (name?.trim() || cat.name) : cat.name,
-      breed: breed !== undefined ? (breed?.trim() || null) : cat.breed,
-      gender: gender !== undefined ? (gender || null) : cat.gender,
-      birthDate: birthDate !== undefined ? (birthDate || null) : cat.birthDate,
-      description:
-        description !== undefined ? (description?.trim() || null) : cat.description,
-      vaccinations:
-        vaccinations !== undefined
-          ? normalizeVaccinations(vaccinations)
-          : cat.vaccinations,
-      sourceType: sourceType || cat.sourceType,
-      listingType: listingType || cat.listingType,
-      listingStatus: listingStatus || cat.listingStatus,
-    });
-
-    res.json(cat);
     return res.status(202).json({
       message: 'Foster request accepted (stub). We will contact you soon.',
       catId: cat.id,

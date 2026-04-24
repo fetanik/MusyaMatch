@@ -3,9 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import '../styles/ManagerProfile.css';
 
 import {
-  FiHome,
   FiFileText,
-  FiUser,
   FiBell,
   FiPlusCircle,
   FiMapPin,
@@ -15,8 +13,9 @@ import {
   FiX,
 } from 'react-icons/fi';
 import { FaPaw } from 'react-icons/fa6';
+import BottomNav from '../components/BottomNav';
 
-const API_BASE_URL = 'http://localhost:3000/api/cats';
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
 
 const normalizeVaccinations = (vaccinations) => {
   if (!Array.isArray(vaccinations)) return [];
@@ -36,7 +35,6 @@ const ManagerProfile = () => {
   const navigate = useNavigate();
 
   const topRef = useRef(null);
-  const requestsRef = useRef(null);
 
   const [shelterName, setShelterName] = useState('Happy Paws Shelter');
   const [shelterLogo, setShelterLogo] = useState('');
@@ -136,10 +134,6 @@ const ManagerProfile = () => {
   }, [myCats]);
 
   const pendingRequests = requests.filter((request) => request.status === 'pending');
-
-  const scrollToSection = (ref) => {
-    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
 
   const handleRequestAction = (requestId, newStatus) => {
     setRequests((prev) =>
@@ -411,7 +405,7 @@ const ManagerProfile = () => {
       </header>
 
       <main className="manager-content">
-        <section className="manager-section" ref={requestsRef}>
+        <section className="manager-section">
           <div className="section-head">
             <div>
               <h2>Active requests</h2>
@@ -796,43 +790,7 @@ const ManagerProfile = () => {
         </div>
       )}
 
-      <nav className="manager-bottom-nav">
-        <button
-          className="bottom-nav-item active"
-          type="button"
-          onClick={() => scrollToSection(topRef)}
-        >
-          <FiHome size={20} />
-          <span>Home</span>
-        </button>
-
-        <button
-          className="bottom-nav-item"
-          type="button"
-          onClick={() => scrollToSection(requestsRef)}
-        >
-          <FiFileText size={20} />
-          <span>Requests</span>
-        </button>
-
-        <button
-          className="bottom-nav-item"
-          type="button"
-          onClick={() => navigate('/pharmacies')}
-        >
-          <FiMapPin size={20} />
-          <span>Map</span>
-        </button>
-
-        <button
-          className="bottom-nav-item"
-          type="button"
-          onClick={() => navigate('/manager/settings')}
-        >
-          <FiUser size={20} />
-          <span>Profile</span>
-        </button>
-      </nav>
+      <BottomNav active="home" />
     </div>
   );
 };

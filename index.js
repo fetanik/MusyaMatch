@@ -38,7 +38,10 @@ async function start() {
       console.log(`MusyaMatch API listening on http://localhost:${PORT}`);
     });
   } catch (err) {
-    console.error('Failed to start server:', err.message);
+    console.error('Failed to start server:', err?.message || err);
+    if (err?.stack) {
+      console.error(err.stack);
+    }
     process.exit(1);
   }
 }

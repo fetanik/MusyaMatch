@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; 
 import '../styles/ProfilePage.css'; 
+import BottomNav from '../components/BottomNav';
 
-import { User, Mail, Save, Home, Heart, MapPin } from "lucide-react";
+import { User, Mail, Save } from "lucide-react";
 
 const ProfilePage = () => {
-  const navigate = useNavigate(); 
-
   // Стан для зберігання введених даних
   const [name, setName] = useState('Alex Johnson');
   const [email, setEmail] = useState('alex.j@example.com');
@@ -53,26 +51,7 @@ const ProfilePage = () => {
         </form>
       </div>
 
-      {/* Нижня навігація (така ж як на Home) */}
-      <nav className="bottom-nav">
-        <button className="nav-item" onClick={() => navigate('/dashboard')}>
-          <span className="nav-icon"><Home size={20} /></span>
-          <span>Home</span>
-        </button>
-        <button className="nav-item">
-          <span className="nav-icon"><Heart size={20} /></span>
-          <span>Foster</span>
-        </button>
-        <button className="nav-item">
-          <span className="nav-icon"><MapPin size={20} /></span>
-          <span>Map</span>
-        </button>
-        {/* Кнопка Profile тут активна */}
-        <button className="nav-item active">
-          <span className="nav-icon"><User size={20} /></span>
-          <span>Profile</span>
-        </button>
-      </nav>
+      <BottomNav active="profile" />
     </div>
   );
 };

@@ -36,6 +36,7 @@ CREATE TABLE Cat (
     gender ENUM('male', 'female'),
     birth_date DATE,
     description TEXT,
+    image_url TEXT,
     status ENUM('shelter', 'private') NOT NULL,
 
     CONSTRAINT fk_cat_shelter

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import GoogleMap from '../components/GoogleMap';
 import '../styles/PharmaciesPage.css';
+import BottomNav from '../components/BottomNav';
 
 const ukrainianCities = [
   "Kyiv", "Kharkiv", "Odesa", "Dnipro", "Donetsk", "Zaporizhzhia", "Lviv",
@@ -201,6 +202,7 @@ const PharmaciesPage = () => {
           );
         })}
       </div>
+      <BottomNav active="map" />
     </div>
   );
 };

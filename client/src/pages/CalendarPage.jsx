@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, Syringe, CheckCircle2, Clock } from 'lucide-react';
 import '../styles/CalendarPage.css';
+import BottomNav from '../components/BottomNav';
 
 const LOCAL_CATS_KEY = 'managerCats';
 
@@ -58,6 +59,7 @@ const CalendarPage = () => {
             </div>
           </div>
         </main>
+        <BottomNav active="" />
       </div>
     );
   }
@@ -65,7 +67,7 @@ const CalendarPage = () => {
   return (
     <div className="calendar-wrapper">
       <header className="calendar-header">
-        <button className="back-btn" onClick={() => navigate('/home')}>
+        <button className="back-btn" onClick={() => navigate('/dashboard')}>
           <ChevronLeft size={24} />
         </button>
         <h1>Vaccination Calendar</h1>
@@ -101,42 +103,11 @@ const CalendarPage = () => {
           ))}
         </div>
 
-        <button className="add-vax-btn" onClick={() => setIsModalOpen(true)}>
+        <button className="add-vax-btn" type="button">
           + Add Reminder
         </button>
       </main>
-
-
-      {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2>New Reminder</h2>
-              <button onClick={() => setIsModalOpen(false)}><X size={24} /></button>
-            </div>
-            <form onSubmit={handleAddReminder}>
-              <div className="form-group">
-                <label>Vaccine Name</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. Rabies" 
-                  required 
-                  onChange={(e) => setNewVax({...newVax, name: e.target.value})}
-                />
-              </div>
-              <div className="form-group">
-                <label>Date</label>
-                <input 
-                  type="date" 
-                  required 
-                  onChange={(e) => setNewVax({...newVax, date: e.target.value})}
-                />
-              </div>
-              <button type="submit" className="save-vax-btn">Save & Earn Points</button>
-            </form>
-          </div>
-        </div>
-      )}
+      <BottomNav active="" />
     </div>
   );
 };

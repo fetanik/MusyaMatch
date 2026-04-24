@@ -40,11 +40,30 @@ export const Cat = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    age: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     vaccinations: {
       type: DataTypes.TEXT,
+      allowNull: false,
+      defaultValue: '[]',
+      get() {
+        const raw = this.getDataValue('vaccinations');
+        if (!raw) return [];
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return [];
+        }
+      },
+      set(value) {
+        this.setDataValue('vaccinations', JSON.stringify(Array.isArray(value) ? value : []));
+      },
+    },
     image_url: {
       type: DataTypes.STRING(1024),
-      allowNull: false,
+      allowNull: true,
     },
     source: {
       type: DataTypes.STRING(64),
@@ -66,18 +85,6 @@ export const Cat = sequelize.define(
     compatibility_score: {
       type: DataTypes.FLOAT,
       allowNull: true,
-      get() {
-        const raw = this.getDataValue('vaccinations');
-        if (!raw) return [];
-        try {
-          return JSON.parse(raw);
-        } catch {
-          return [];
-        }
-      },
-      set(value) {
-        this.setDataValue('vaccinations', JSON.stringify(value || []));
-      },
     },
     sourceType: {
       type: DataTypes.ENUM('shelter', 'private'),

@@ -1,19 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/ManagerSettingsPage.css';
+import BottomNav from '../components/BottomNav';
 
 import {
-  FiHome,
-  FiFileText,
-  FiMapPin,
-  FiUser,
   FiArrowLeft,
   FiUpload,
   FiTrash2,
   FiSave,
 } from 'react-icons/fi';
 
-const API_BASE_URL = 'http://localhost:3000/api/shelter';
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/shelter`;
 
 const ManagerSettingsPage = () => {
   const navigate = useNavigate();
@@ -457,39 +454,7 @@ const ManagerSettingsPage = () => {
         </form>
       </main>
 
-      <nav className="settings-bottom-nav">
-        <button
-          className="settings-nav-item"
-          type="button"
-          onClick={() => navigate('/manager/profile')}
-        >
-          <FiHome size={20} />
-          <span>Home</span>
-        </button>
-
-        <button
-          className="settings-nav-item"
-          type="button"
-          onClick={() => navigate('/manager/profile')}
-        >
-          <FiFileText size={20} />
-          <span>Requests</span>
-        </button>
-
-        <button
-          className="settings-nav-item"
-          type="button"
-          onClick={() => navigate('/pharmacies')}
-        >
-          <FiMapPin size={20} />
-          <span>Map</span>
-        </button>
-
-        <button className="settings-nav-item active" type="button">
-          <FiUser size={20} />
-          <span>Profile</span>
-        </button>
-      </nav>
+      <BottomNav active="profile" />
     </div>
   );
 };

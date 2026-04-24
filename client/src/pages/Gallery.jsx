@@ -1,6 +1,7 @@
 import Layout from '../components/Layout';
 import { useEffect, useMemo, useState } from 'react';
 import '../styles/Gallery.css';
+import BottomNav from '../components/BottomNav';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -279,6 +280,7 @@ const Gallery = () => {
           </article>
         </div>
       )}
+      <BottomNav active="gallery" />
     </Layout>
   );
 };

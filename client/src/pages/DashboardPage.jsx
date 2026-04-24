@@ -1,16 +1,13 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom'; // інструмент для навігації
 import '../styles/DashboardPage.css'; 
 
 import { 
   Bell, Award, Star, Heart, Cpu, MessageSquare, 
-  Calendar, AlertCircle, Users, MapPin, TrendingUp, 
-  Home, User, Cat 
+  Calendar, AlertCircle, Users, MapPin, TrendingUp, Cat 
 } from "lucide-react";
+import BottomNav from '../components/BottomNav';
 
 const DashboardPage = () => {
-  const navigate = useNavigate(); // Ініціалізація навігації
-
   return (
     <div className="profile-page">
       {/* Верхня помаранчева частина */}
@@ -141,25 +138,7 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Bottom Navigation */}
-      <nav className="bottom-nav">
-        <button className="nav-item active">
-          <span className="nav-icon"><Home size={20} /></span>
-          <span>Home</span>
-        </button>
-        <button className="nav-item">
-          <span className="nav-icon"><Heart size={20} /></span>
-          <span>Foster</span>
-        </button>
-        <button className="nav-item">
-          <span className="nav-icon"><MapPin size={20} /></span>
-          <span>Map</span>
-        </button>
-        <button className="nav-item" onClick={() => navigate('/profile')}>
-          <span className="nav-icon"><User size={20} /></span>
-          <span>Profile</span>
-        </button>
-      </nav>
+      <BottomNav active="home" />
     </div>
   );
 };

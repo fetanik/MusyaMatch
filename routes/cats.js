@@ -5,7 +5,9 @@ import {
   createCat,
   updateCat,
   deleteCat,
+  createFosterRequest,
 } from '../controllers/catController.js';
+import { upload } from '../middleware/upload.js';
 
 const router = Router();
 

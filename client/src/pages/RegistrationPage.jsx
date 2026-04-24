@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/RegistrationPage.css';
 import { Sparkles, AlertCircle, Home, Cat } from 'lucide-react';
+import BottomNav from '../components/BottomNav';
 
-const API_BASE_URL = 'http://localhost:3000/api/auth';
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/auth`;
 
 const RegistrationPage = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -85,6 +86,7 @@ const RegistrationPage = () => {
         }
 
         localStorage.setItem('user', JSON.stringify(result.user));
+        localStorage.setItem('musyamatch_is_registered', 'true');
 
         if (result.user.role === 'manager') {
           navigate('/manager/profile');
@@ -115,6 +117,7 @@ const RegistrationPage = () => {
       }
 
       localStorage.setItem('user', JSON.stringify(result.user));
+      localStorage.setItem('musyamatch_is_registered', 'true');
       resetFormState();
 
       if (result.user.role === 'manager') {
@@ -128,8 +131,6 @@ const RegistrationPage = () => {
     } finally {
       setIsSubmitting(false);
     }
-    localStorage.setItem('musyamatch_is_registered', 'true');
-    navigate('/dashboard');
   };
 
   return (
@@ -290,6 +291,7 @@ const RegistrationPage = () => {
           </button>
         </form>
       </div>
+      <BottomNav active="" />
     </div>
   );
 };
