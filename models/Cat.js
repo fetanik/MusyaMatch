@@ -1,33 +1,47 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/database.js';
 
-/**
- * Cat entity — adoption listing in MusyaMatch.
- */
 export const Cat = sequelize.define(
   'Cat',
   {
     id: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
     },
+    shelterId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'shelter_id',
+    },
+    userId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'user_id',
+    },
     name: {
-      type: DataTypes.STRING(255),
+      type: DataTypes.STRING(100),
       allowNull: false,
     },
     breed: {
-      type: DataTypes.STRING(255),
+      type: DataTypes.STRING(100),
       allowNull: true,
     },
-    age: {
-      type: DataTypes.INTEGER.UNSIGNED,
+    gender: {
+      type: DataTypes.ENUM('male', 'female'),
       allowNull: true,
+    },
+    birthDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      field: 'birth_date',
     },
     description: {
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    vaccinations: {
+      type: DataTypes.TEXT,
     image_url: {
       type: DataTypes.STRING(1024),
       allowNull: false,
@@ -52,15 +66,40 @@ export const Cat = sequelize.define(
     compatibility_score: {
       type: DataTypes.FLOAT,
       allowNull: true,
+      get() {
+        const raw = this.getDataValue('vaccinations');
+        if (!raw) return [];
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return [];
+        }
+      },
+      set(value) {
+        this.setDataValue('vaccinations', JSON.stringify(value || []));
+      },
     },
-    status: {
-      type: DataTypes.STRING(64),
+    sourceType: {
+      type: DataTypes.ENUM('shelter', 'private'),
       allowNull: false,
-      defaultValue: 'available',
+      defaultValue: 'shelter',
+      field: 'source_type',
+    },
+    listingType: {
+      type: DataTypes.ENUM('adoption', 'foster', 'none'),
+      allowNull: false,
+      defaultValue: 'adoption',
+      field: 'listing_type',
+    },
+    listingStatus: {
+      type: DataTypes.ENUM('active', 'pending', 'placed', 'adopted', 'hidden'),
+      allowNull: false,
+      defaultValue: 'active',
+      field: 'listing_status',
     },
   },
   {
-    tableName: 'cats',
-    underscored: true,
+    tableName: 'cat',
+    timestamps: false,
   }
 );
