@@ -13,7 +13,7 @@ const router = Router();
 
 router.get('/', getCats);
 router.get('/:id', getCatById);
-router.put('/:id', updateCat);
+router.put('/:id', upload.single('image'), updateCat);
 router.delete('/:id', deleteCat);
 router.post('/', upload.single('image'), createCat);
 router.post('/:id/foster-request', createFosterRequest);

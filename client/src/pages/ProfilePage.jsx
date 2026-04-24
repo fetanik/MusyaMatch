@@ -1,29 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import '../styles/ProfilePage.css';
 import BottomNav from '../components/BottomNav';
 
 import { User, Mail, Save } from 'lucide-react';
 
 const ProfilePage = () => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [instagram, setInstagram] = useState('');
-  const [facebook, setFacebook] = useState('');
-  const [telegram, setTelegram] = useState('');
+  const [name, setName] = useState(() => localStorage.getItem('userName') || 'Alex Johnson');
+  const [email, setEmail] = useState(
+    () => localStorage.getItem('userEmail') || 'alex.j@example.com'
+  );
+  const [phone, setPhone] = useState(() => localStorage.getItem('userPhone') || '');
+  const [address, setAddress] = useState(() => localStorage.getItem('userAddress') || '');
+  const [instagram, setInstagram] = useState(
+    () => localStorage.getItem('userInstagram') || ''
+  );
+  const [facebook, setFacebook] = useState(() => localStorage.getItem('userFacebook') || '');
+  const [telegram, setTelegram] = useState(() => localStorage.getItem('userTelegram') || '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-
-  useEffect(() => {
-    setName(localStorage.getItem('userName') || 'Alex Johnson');
-    setEmail(localStorage.getItem('userEmail') || 'alex.j@example.com');
-    setPhone(localStorage.getItem('userPhone') || '');
-    setAddress(localStorage.getItem('userAddress') || '');
-    setInstagram(localStorage.getItem('userInstagram') || '');
-    setFacebook(localStorage.getItem('userFacebook') || '');
-    setTelegram(localStorage.getItem('userTelegram') || '');
-  }, []);
 
   const handleSave = (e) => {
     e.preventDefault();

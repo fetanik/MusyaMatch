@@ -26,6 +26,28 @@ const normalizeVaccinations = (vaccinations) => {
     .filter(Boolean);
 };
 
+const parseVaccinationsInput = (vaccinations) => {
+  if (Array.isArray(vaccinations)) {
+    return normalizeVaccinations(vaccinations);
+  }
+
+  if (typeof vaccinations === 'string') {
+    const trimmed = vaccinations.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return normalizeVaccinations(parsed);
+      }
+    } catch {
+      return normalizeVaccinations(trimmed.split(','));
+    }
+  }
+
+  return [];
+};
+
 export async function getCats(req, res, next) {
   try {
     const cats = await Cat.findAll({
@@ -94,7 +116,7 @@ export async function createCat(req, res, next) {
       birthDate: birthDate || null,
       age: age ? Number(age) : null,
       description: description?.trim() || null,
-      vaccinations: normalizeVaccinations(vaccinations),
+      vaccinations: parseVaccinationsInput(vaccinations),
       image_url: imageUrl,
       source: source?.trim()?.toLowerCase() || 'shelter',
       urgency: urgency?.trim()?.toLowerCase() || null,
@@ -159,7 +181,7 @@ export async function updateCat(req, res, next) {
         description !== undefined ? (description?.trim() || null) : cat.description,
       vaccinations:
         vaccinations !== undefined
-          ? normalizeVaccinations(vaccinations)
+          ? parseVaccinationsInput(vaccinations)
           : cat.vaccinations,
       image_url: imageUrl,
       source: source !== undefined ? (source?.trim()?.toLowerCase() || 'shelter') : cat.source,

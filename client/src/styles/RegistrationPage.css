@@ -3,8 +3,8 @@
   min-height: 100vh;
   display: flex;
   justify-content: center;
-  align-items: center;
-  padding: 20px;
+  align-items: flex-start;
+  padding: 20px 20px 110px;
   font-family: 'Poppins', sans-serif;
 }
 
@@ -15,6 +15,7 @@
   border-radius: 30px;
   padding: 40px 30px;
   box-shadow: 0 10px 25px rgba(255, 179, 71, 0.15);
+  margin-top: 8px;
 }
 
 .auth-header {

@@ -347,6 +347,11 @@
   color: #15803d;
 }
 
+.status-badge.active {
+  background: #e8fff1;
+  color: #15803d;
+}
+
 .status-badge.fostered {
   background: #fff5d7;
   color: #b45309;

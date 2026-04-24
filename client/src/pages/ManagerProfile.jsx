@@ -44,6 +44,16 @@ const ManagerProfile = () => {
   const [expandedCatId, setExpandedCatId] = useState(null);
   const [vaccinationInput, setVaccinationInput] = useState('');
   const [isLoadingCats, setIsLoadingCats] = useState(true);
+  const [catImageFile, setCatImageFile] = useState(null);
+  const [catImagePreview, setCatImagePreview] = useState('');
+
+  useEffect(() => {
+    return () => {
+      if (catImagePreview && catImagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(catImagePreview);
+      }
+    };
+  }, [catImagePreview]);
 
   const [newCatData, setNewCatData] = useState({
     name: '',
@@ -154,6 +164,8 @@ const ManagerProfile = () => {
     });
     setVaccinationInput('');
     setEditingCatId(null);
+    setCatImageFile(null);
+    setCatImagePreview('');
   };
 
   const openAddCatModal = () => {
@@ -172,6 +184,8 @@ const ManagerProfile = () => {
       vaccinations: normalizeVaccinations(cat.vaccinations),
     });
     setVaccinationInput('');
+    setCatImageFile(null);
+    setCatImagePreview(cat.image_url || '');
     setIsModalOpen(true);
   };
 
@@ -218,26 +232,30 @@ const ManagerProfile = () => {
 
     const existingCat = myCats.find((cat) => cat.id === editingCatId);
 
-    const payload = {
-      name: newCatData.name.trim(),
-      breed: newCatData.breed.trim(),
-      gender: newCatData.gender || null,
-      birthDate: newCatData.birthDate || null,
-      description: newCatData.description.trim(),
-      vaccinations: normalizeVaccinations(newCatData.vaccinations),
-      sourceType: existingCat?.sourceType || 'shelter',
-      listingType: existingCat?.listingType || 'adoption',
-      listingStatus: existingCat?.listingStatus || 'active',
-      shelterId: existingCat?.shelterId ?? null,
-      userId: existingCat?.userId ?? null,
-    };
+    const formData = new FormData();
+    formData.append('name', newCatData.name.trim());
+    formData.append('breed', newCatData.breed.trim());
+    formData.append('gender', newCatData.gender || '');
+    formData.append('birthDate', newCatData.birthDate || '');
+    formData.append('description', newCatData.description.trim());
+    formData.append('vaccinations', JSON.stringify(normalizeVaccinations(newCatData.vaccinations)));
+    formData.append('sourceType', existingCat?.sourceType || 'shelter');
+    formData.append('listingType', existingCat?.listingType || 'adoption');
+    formData.append('listingStatus', existingCat?.listingStatus || 'active');
+    formData.append('shelterId', String(existingCat?.shelterId ?? ''));
+    formData.append('userId', String(existingCat?.userId ?? ''));
+
+    if (catImageFile) {
+      formData.append('image', catImageFile);
+    } else if (catImagePreview) {
+      formData.append('image_url', catImagePreview);
+    }
 
     try {
       if (editingCatId) {
         const response = await fetch(`${API_BASE_URL}/${editingCatId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: formData,
         });
 
         if (!response.ok) {
@@ -259,8 +277,7 @@ const ManagerProfile = () => {
       } else {
         const response = await fetch(API_BASE_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: formData,
         });
 
         if (!response.ok) {
@@ -563,6 +580,20 @@ const ManagerProfile = () => {
                       </span>
                     </div>
 
+                    {cat.image_url && (
+                      <img
+                        src={cat.image_url}
+                        alt={cat.name || 'Cat'}
+                        style={{
+                          width: '100%',
+                          height: '160px',
+                          objectFit: 'cover',
+                          borderRadius: '12px',
+                          marginTop: '12px',
+                        }}
+                      />
+                    )}
+
                     <div className="cat-meta">
                       <span>
                         <strong>Gender:</strong> {formatGender(cat.gender)}
@@ -709,6 +740,34 @@ const ManagerProfile = () => {
                     setNewCatData((prev) => ({ ...prev, birthDate: e.target.value }))
                   }
                 />
+              </div>
+
+              <div className="form-group">
+                <label>Photo</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    setCatImageFile(file || null);
+                    if (file) {
+                      setCatImagePreview(URL.createObjectURL(file));
+                    }
+                  }}
+                />
+                {catImagePreview && (
+                  <img
+                    src={catImagePreview}
+                    alt="Cat preview"
+                    style={{
+                      width: '100%',
+                      maxHeight: '180px',
+                      objectFit: 'cover',
+                      borderRadius: '12px',
+                      marginTop: '8px',
+                    }}
+                  />
+                )}
               </div>
 
               <div className="form-group">

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import '../styles/DashboardPage.css';
 
 import {
@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
 
-const CATS_API = 'http://localhost:5001/api/cats';
+const CATS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
 
 const emptyForm = {
   name: '',
@@ -107,7 +107,7 @@ const DashboardPage = () => {
 
   const [selectedVaccinationCat, setSelectedVaccinationCat] = useState(null);
 
-  const fetchMyCats = async () => {
+  const fetchMyCats = useCallback(async () => {
     try {
       setLoading(true);
       setPageError('');
@@ -128,7 +128,7 @@ const DashboardPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) {
@@ -138,7 +138,7 @@ const DashboardPage = () => {
     }
 
     fetchMyCats();
-  }, [userId]);
+  }, [fetchMyCats, userId]);
 
   const fosterCount = useMemo(
     () =>
