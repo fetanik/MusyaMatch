@@ -128,6 +128,8 @@ const RegistrationPage = () => {
     } finally {
       setIsSubmitting(false);
     }
+    localStorage.setItem('musyamatch_is_registered', 'true');
+    navigate('/dashboard');
   };
 
   return (

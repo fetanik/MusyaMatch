@@ -33,8 +33,7 @@ app.use((err, req, res, next) => {
 async function start() {
   try {
     await connectDatabase();
-    await sequelize.sync({ alter: true });
-
+    await sequelize.sync({ alter: process.env.DB_SYNC_ALTER === 'true' });
     app.listen(PORT, () => {
       console.log(`MusyaMatch API listening on http://localhost:${PORT}`);
     });

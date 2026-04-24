@@ -11,8 +11,9 @@ const router = Router();
 
 router.get('/', getCats);
 router.get('/:id', getCatById);
-router.post('/', createCat);
 router.put('/:id', updateCat);
 router.delete('/:id', deleteCat);
+router.post('/', upload.single('image'), createCat);
+router.post('/:id/foster-request', createFosterRequest);
 
 export default router;
