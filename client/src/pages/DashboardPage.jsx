@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../styles/DashboardPage.css';
 
 import {
@@ -27,7 +28,6 @@ const emptyForm = {
   age: '',
   gender: '',
   description: '',
-  vaccinationsText: '',
 };
 
 const normalizeVaccinations = (vaccinations) => {
@@ -37,36 +37,8 @@ const normalizeVaccinations = (vaccinations) => {
       .filter(Boolean);
   }
 
-  if (typeof vaccinations === 'string') {
-    const trimmed = vaccinations.trim();
-    if (!trimmed) return [];
-
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((item) => (typeof item === 'string' ? item.trim() : ''))
-          .filter(Boolean);
-      }
-    } catch {
-      return trimmed
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean);
-    }
-  }
-
   return [];
 };
-
-const vaccinationsToText = (vaccinations) =>
-  normalizeVaccinations(vaccinations).join(', ');
-
-const parseVaccinationsText = (text) =>
-  text
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
 
 const getCurrentUserId = () => {
   const raw =
@@ -91,6 +63,7 @@ const getStatusMeta = (cat) => {
 };
 
 const DashboardPage = () => {
+  const navigate = useNavigate();
   const userId = getCurrentUserId();
   const userName = localStorage.getItem('userName') || 'Alex Johnson';
 
@@ -104,6 +77,7 @@ const DashboardPage = () => {
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [editingCat, setEditingCat] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [openCalendarAfterSave, setOpenCalendarAfterSave] = useState(false);
 
   const [selectedVaccinationCat, setSelectedVaccinationCat] = useState(null);
 
@@ -162,7 +136,6 @@ const DashboardPage = () => {
       age: cat.age ?? '',
       gender: cat.gender || '',
       description: cat.description || '',
-      vaccinationsText: vaccinationsToText(cat.vaccinations),
     });
     setIsCatModalOpen(true);
   };
@@ -171,6 +144,7 @@ const DashboardPage = () => {
     setIsCatModalOpen(false);
     setEditingCat(null);
     setForm(emptyForm);
+    setOpenCalendarAfterSave(false);
   };
 
   const handleFormChange = (field, value) => {
@@ -198,7 +172,7 @@ const DashboardPage = () => {
       age: form.age ? Number(form.age) : null,
       gender: form.gender || null,
       description: form.description.trim() || null,
-      vaccinations: parseVaccinationsText(form.vaccinationsText),
+      vaccinations: editingCat?.vaccinations || [],
       source: 'private',
       sourceType: 'private',
       listingType: editingCat?.listingType || 'none',
@@ -227,6 +201,11 @@ const DashboardPage = () => {
 
       closeCatModal();
       await fetchMyCats();
+
+      const savedCatId = Number(data?.id);
+      if (openCalendarAfterSave && Number.isInteger(savedCatId) && savedCatId > 0) {
+        navigate(`/cats/${savedCatId}/vaccinations`, { state: { cat: data } });
+      }
     } catch (error) {
       console.error(error);
       alert(error.message || 'Failed to save cat.');
@@ -351,7 +330,16 @@ const DashboardPage = () => {
           </div>
 
           <div className="achievements-row">
-            <div className="achievement-badge">
+            <div
+              className="achievement-badge clickable"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate('/achievements')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') navigate('/achievements');
+              }}
+              title="Open achievements"
+            >
               <Star /> 0 Achievements
             </div>
             <div className="achievement-badge foster-badge">
@@ -398,7 +386,7 @@ const DashboardPage = () => {
             <p>Nearby clinics</p>
           </div>
 
-          <div className="action-card">
+          <div className="action-card" onClick={() => navigate('/achievements')}>
             <div className="action-icon"><TrendingUp /></div>
             <h4>My Progress</h4>
             <p>View achievements</p>
@@ -589,12 +577,31 @@ const DashboardPage = () => {
 
               <div className="form-group">
                 <label>Vaccinations</label>
-                <input
-                  type="text"
-                  value={form.vaccinationsText}
-                  onChange={(e) => handleFormChange('vaccinationsText', e.target.value)}
-                  placeholder="Example: Rabies, FVRCP, Deworming"
-                />
+                {editingCat?.id ? (
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => {
+                      closeCatModal();
+                      navigate(`/cats/${editingCat.id}/vaccinations`, {
+                        state: { cat: editingCat },
+                      });
+                    }}
+                    style={{ width: '100%' }}
+                  >
+                    Open vaccination calendar
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="secondary-btn"
+                    onClick={() => setOpenCalendarAfterSave(true)}
+                    style={{ width: '100%' }}
+                    title="Save cat and open calendar"
+                  >
+                    Save & open vaccination calendar
+                  </button>
+                )}
               </div>
 
               <div className="modal-actions">

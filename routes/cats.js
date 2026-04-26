@@ -8,6 +8,7 @@ import {
   createFosterRequest,
 } from '../controllers/catController.js';
 import { upload } from '../middleware/upload.js';
+import catVaccinationsRouter from './catVaccinations.js';
 
 const router = Router();
 
@@ -17,5 +18,6 @@ router.put('/:id', upload.single('image'), updateCat);
 router.delete('/:id', deleteCat);
 router.post('/', upload.single('image'), createCat);
 router.post('/:id/foster-request', createFosterRequest);
+router.use('/:catId/vaccinations', catVaccinationsRouter);
 
 export default router;

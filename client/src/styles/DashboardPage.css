@@ -87,6 +87,15 @@
   background-color: #FFF5EC; color: #D97706; padding: 8px 12px;
   border-radius: 12px; font-size: 12px; font-weight: 600;
 }
+
+.achievement-badge.clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.achievement-badge.clickable:active {
+  transform: translateY(1px);
+}
 .foster-badge { background-color: #FFF0F5; color: #D81B60; }
 
 .profile-content { padding: 0 20px; }

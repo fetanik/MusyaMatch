@@ -9,6 +9,7 @@ import ManagerProfile from './pages/ManagerProfile';
 import ManagerSettingsPage from './pages/ManagerSettingsPage';
 import Gallery from './pages/Gallery';
 import PharmaciesPage from './pages/PharmaciesPage';
+import AchievementsPage from './pages/AchievementsPage';
 
 const getIsRegistered = () => localStorage.getItem('musyamatch_is_registered') === 'true';
 
@@ -27,10 +28,12 @@ function App() {
           <Route path="/register" element={<RegistrationPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/gallery" element={<Gallery />} />
+          <Route path="/achievements" element={<AchievementsPage />} />
           <Route path="/manager" element={<Navigate to="/manager/profile" replace />} />
           <Route path="/manager/profile" element={<ManagerProfile />} />
           <Route path="/manager/settings" element={<ManagerSettingsPage />} />
           <Route path="/manager/cats/:catId/vaccinations" element={<CalendarPage />} />
+          <Route path="/cats/:catId/vaccinations" element={<CalendarPage />} />
           <Route
             path="/profile"
             element={isRegistered ? <ProfilePage /> : <Navigate to="/register" replace />}

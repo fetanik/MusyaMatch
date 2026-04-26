@@ -42,10 +42,10 @@ const ManagerProfile = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCatId, setEditingCatId] = useState(null);
   const [expandedCatId, setExpandedCatId] = useState(null);
-  const [vaccinationInput, setVaccinationInput] = useState('');
   const [isLoadingCats, setIsLoadingCats] = useState(true);
   const [catImageFile, setCatImageFile] = useState(null);
   const [catImagePreview, setCatImagePreview] = useState('');
+  const [openCalendarAfterSave, setOpenCalendarAfterSave] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -162,10 +162,10 @@ const ManagerProfile = () => {
       description: '',
       vaccinations: [],
     });
-    setVaccinationInput('');
     setEditingCatId(null);
     setCatImageFile(null);
     setCatImagePreview('');
+    setOpenCalendarAfterSave(false);
   };
 
   const openAddCatModal = () => {
@@ -183,7 +183,6 @@ const ManagerProfile = () => {
       description: cat.description || '',
       vaccinations: normalizeVaccinations(cat.vaccinations),
     });
-    setVaccinationInput('');
     setCatImageFile(null);
     setCatImagePreview(cat.image_url || '');
     setIsModalOpen(true);
@@ -200,32 +199,6 @@ const ManagerProfile = () => {
     setIsModalOpen(false);
   };
 
-  const handleAddVaccination = () => {
-    const value = vaccinationInput.trim();
-    if (!value) return;
-
-    setNewCatData((prev) => {
-      const exists = prev.vaccinations.some(
-        (item) => item.toLowerCase() === value.toLowerCase()
-      );
-
-      if (exists) return prev;
-
-      return {
-        ...prev,
-        vaccinations: [...prev.vaccinations, value],
-      };
-    });
-
-    setVaccinationInput('');
-  };
-
-  const handleRemoveVaccination = (indexToRemove) => {
-    setNewCatData((prev) => ({
-      ...prev,
-      vaccinations: prev.vaccinations.filter((_, index) => index !== indexToRemove),
-    }));
-  };
 
   const handleSaveCat = async (e) => {
     e.preventDefault();
@@ -238,7 +211,8 @@ const ManagerProfile = () => {
     formData.append('gender', newCatData.gender || '');
     formData.append('birthDate', newCatData.birthDate || '');
     formData.append('description', newCatData.description.trim());
-    formData.append('vaccinations', JSON.stringify(normalizeVaccinations(newCatData.vaccinations)));
+    // Vaccinations are managed on CalendarPage and stored separately.
+    formData.append('vaccinations', JSON.stringify([]));
     formData.append('sourceType', existingCat?.sourceType || 'shelter');
     formData.append('listingType', existingCat?.listingType || 'adoption');
     formData.append('listingStatus', existingCat?.listingStatus || 'active');
@@ -274,6 +248,12 @@ const ManagerProfile = () => {
               : cat
           )
         );
+
+        if (openCalendarAfterSave && updatedCat?.id) {
+          closeCatModal();
+          navigate(`/manager/cats/${updatedCat.id}/vaccinations`, { state: { cat: updatedCat } });
+          return;
+        }
       } else {
         const response = await fetch(API_BASE_URL, {
           method: 'POST',
@@ -293,6 +273,12 @@ const ManagerProfile = () => {
           },
           ...prev,
         ]);
+
+        if (openCalendarAfterSave && savedCat?.id) {
+          closeCatModal();
+          navigate(`/manager/cats/${savedCat.id}/vaccinations`, { state: { cat: savedCat } });
+          return;
+        }
       }
 
       closeCatModal();
@@ -771,49 +757,31 @@ const ManagerProfile = () => {
               </div>
 
               <div className="form-group">
-                <label>Add vaccinations</label>
-
-                <div className="vaccination-builder">
-                  <div className="vaccination-input-row">
-                    <input
-                      type="text"
-                      value={vaccinationInput}
-                      onChange={(e) => setVaccinationInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddVaccination();
-                        }
-                      }}
-                      placeholder="Add vaccination"
-                    />
-
-                    <button
-                      type="button"
-                      className="vaccination-add-btn"
-                      onClick={handleAddVaccination}
-                    >
-                      + Add vaccine
-                    </button>
-                  </div>
-
-                  {newCatData.vaccinations.length > 0 && (
-                    <div className="vaccination-tags">
-                      {newCatData.vaccinations.map((item, index) => (
-                        <div key={`${item}-${index}`} className="vaccination-tag">
-                          <span>{item}</span>
-                          <button
-                            type="button"
-                            className="vaccination-tag-remove"
-                            onClick={() => handleRemoveVaccination(index)}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <label>Vaccinations</label>
+                {editingCatId ? (
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => {
+                      closeCatModal();
+                      const cat = myCats.find((item) => item.id === editingCatId) || null;
+                      navigate(`/manager/cats/${editingCatId}/vaccinations`, { state: { cat } });
+                    }}
+                    style={{ width: '100%' }}
+                  >
+                    Open vaccination calendar
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="secondary-btn"
+                    onClick={() => setOpenCalendarAfterSave(true)}
+                    style={{ width: '100%' }}
+                    title="Save cat and open calendar"
+                  >
+                    Save & open vaccination calendar
+                  </button>
+                )}
               </div>
 
               <div className="form-group">

@@ -28,6 +28,11 @@ export const BasicUser = sequelize.define(
       allowNull: false,
       defaultValue: 'user',
     },
+    points: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
   },
   {
     tableName: 'basic_user',
