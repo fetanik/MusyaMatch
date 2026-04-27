@@ -331,7 +331,8 @@
 
 .cat-card-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: wrap; 
+  align-items: center; 
   gap: 10px;
 }
 
@@ -342,6 +343,22 @@
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+
+.cat-card-actions .secondary-btn,
+.cat-card-actions .cat-edit-btn,
+.cat-card-actions .cat-delete-btn,
+.cat-card-actions .cat-foster-btn {
+  flex: 0 0 auto; 
+}
+
+
+.foster-action-stack {
+  display: flex;
+  flex-direction: column; 
+  gap: 10px;
+  margin-left: auto; 
 }
 
 .secondary-btn {
@@ -536,5 +553,107 @@
 
   .cat-foster-btn {
     margin-left: 0;
+  }
+}
+
+
+.foster-preview {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.foster-preview-image {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 16px;
+  border: 1px solid #f3d3ae;
+}
+
+.foster-preview-placeholder {
+  width: 150px;
+  height: 150px;
+  border-radius: 16px;
+  border: 1px solid #f3d3ae;
+  background: #fff7ef;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #b45309;
+}
+
+.foster-preview-info {
+  flex: 1;
+  min-width: 220px;
+}
+
+.foster-preview-info h4 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  color: #1a1a1a;
+}
+
+.foster-preview-info p {
+  margin: 0 0 8px;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.foster-period-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 768px) {
+  .foster-period-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .foster-preview {
+    flex-direction: column;
+  }
+
+  .foster-preview-image,
+  .foster-preview-placeholder {
+   
+    height: 220px;
+  }
+}
+
+.foster-action-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.cat-withdraw-btn {
+  background: #fff1f1;
+  color: #c81e1e;
+  border: none;
+  border-radius: 14px;
+  padding: 11px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cat-withdraw-btn:hover {
+  background: #ffe0e0;
+}
+
+.cat-withdraw-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .foster-action-stack {
+    margin-left: 0;
+    width: 100%;
   }
 }

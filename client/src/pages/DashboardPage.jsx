@@ -20,14 +20,25 @@ import {
 import BottomNav from '../components/BottomNav';
 
 const CATS_API = 'http://localhost:5001/api/cats';
+const USERS_API = 'http://localhost:5001/api/users';
 
 const emptyForm = {
   name: '',
   breed: '',
-  age: '',
   gender: '',
+  birthDate: '',
   description: '',
-  vaccinationsText: '',
+  vaccinationInput: '',
+  vaccinations: [],
+  imageFile: null,
+  imagePreview: '',
+};
+
+const emptyFosterForm = {
+  startDate: '',
+  endDate: '',
+  comment: '',
+  location: '',
 };
 
 const normalizeVaccinations = (vaccinations) => {
@@ -59,15 +70,6 @@ const normalizeVaccinations = (vaccinations) => {
   return [];
 };
 
-const vaccinationsToText = (vaccinations) =>
-  normalizeVaccinations(vaccinations).join(', ');
-
-const parseVaccinationsText = (text) =>
-  text
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-
 const getCurrentUserId = () => {
   const raw =
     localStorage.getItem('userId') ||
@@ -90,11 +92,18 @@ const getStatusMeta = (cat) => {
   return { label: 'Private', className: 'available' };
 };
 
+const formatBirthDate = (birthDate) => {
+  if (!birthDate) return 'Not specified';
+  return birthDate;
+};
+
 const DashboardPage = () => {
   const userId = getCurrentUserId();
   const userName = localStorage.getItem('userName') || 'Alex Johnson';
 
   const [cats, setCats] = useState([]);
+  const [userProfile, setUserProfile] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
@@ -106,6 +115,10 @@ const DashboardPage = () => {
   const [form, setForm] = useState(emptyForm);
 
   const [selectedVaccinationCat, setSelectedVaccinationCat] = useState(null);
+
+  const [isFosterModalOpen, setIsFosterModalOpen] = useState(false);
+  const [selectedFosterCat, setSelectedFosterCat] = useState(null);
+  const [fosterForm, setFosterForm] = useState(emptyFosterForm);
 
   const fetchMyCats = async () => {
     try {
@@ -140,6 +153,27 @@ const DashboardPage = () => {
     fetchMyCats();
   }, [userId]);
 
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!userId) return;
+
+      try {
+        const response = await fetch(`${USERS_API}/profile/${userId}`);
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(data?.message || 'Failed to load user profile');
+        }
+
+        setUserProfile(data);
+      } catch (error) {
+        console.error('Failed to load user profile:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, [userId]);
+
   const fosterCount = useMemo(
     () =>
       cats.filter(
@@ -150,7 +184,7 @@ const DashboardPage = () => {
 
   const openAddCatModal = () => {
     setEditingCat(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm });
     setIsCatModalOpen(true);
   };
 
@@ -159,10 +193,13 @@ const DashboardPage = () => {
     setForm({
       name: cat.name || '',
       breed: cat.breed || '',
-      age: cat.age ?? '',
       gender: cat.gender || '',
+      birthDate: cat.birthDate || '',
       description: cat.description || '',
-      vaccinationsText: vaccinationsToText(cat.vaccinations),
+      vaccinationInput: '',
+      vaccinations: normalizeVaccinations(cat.vaccinations),
+      imageFile: null,
+      imagePreview: cat.image_url || '',
     });
     setIsCatModalOpen(true);
   };
@@ -170,11 +207,74 @@ const DashboardPage = () => {
   const closeCatModal = () => {
     setIsCatModalOpen(false);
     setEditingCat(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm });
+  };
+
+  const openFosterModal = (cat) => {
+    setSelectedFosterCat(cat);
+    setFosterForm({
+      startDate: '',
+      endDate: '',
+      comment: '',
+      location: userProfile?.address || localStorage.getItem('userAddress') || '',
+    });
+    setIsFosterModalOpen(true);
+  };
+
+  const closeFosterModal = () => {
+    setIsFosterModalOpen(false);
+    setSelectedFosterCat(null);
+    setFosterForm({ ...emptyFosterForm });
   };
 
   const handleFormChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleFosterFormChange = (field, value) => {
+    setFosterForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const addVaccination = () => {
+    const value = form.vaccinationInput.trim();
+    if (!value) return;
+
+    if (form.vaccinations.includes(value)) {
+      setForm((prev) => ({ ...prev, vaccinationInput: '' }));
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      vaccinations: [...prev.vaccinations, value],
+      vaccinationInput: '',
+    }));
+  };
+
+  const removeVaccination = (itemToRemove) => {
+    setForm((prev) => ({
+      ...prev,
+      vaccinations: prev.vaccinations.filter((item) => item !== itemToRemove),
+    }));
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0] || null;
+
+    if (!file) {
+      setForm((prev) => ({
+        ...prev,
+        imageFile: null,
+        imagePreview: '',
+      }));
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      imageFile: file,
+      imagePreview: URL.createObjectURL(file),
+    }));
   };
 
   const handleSaveCat = async (e) => {
@@ -190,32 +290,36 @@ const DashboardPage = () => {
       return;
     }
 
-    const payload = {
-      userId,
-      shelterId: null,
-      name: form.name.trim(),
-      breed: form.breed.trim() || null,
-      age: form.age ? Number(form.age) : null,
-      gender: form.gender || null,
-      description: form.description.trim() || null,
-      vaccinations: parseVaccinationsText(form.vaccinationsText),
-      source: 'private',
-      sourceType: 'private',
-      listingType: editingCat?.listingType || 'none',
-      listingStatus: editingCat?.listingStatus || 'active',
-    };
-
     try {
       setSaveLoading(true);
+
+      const formData = new FormData();
+      formData.append('userId', String(userId));
+
+      if (editingCat?.shelterId) {
+        formData.append('shelterId', String(editingCat.shelterId));
+      }
+
+      formData.append('name', form.name.trim());
+      formData.append('breed', form.breed.trim());
+      formData.append('gender', form.gender);
+      formData.append('birthDate', form.birthDate || '');
+      formData.append('description', form.description.trim());
+      formData.append('vaccinations', JSON.stringify(form.vaccinations));
+      formData.append('source', 'private');
+      formData.append('sourceType', 'private');
+      formData.append('listingType', editingCat?.listingType || 'adoption');
+      formData.append('listingStatus', editingCat?.listingStatus || 'active');
+
+      if (form.imageFile) {
+        formData.append('image', form.imageFile);
+      }
 
       const response = await fetch(
         editingCat ? `${CATS_API}/${editingCat.id}` : CATS_API,
         {
           method: editingCat ? 'PUT' : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
+          body: formData,
         }
       );
 
@@ -261,19 +365,41 @@ const DashboardPage = () => {
     }
   };
 
-  const handleFosterCat = async (cat) => {
-    try {
-      setFosterLoadingId(cat.id);
+  const handleFosterCat = async (e) => {
+    e.preventDefault();
 
-      const fosterResponse = await fetch(`${CATS_API}/${cat.id}/foster-request`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: userId,
-        }),
-      });
+    if (!selectedFosterCat) return;
+
+    if (!fosterForm.startDate || !fosterForm.endDate) {
+      alert('Please select foster period.');
+      return;
+    }
+
+    if (fosterForm.endDate < fosterForm.startDate) {
+      alert('End date cannot be earlier than start date.');
+      return;
+    }
+
+    try {
+      setFosterLoadingId(selectedFosterCat.id);
+
+      const fosterResponse = await fetch(
+        `${CATS_API}/${selectedFosterCat.id}/foster-request`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            cat_id: selectedFosterCat.id,
+            start_date: fosterForm.startDate,
+            end_date: fosterForm.endDate,
+            comment: fosterForm.comment,
+            location: fosterForm.location,
+          }),
+        }
+      );
 
       const fosterData = await fosterResponse.json().catch(() => ({}));
 
@@ -281,7 +407,7 @@ const DashboardPage = () => {
         throw new Error(fosterData?.message || 'Failed to send foster request');
       }
 
-      const updateResponse = await fetch(`${CATS_API}/${cat.id}`, {
+      const updateResponse = await fetch(`${CATS_API}/${selectedFosterCat.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -289,8 +415,16 @@ const DashboardPage = () => {
         body: JSON.stringify({
           listingType: 'foster',
           listingStatus: 'pending',
-          sourceType: cat.sourceType || 'private',
-          source: cat.source || 'private',
+          previousListingType:
+            selectedFosterCat.previousListingType ||
+            selectedFosterCat.listingType ||
+            'adoption',
+          previousListingStatus:
+            selectedFosterCat.previousListingStatus ||
+            selectedFosterCat.listingStatus ||
+            'active',
+          sourceType: selectedFosterCat.sourceType || 'private',
+          source: selectedFosterCat.source || 'private',
         }),
       });
 
@@ -301,10 +435,49 @@ const DashboardPage = () => {
       }
 
       await fetchMyCats();
-      alert(`${cat.name} was successfully marked for foster.`);
+      closeFosterModal();
+      alert(`${selectedFosterCat.name} was successfully submitted for foster.`);
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Failed to put the cat on foster.');
+      alert(error.message || 'Failed to send foster request.');
+    } finally {
+      setFosterLoadingId(null);
+    }
+  };
+
+  const handleWithdrawFoster = async (cat) => {
+    const confirmed = window.confirm(`Withdraw foster request for ${cat.name}?`);
+    if (!confirmed) return;
+
+    try {
+      setFosterLoadingId(cat.id);
+
+      const response = await fetch(`${CATS_API}/${cat.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          listingType: cat.previousListingType || 'adoption',
+          listingStatus: cat.previousListingStatus || 'active',
+          previousListingType: null,
+          previousListingStatus: null,
+          sourceType: cat.sourceType || 'private',
+          source: cat.source || 'private',
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to withdraw foster');
+      }
+
+      await fetchMyCats();
+      alert(`${cat.name} was returned to the previous status.`);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'Failed to withdraw foster.');
     } finally {
       setFosterLoadingId(null);
     }
@@ -381,25 +554,33 @@ const DashboardPage = () => {
 
         <div className="quick-actions-grid">
           <div className="action-card" onClick={openAddCatModal}>
-            <div className="action-icon"><PlusCircle /></div>
+            <div className="action-icon">
+              <PlusCircle />
+            </div>
             <h4>Add a Cat</h4>
             <p>Create your cat profile</p>
           </div>
 
           <div className="action-card">
-            <div className="action-icon"><Users /></div>
+            <div className="action-icon">
+              <Users />
+            </div>
             <h4>Community</h4>
             <p>Connect with others</p>
           </div>
 
           <div className="action-card">
-            <div className="action-icon"><MapPin /></div>
+            <div className="action-icon">
+              <MapPin />
+            </div>
             <h4>Find Vet</h4>
             <p>Nearby clinics</p>
           </div>
 
           <div className="action-card">
-            <div className="action-icon"><TrendingUp /></div>
+            <div className="action-icon">
+              <TrendingUp />
+            </div>
             <h4>My Progress</h4>
             <p>View achievements</p>
           </div>
@@ -439,6 +620,20 @@ const DashboardPage = () => {
 
               return (
                 <article key={cat.id} className="cat-card">
+                  {cat.image_url ? (
+                    <img
+                      src={cat.image_url}
+                      alt={cat.name}
+                      style={{
+                        width: '100%',
+                        height: '220px',
+                        objectFit: 'cover',
+                        borderRadius: '16px',
+                        marginBottom: '14px',
+                      }}
+                    />
+                  ) : null}
+
                   <div className="cat-card-head">
                     <div>
                       <h3>{cat.name}</h3>
@@ -452,7 +647,7 @@ const DashboardPage = () => {
 
                   <div className="cat-meta">
                     <span>
-                      <strong>Age:</strong> {cat.age ?? 'Not specified'}
+                      <strong>Birth date:</strong> {formatBirthDate(cat.birthDate)}
                     </span>
                     <span>
                       <strong>Vaccinations:</strong>{' '}
@@ -500,18 +695,33 @@ const DashboardPage = () => {
                         {deleteLoadingId === cat.id ? 'Deleting...' : 'Delete'}
                       </button>
 
-                      <button
-                        type="button"
-                        className="cat-foster-btn"
-                        onClick={() => handleFosterCat(cat)}
-                        disabled={fosterLoadingId === cat.id || isOnFoster}
-                      >
-                        {fosterLoadingId === cat.id
-                          ? 'Sending...'
-                          : isOnFoster
-                          ? 'On foster'
-                          : 'Put on foster'}
-                      </button>
+                      <div className="foster-action-stack">
+                        {isOnFoster && (
+                          <button
+                            type="button"
+                            className="cat-withdraw-btn"
+                            onClick={() => handleWithdrawFoster(cat)}
+                            disabled={fosterLoadingId === cat.id}
+                          >
+                            {fosterLoadingId === cat.id ? 'Updating...' : 'Withdraw foster'}
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          className="cat-foster-btn"
+                          onClick={() => {
+                            if (!isOnFoster) openFosterModal(cat);
+                          }}
+                          disabled={fosterLoadingId === cat.id || isOnFoster}
+                        >
+                          {fosterLoadingId === cat.id
+                            ? 'Sending...'
+                            : isOnFoster
+                              ? 'On foster'
+                              : 'Put on foster'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </article>
@@ -533,36 +743,23 @@ const DashboardPage = () => {
 
             <form className="cat-form" onSubmit={handleSaveCat}>
               <div className="form-group">
-                <label>Cat Name</label>
+                <label>Name</label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={(e) => handleFormChange('name', e.target.value)}
-                  placeholder="Enter cat name"
+                  placeholder="Cat name"
                 />
               </div>
 
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Breed</label>
-                  <input
-                    type="text"
-                    value={form.breed}
-                    onChange={(e) => handleFormChange('breed', e.target.value)}
-                    placeholder="Enter breed"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Age</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={form.age}
-                    onChange={(e) => handleFormChange('age', e.target.value)}
-                    placeholder="Enter age"
-                  />
-                </div>
+              <div className="form-group">
+                <label>Breed</label>
+                <input
+                  type="text"
+                  value={form.breed}
+                  onChange={(e) => handleFormChange('breed', e.target.value)}
+                  placeholder="Breed"
+                />
               </div>
 
               <div className="form-group">
@@ -578,23 +775,84 @@ const DashboardPage = () => {
               </div>
 
               <div className="form-group">
+                <label>Birth date</label>
+                <input
+                  type="date"
+                  value={form.birthDate}
+                  onChange={(e) => handleFormChange('birthDate', e.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Add vaccinations</label>
+
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    value={form.vaccinationInput}
+                    onChange={(e) => handleFormChange('vaccinationInput', e.target.value)}
+                    placeholder="Add vaccination"
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={addVaccination}
+                  >
+                    + Add vaccine
+                  </button>
+                </div>
+
+                {form.vaccinations.length > 0 && (
+                  <div className="cat-vaccination-list" style={{ marginTop: '12px' }}>
+                    {form.vaccinations.map((item, index) => (
+                      <button
+                        key={`${item}-${index}`}
+                        type="button"
+                        className="cat-vaccination-chip"
+                        onClick={() => removeVaccination(item)}
+                        title="Remove vaccination"
+                      >
+                        {item} ×
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="form-group">
                 <label>Description</label>
                 <textarea
                   rows="4"
                   value={form.description}
                   onChange={(e) => handleFormChange('description', e.target.value)}
-                  placeholder="Tell something about your cat"
+                  placeholder="Detailed cat description"
                 />
               </div>
 
               <div className="form-group">
-                <label>Vaccinations</label>
+                <label>Photo</label>
                 <input
-                  type="text"
-                  value={form.vaccinationsText}
-                  onChange={(e) => handleFormChange('vaccinationsText', e.target.value)}
-                  placeholder="Example: Rabies, FVRCP, Deworming"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
                 />
+
+                {form.imagePreview && (
+                  <div style={{ marginTop: '12px' }}>
+                    <img
+                      src={form.imagePreview}
+                      alt="Cat preview"
+                      style={{
+                        width: '160px',
+                        height: '160px',
+                        objectFit: 'cover',
+                        borderRadius: '16px',
+                        border: '1px solid #f3d3ae',
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="modal-actions">
@@ -602,11 +860,7 @@ const DashboardPage = () => {
                   Cancel
                 </button>
                 <button type="submit" className="primary-btn" disabled={saveLoading}>
-                  {saveLoading
-                    ? 'Saving...'
-                    : editingCat
-                    ? 'Save Changes'
-                    : 'Create Cat'}
+                  {saveLoading ? 'Saving...' : 'Save Cat'}
                 </button>
               </div>
             </form>
@@ -651,6 +905,103 @@ const DashboardPage = () => {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isFosterModalOpen && selectedFosterCat && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <div className="modal-head">
+              <h3>Foster Request</h3>
+              <button type="button" className="modal-close" onClick={closeFosterModal}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form className="cat-form" onSubmit={handleFosterCat}>
+              <div className="foster-preview">
+                {selectedFosterCat.image_url ? (
+                  <img
+                    src={selectedFosterCat.image_url}
+                    alt={selectedFosterCat.name}
+                    className="foster-preview-image"
+                  />
+                ) : (
+                  <div className="foster-preview-placeholder">
+                    <Cat size={36} />
+                  </div>
+                )}
+
+                <div className="foster-preview-info">
+                  <h4>{selectedFosterCat.name}</h4>
+                  <p>
+                    <strong>Breed:</strong> {selectedFosterCat.breed || 'Not specified'}
+                  </p>
+                  <p>
+                    <strong>Description:</strong>{' '}
+                    {selectedFosterCat.description || 'No description yet.'}
+                  </p>
+                  <p>
+                    <strong>Character:</strong>{' '}
+                    {selectedFosterCat.personality || 'Not specified'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>City / location</label>
+                <input
+                  type="text"
+                  value={fosterForm.location}
+                  onChange={(e) => handleFosterFormChange('location', e.target.value)}
+                  placeholder="Enter city or location"
+                />
+              </div>
+
+              <div className="foster-period-grid">
+                <div className="form-group">
+                  <label>Start date</label>
+                  <input
+                    type="date"
+                    value={fosterForm.startDate}
+                    onChange={(e) => handleFosterFormChange('startDate', e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>End date</label>
+                  <input
+                    type="date"
+                    value={fosterForm.endDate}
+                    onChange={(e) => handleFosterFormChange('endDate', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Comment</label>
+                <textarea
+                  rows="4"
+                  value={fosterForm.comment}
+                  onChange={(e) => handleFosterFormChange('comment', e.target.value)}
+                  placeholder="Additional comment about foster period"
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="secondary-btn" onClick={closeFosterModal}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="primary-btn"
+                  disabled={fosterLoadingId === selectedFosterCat.id}
+                >
+                  {fosterLoadingId === selectedFosterCat.id ? 'Sending...' : 'Send Request'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

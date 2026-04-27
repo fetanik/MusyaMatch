@@ -11,6 +11,8 @@ import './models/Cat.js';
 import './models/BasicUser.js';
 import './models/Shelter.js';
 
+import usersRouter from './routes/users.js';
+
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -29,6 +31,8 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ message: 'Internal server error' });
 });
+
+app.use('/api/users', usersRouter);
 
 async function start() {
   try {
