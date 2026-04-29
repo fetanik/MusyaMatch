@@ -330,10 +330,22 @@
 }
 
 .cat-card-actions {
-  display: flex;
-  flex-wrap: wrap; 
-  align-items: center; 
+  display: grid;
+  grid-template-columns: auto auto auto 1fr;
+  align-items: center;
   gap: 10px;
+}
+
+.cat-card-actions .secondary-btn,
+.cat-card-actions .cat-edit-btn,
+.cat-card-actions .cat-delete-btn {
+  justify-self: start;
+}
+
+.cat-card-actions .cat-foster-btn,
+.cat-card-actions .cat-withdraw-btn {
+  justify-self: end;
+  margin-left: 0;
 }
 
 .cat-card-actions button {
@@ -349,17 +361,21 @@
 .cat-card-actions .secondary-btn,
 .cat-card-actions .cat-edit-btn,
 .cat-card-actions .cat-delete-btn,
-.cat-card-actions .cat-foster-btn {
-  flex: 0 0 auto; 
+.cat-card-actions .cat-foster-btn,
+.cat-card-actions .cat-withdraw-btn {
+  min-height: 30px;
+  padding: 11px 18px;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  border-radius: 14px;
 }
 
 
-.foster-action-stack {
-  display: flex;
-  flex-direction: column; 
-  gap: 10px;
-  margin-left: auto; 
-}
+
 
 .secondary-btn {
   background: #fff2df;
@@ -400,7 +416,6 @@
 .cat-foster-btn {
   background: linear-gradient(135deg, #FFB347, #FF8A00);
   color: white;
-  margin-left: auto;
 }
 
 .cat-foster-btn:hover {
@@ -624,12 +639,12 @@
   }
 }
 
-.foster-action-stack {
+/*.foster-action-stack {
   display: flex;
   flex-direction: column;
   gap: 10px;
   margin-left: auto;
-}
+} */
 
 .cat-withdraw-btn {
   background: #fff1f1;
@@ -651,9 +666,3 @@
   cursor: not-allowed;
 }
 
-@media (max-width: 768px) {
-  .foster-action-stack {
-    margin-left: 0;
-    width: 100%;
-  }
-}

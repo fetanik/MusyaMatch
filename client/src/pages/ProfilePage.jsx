@@ -332,7 +332,7 @@ const ProfilePage = () => {
               </div>
 
               <div className="field-group">
-                <label>Address</label>
+                <label>City</label>
                 <input
                   type="text"
                   name="address"

@@ -695,33 +695,22 @@ const DashboardPage = () => {
                         {deleteLoadingId === cat.id ? 'Deleting...' : 'Delete'}
                       </button>
 
-                      <div className="foster-action-stack">
-                        {isOnFoster && (
-                          <button
-                            type="button"
-                            className="cat-withdraw-btn"
-                            onClick={() => handleWithdrawFoster(cat)}
-                            disabled={fosterLoadingId === cat.id}
-                          >
-                            {fosterLoadingId === cat.id ? 'Updating...' : 'Withdraw foster'}
-                          </button>
-                        )}
-
-                        <button
-                          type="button"
-                          className="cat-foster-btn"
-                          onClick={() => {
-                            if (!isOnFoster) openFosterModal(cat);
-                          }}
-                          disabled={fosterLoadingId === cat.id || isOnFoster}
-                        >
-                          {fosterLoadingId === cat.id
-                            ? 'Sending...'
-                            : isOnFoster
-                              ? 'On foster'
-                              : 'Put on foster'}
-                        </button>
-                      </div>
+                     <button
+                        type="button"
+                        className={isOnFoster ? 'cat-withdraw-btn' : 'cat-foster-btn'}
+                        onClick={() => {
+                        if (isOnFoster) {
+                        handleWithdrawFoster(cat);
+                        } else {
+                        openFosterModal(cat);
+                        }
+                        }}
+                        disabled={fosterLoadingId === cat.id}
+>
+                       {fosterLoadingId === cat.id
+                       ? (isOnFoster ? 'Updating...' : 'Sending...')
+                       : (isOnFoster ? 'Withdraw foster' : 'Put on foster')}
+                     </button>
                     </div>
                   </div>
                 </article>
@@ -950,7 +939,7 @@ const DashboardPage = () => {
               </div>
 
               <div className="form-group">
-                <label>City / location</label>
+                <label>City</label>
                 <input
                   type="text"
                   value={fosterForm.location}
