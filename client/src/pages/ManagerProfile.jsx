@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fi';
 import { FaPaw } from 'react-icons/fa6';
 import BottomNav from '../components/BottomNav';
+import { useMessages } from '../components/MessagesContext';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
 
@@ -33,6 +34,7 @@ const formatGender = (gender) => {
 
 const ManagerProfile = () => {
   const navigate = useNavigate();
+  const { notify, confirm } = useMessages();
 
   const topRef = useRef(null);
 
@@ -298,12 +300,20 @@ const ManagerProfile = () => {
       closeCatModal();
     } catch (error) {
       console.error('Failed to save cat:', error);
-      alert('Failed to save cat profile. Please check the backend connection.');
+      await notify('Failed to save cat profile. Please check the backend connection.', {
+        type: 'error',
+        title: 'Error',
+      });
     }
   };
 
   const handleDeleteCat = async (catId) => {
-    const confirmed = window.confirm('Are you sure you want to delete this cat profile?');
+    const confirmed = await confirm('Are you sure you want to delete this cat profile?', {
+      type: 'error',
+      title: 'Confirm delete',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    });
     if (!confirmed) return;
 
     try {
@@ -326,7 +336,10 @@ const ManagerProfile = () => {
       }
     } catch (error) {
       console.error('Failed to delete cat:', error);
-      alert('Failed to delete cat profile. Please check the backend connection.');
+      await notify('Failed to delete cat profile. Please check the backend connection.', {
+        type: 'error',
+        title: 'Error',
+      });
     }
   };
 
@@ -358,7 +371,7 @@ const ManagerProfile = () => {
   };
 
   const showPlaceholder = (label) => {
-    alert(`${label} will be added later`);
+    notify(`${label} will be added later`, { type: 'info', title: 'Info' });
   };
 
   return (

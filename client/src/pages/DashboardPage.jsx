@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
+import { useMessages } from '../components/MessagesContext';
 
 const CATS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
 
@@ -91,6 +92,7 @@ const getStatusMeta = (cat) => {
 };
 
 const DashboardPage = () => {
+  const { notify, confirm } = useMessages();
   const userId = getCurrentUserId();
   const userName = localStorage.getItem('userName') || 'Alex Johnson';
 
@@ -181,12 +183,12 @@ const DashboardPage = () => {
     e.preventDefault();
 
     if (!userId) {
-      alert('User ID is missing. Please log in first.');
+      await notify('User ID is missing. Please log in first.', { type: 'error', title: 'Error' });
       return;
     }
 
     if (!form.name.trim()) {
-      alert('Cat name is required.');
+      await notify('Cat name is required.', { type: 'error', title: 'Error' });
       return;
     }
 
@@ -229,14 +231,19 @@ const DashboardPage = () => {
       await fetchMyCats();
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Failed to save cat.');
+      await notify(error.message || 'Failed to save cat.', { type: 'error', title: 'Error' });
     } finally {
       setSaveLoading(false);
     }
   };
 
   const handleDeleteCat = async (cat) => {
-    const confirmed = window.confirm(`Delete ${cat.name}?`);
+    const confirmed = await confirm(`Delete ${cat.name}?`, {
+      type: 'error',
+      title: 'Confirm delete',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    });
     if (!confirmed) return;
 
     try {
@@ -255,7 +262,7 @@ const DashboardPage = () => {
       await fetchMyCats();
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Failed to delete cat.');
+      await notify(error.message || 'Failed to delete cat.', { type: 'error', title: 'Error' });
     } finally {
       setDeleteLoadingId(null);
     }
@@ -301,10 +308,13 @@ const DashboardPage = () => {
       }
 
       await fetchMyCats();
-      alert(`${cat.name} was successfully marked for foster.`);
+      await notify(`${cat.name} was successfully marked for foster.`, {
+        type: 'success',
+        title: 'Success',
+      });
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Failed to put the cat on foster.');
+      await notify(error.message || 'Failed to put the cat on foster.', { type: 'error', title: 'Error' });
     } finally {
       setFosterLoadingId(null);
     }
