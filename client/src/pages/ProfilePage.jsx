@@ -4,10 +4,21 @@ import BottomNav from '../components/BottomNav';
 
 import { User, Mail, Save } from 'lucide-react';
 
+const getStoredUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}');
+  } catch {
+    return {};
+  }
+};
+
 const ProfilePage = () => {
-  const [name, setName] = useState(() => localStorage.getItem('userName') || 'Alex Johnson');
+  const storedUser = getStoredUser();
+  const [name, setName] = useState(
+    () => localStorage.getItem('userName') || storedUser.name || 'Alex Johnson'
+  );
   const [email, setEmail] = useState(
-    () => localStorage.getItem('userEmail') || 'alex.j@example.com'
+    () => localStorage.getItem('userEmail') || storedUser.email || 'alex.j@example.com'
   );
   const [phone, setPhone] = useState(() => localStorage.getItem('userPhone') || '');
   const [address, setAddress] = useState(() => localStorage.getItem('userAddress') || '');

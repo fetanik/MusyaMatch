@@ -10,6 +10,7 @@ const buildUserResponse = async (user) => {
     return {
       id: user.id,
       userId: user.id,
+      shelterId: shelter?.id || null,
       role: user.role,
       email: user.email,
       name: shelter?.name || user.firstName || '',
@@ -70,7 +71,7 @@ export async function register(req, res, next) {
     }
 
     const user = await BasicUser.create({
-      firstName: role === 'user' ? trimmedName : null,
+      firstName: trimmedName,
       email: normalizedEmail,
       password, // later you can replace this with bcrypt hash
       role,

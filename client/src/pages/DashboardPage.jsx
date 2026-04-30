@@ -69,6 +69,16 @@ const parseVaccinationsText = (text) =>
     .filter(Boolean);
 
 const getCurrentUserId = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const fromUserObject = Number(user.userId || user.id);
+    if (Number.isFinite(fromUserObject) && fromUserObject > 0) {
+      return fromUserObject;
+    }
+  } catch {
+    // fallback to legacy storage keys below
+  }
+
   const raw =
     localStorage.getItem('userId') ||
     localStorage.getItem('basicUserId') ||

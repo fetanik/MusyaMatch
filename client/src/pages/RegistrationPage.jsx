@@ -87,6 +87,10 @@ const RegistrationPage = () => {
 
         localStorage.setItem('user', JSON.stringify(result.user));
         localStorage.setItem('musyamatch_is_registered', 'true');
+        localStorage.setItem('userId', String(result.user?.userId || result.user?.id || ''));
+        localStorage.setItem('userRole', result.user?.role || '');
+        localStorage.setItem('userName', result.user?.name || '');
+        localStorage.setItem('userEmail', result.user?.email || '');
 
         if (result.user.role === 'manager') {
           navigate('/manager/profile');
@@ -118,6 +122,10 @@ const RegistrationPage = () => {
 
       localStorage.setItem('user', JSON.stringify(result.user));
       localStorage.setItem('musyamatch_is_registered', 'true');
+      localStorage.setItem('userId', String(result.user?.userId || result.user?.id || ''));
+      localStorage.setItem('userRole', result.user?.role || '');
+      localStorage.setItem('userName', result.user?.name || '');
+      localStorage.setItem('userEmail', result.user?.email || '');
       resetFormState();
 
       if (result.user.role === 'manager') {
