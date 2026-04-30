@@ -1,5 +1,6 @@
 import { Cat } from '../models/Cat.js';
 import { cloudinary } from '../config/cloudinary.js';
+import { Shelter } from '../models/Shelter.js';
 
 function uploadBufferToCloudinary(fileBuffer, folder = 'musyamatch/cats') {
   return new Promise((resolve, reject) => {
@@ -46,6 +47,18 @@ const parseVaccinationsInput = (vaccinations) => {
   }
 
   return [];
+};
+
+const toOptionalPositiveInt = (value) => {
+  if (value === undefined || value === null) return null;
+
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed <= 0) return null;
+
+  return parsed;
 };
 
 export async function getCats(req, res, next) {
@@ -101,15 +114,30 @@ export async function createCat(req, res, next) {
       return res.status(400).json({ message: 'Name is required' });
     }
 
+    const normalizedUserId = toOptionalPositiveInt(userId);
+    let normalizedShelterId = toOptionalPositiveInt(shelterId);
+
+    if (!normalizedShelterId && normalizedUserId) {
+      const shelter = await Shelter.findOne({
+        where: { userId: normalizedUserId },
+        attributes: ['id'],
+      });
+      normalizedShelterId = shelter?.id || null;
+    }
+
     let imageUrl = req.body.image_url || req.body.imageUrl || null;
     if (req.file) {
-      const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
-      imageUrl = uploadResult.secure_url;
+      try {
+        const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
+        imageUrl = uploadResult.secure_url;
+      } catch (uploadError) {
+        console.error('Cloudinary upload failed, creating cat without image:', uploadError);
+      }
     }
 
     const cat = await Cat.create({
-      shelterId: shelterId ?? null,
-      userId: userId ?? null,
+      shelterId: normalizedShelterId,
+      userId: normalizedUserId,
       name: name.trim(),
       breed: breed?.trim() || null,
       gender: gender || null,
@@ -161,17 +189,24 @@ export async function updateCat(req, res, next) {
       return res.status(404).json({ message: 'Cat not found' });
     }
 
+    const normalizedUserId = toOptionalPositiveInt(userId);
+    const normalizedShelterId = toOptionalPositiveInt(shelterId);
+
     let imageUrl = cat.image_url;
     if (req.file) {
-      const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
-      imageUrl = uploadResult.secure_url;
+      try {
+        const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
+        imageUrl = uploadResult.secure_url;
+      } catch (uploadError) {
+        console.error('Cloudinary upload failed, keeping previous image:', uploadError);
+      }
     } else if (req.body.image_url || req.body.imageUrl) {
       imageUrl = req.body.image_url || req.body.imageUrl;
     }
 
     await cat.update({
-      shelterId: shelterId !== undefined ? shelterId : cat.shelterId,
-      userId: userId !== undefined ? userId : cat.userId,
+      shelterId: shelterId !== undefined ? normalizedShelterId : cat.shelterId,
+      userId: userId !== undefined ? normalizedUserId : cat.userId,
       name: name !== undefined ? (name?.trim() || cat.name) : cat.name,
       breed: breed !== undefined ? (breed?.trim() || null) : cat.breed,
       gender: gender !== undefined ? (gender || null) : cat.gender,
