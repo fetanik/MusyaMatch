@@ -1,5 +1,7 @@
 import { Cat } from '../models/Cat.js';
 import { cloudinary } from '../config/cloudinary.js';
+import { ACHIEVEMENT_TYPES, awardPoints } from '../services/achievements.js';
+import { AchievementEvent } from '../models/AchievementEvent.js';
 import { Shelter } from '../models/Shelter.js';
 
 function uploadBufferToCloudinary(fileBuffer, folder = 'musyamatch/cats') {
@@ -80,6 +82,13 @@ const parseVaccinationsInput = (vaccinations) => {
   return [];
 };
 
+function isCatProfileComplete(cat) {
+  const hasPhoto = Boolean(cat.image_url);
+  const hasBreed = Boolean(cat.breed);
+  const hasAge = cat.age !== null && cat.age !== undefined && cat.age !== '';
+  const hasPersonality = Boolean(cat.personality);
+  return hasPhoto && hasBreed && hasAge && hasPersonality;
+}
 const toOptionalPositiveInt = (value) => {
   if (value === undefined || value === null) return null;
 
@@ -186,6 +195,28 @@ export async function createCat(req, res, next) {
       listingStatus: listingStatus || 'active',
     });
 
+    if (cat.userId) {
+      await awardPoints({
+        userId: cat.userId,
+        type: ACHIEVEMENT_TYPES.CAT_PROFILE_CREATED,
+        points: 50,
+        catId: cat.id,
+        meta: { catName: cat.name },
+        allowDuplicate: false,
+      });
+
+      if (isCatProfileComplete(cat)) {
+        await awardPoints({
+          userId: cat.userId,
+          type: ACHIEVEMENT_TYPES.CAT_PROFILE_COMPLETED,
+          points: 40,
+          catId: cat.id,
+          meta: { catName: cat.name },
+          allowDuplicate: false,
+        });
+      }
+    }
+
     return res.status(201).json(cat);
   } catch (err) {
     next(err);
@@ -283,6 +314,27 @@ export async function updateCat(req, res, next) {
 previousListingStatus:
   previousListingStatus !== undefined ? previousListingStatus : cat.previousListingStatus,
     });
+
+    if (cat.userId && isCatProfileComplete(cat)) {
+      const already = await AchievementEvent.findOne({
+        where: {
+          userId: cat.userId,
+          catId: cat.id,
+          type: ACHIEVEMENT_TYPES.CAT_PROFILE_COMPLETED,
+        },
+      });
+
+      if (!already) {
+        await awardPoints({
+          userId: cat.userId,
+          type: ACHIEVEMENT_TYPES.CAT_PROFILE_COMPLETED,
+          points: 40,
+          catId: cat.id,
+          meta: { catName: cat.name },
+          allowDuplicate: false,
+        });
+      }
+    }
 
     return res.json(cat);
   } catch (err) {

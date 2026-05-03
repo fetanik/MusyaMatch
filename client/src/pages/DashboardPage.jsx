@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../styles/DashboardPage.css';
 
 import {
@@ -48,25 +49,6 @@ const normalizeVaccinations = (vaccinations) => {
       .filter(Boolean);
   }
 
-  if (typeof vaccinations === 'string') {
-    const trimmed = vaccinations.trim();
-    if (!trimmed) return [];
-
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((item) => (typeof item === 'string' ? item.trim() : ''))
-          .filter(Boolean);
-      }
-    } catch {
-      return trimmed
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean);
-    }
-  }
-
   return [];
 };
 
@@ -108,6 +90,7 @@ const formatBirthDate = (birthDate) => {
 };
 
 const DashboardPage = () => {
+  const navigate = useNavigate();
   const { notify, confirm } = useMessages();
   const userId = getCurrentUserId();
   const userName = localStorage.getItem('userName') || 'Alex Johnson';
@@ -124,6 +107,7 @@ const DashboardPage = () => {
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [editingCat, setEditingCat] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [openCalendarAfterSave, setOpenCalendarAfterSave] = useState(false);
 
   const [selectedVaccinationCat, setSelectedVaccinationCat] = useState(null);
 
@@ -218,6 +202,8 @@ const DashboardPage = () => {
   const closeCatModal = () => {
     setIsCatModalOpen(false);
     setEditingCat(null);
+    setForm(emptyForm);
+    setOpenCalendarAfterSave(false);
     setForm({ ...emptyForm });
   };
 
@@ -301,6 +287,21 @@ const DashboardPage = () => {
       return;
     }
 
+    const payload = {
+      userId,
+      shelterId: null,
+      name: form.name.trim(),
+      breed: form.breed.trim() || null,
+      age: form.age ? Number(form.age) : null,
+      gender: form.gender || null,
+      description: form.description.trim() || null,
+      vaccinations: editingCat?.vaccinations || [],
+      source: 'private',
+      sourceType: 'private',
+      listingType: editingCat?.listingType || 'none',
+      listingStatus: editingCat?.listingStatus || 'active',
+    };
+
     try {
       setSaveLoading(true);
 
@@ -342,6 +343,11 @@ const DashboardPage = () => {
 
       closeCatModal();
       await fetchMyCats();
+
+      const savedCatId = Number(data?.id);
+      if (openCalendarAfterSave && Number.isInteger(savedCatId) && savedCatId > 0) {
+        navigate(`/cats/${savedCatId}/vaccinations`, { state: { cat: data } });
+      }
     } catch (error) {
       console.error(error);
       await notify(error.message || 'Failed to save cat.', { type: 'error', title: 'Error' });
@@ -540,7 +546,16 @@ const DashboardPage = () => {
           </div>
 
           <div className="achievements-row">
-            <div className="achievement-badge">
+            <div
+              className="achievement-badge clickable"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate('/achievements')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') navigate('/achievements');
+              }}
+              title="Open achievements"
+            >
               <Star /> 0 Achievements
             </div>
             <div className="achievement-badge foster-badge">
@@ -593,10 +608,8 @@ const DashboardPage = () => {
             <p>Nearby clinics</p>
           </div>
 
-          <div className="action-card">
-            <div className="action-icon">
-              <TrendingUp />
-            </div>
+          <div className="action-card" onClick={() => navigate('/achievements')}>
+            <div className="action-icon"><TrendingUp /></div>
             <h4>My Progress</h4>
             <p>View achievements</p>
           </div>
@@ -836,6 +849,31 @@ const DashboardPage = () => {
               </div>
 
               <div className="form-group">
+                <label>Vaccinations</label>
+                {editingCat?.id ? (
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => {
+                      closeCatModal();
+                      navigate(`/cats/${editingCat.id}/vaccinations`, {
+                        state: { cat: editingCat },
+                      });
+                    }}
+                    style={{ width: '100%' }}
+                  >
+                    Open vaccination calendar
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="secondary-btn"
+                    onClick={() => setOpenCalendarAfterSave(true)}
+                    style={{ width: '100%' }}
+                    title="Save cat and open calendar"
+                  >
+                    Save & open vaccination calendar
+                  </button>
                 <label>Photo</label>
                 <input
                   type="file"

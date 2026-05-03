@@ -6,11 +6,14 @@ import { sequelize, connectDatabase } from './config/database.js';
 import catsRouter from './routes/cats.js';
 import shelterRouter from './routes/shelter.js';
 import authRouter from './routes/auth.js';
+import achievementsRouter from './routes/achievements.js';
 import needsRouter from './routes/needs.js';
 
 import './models/Cat.js';
 import './models/BasicUser.js';
 import './models/Shelter.js';
+import './models/Vaccination.js';
+import './models/AchievementEvent.js';
 import './models/Need.js';
 
 import usersRouter from './routes/users.js';
@@ -28,6 +31,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/cats', catsRouter);
 app.use('/api/shelter', shelterRouter);
+app.use('/api/achievements', achievementsRouter);
 app.use('/api/needs', needsRouter);
 
 app.use((err, req, res, next) => {
