@@ -29,6 +29,30 @@ export const BasicUser = sequelize.define(
       allowNull: false,
       defaultValue: 'user',
     },
+    phone: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    address: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    instagram: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    facebook: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    telegram: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    photo: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
   },
   {
     tableName: 'basic_user',

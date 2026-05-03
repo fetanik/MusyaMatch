@@ -3,7 +3,34 @@ import { useEffect, useMemo, useState } from 'react';
 import '../styles/Gallery.css';
 import BottomNav from '../components/BottomNav';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
+
+const isCatVisibleInGallery = (cat) => {
+  const source = (cat.source || 'shelter').toLowerCase();
+  const listingType = (cat.listingType || '').toLowerCase();
+  const listingStatus = (cat.listingStatus || '').toLowerCase();
+
+  if (source === 'shelter') {
+    return true;
+  }
+
+  if (source === 'private' && (listingType === 'foster' || listingStatus === 'pending')) {
+    return true;
+  }
+
+  return false;
+};
+
+const getGalleryBadgeLabel = (cat) => {
+  const listingType = (cat.listingType || '').toLowerCase();
+  const listingStatus = (cat.listingStatus || '').toLowerCase();
+
+  if (listingType === 'foster' || listingStatus === 'pending') {
+    return 'fostered';
+  }
+
+  return (cat.source || 'shelter').toLowerCase();
+};
 
 const Gallery = () => {
   const [cats, setCats] = useState([]);
@@ -64,16 +91,28 @@ const Gallery = () => {
   }, [selectedCat]);
 
   const filteredCats = useMemo(() => {
-    return cats.filter((cat) => {
-      const sourceMatch = filters.source === 'all' || (cat.source || 'shelter') === filters.source;
-      const sexMatch = !filters.sex || (cat.sex || '') === filters.sex;
-      const urgencyMatch = !filters.urgency || (cat.urgency || '') === filters.urgency;
-      const breedMatch =
-        !filters.breed || (cat.breed || '').toLowerCase().includes(filters.breed.toLowerCase());
+  return cats.filter((cat) => {
+    const source = (cat.source || 'shelter').toLowerCase();
+    const listingType = (cat.listingType || '').toLowerCase();
+    const listingStatus = (cat.listingStatus || '').toLowerCase();
 
-      return sourceMatch && sexMatch && urgencyMatch && breedMatch;
-    });
-  }, [cats, filters]);
+    const visibleInGallery = isCatVisibleInGallery(cat);
+
+    const sourceMatch =
+      filters.source === 'all'
+        ? true
+        : filters.source === 'private'
+          ? source === 'private' && (listingType === 'foster' || listingStatus === 'pending')
+          : source === filters.source;
+
+    const sexMatch = !filters.sex || (cat.sex || '') === filters.sex;
+    const urgencyMatch = !filters.urgency || (cat.urgency || '') === filters.urgency;
+    const breedMatch =
+      !filters.breed || (cat.breed || '').toLowerCase().includes(filters.breed.toLowerCase());
+
+    return visibleInGallery && sourceMatch && sexMatch && urgencyMatch && breedMatch;
+  });
+}, [cats, filters]);
 
   const onFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -189,8 +228,8 @@ const Gallery = () => {
                   >
                     <div className="image-wrapper">
                       <img src={cat.image_url} alt={cat.name} />
-                      <span className={`badge ${(cat.source || 'shelter').toLowerCase()}`}>
-                        {cat.source || 'shelter'}
+                      <span className={`badge ${getGalleryBadgeLabel(cat)}`}>
+                       {getGalleryBadgeLabel(cat)}
                       </span>
                     </div>
 
@@ -254,7 +293,7 @@ const Gallery = () => {
               </p>
               <div className="cat-modal-chips">
                 {selectedCat.source && (
-                  <span className="cat-chip">Source: {selectedCat.source}</span>
+                  <span className="cat-chip">Status: {getGalleryBadgeLabel(selectedCat)}</span>
                 )}
                 {selectedCat.sex && <span className="cat-chip">Sex: {selectedCat.sex}</span>}
                 {selectedCat.urgency && (

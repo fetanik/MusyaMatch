@@ -20,11 +20,42 @@ function uploadBufferToCloudinary(fileBuffer, folder = 'musyamatch/cats') {
 }
 
 const normalizeVaccinations = (vaccinations) => {
-  if (!Array.isArray(vaccinations)) return [];
+  if (Array.isArray(vaccinations)) {
+    return vaccinations
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean);
+  }
 
-  return vaccinations
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter(Boolean);
+  if (typeof vaccinations === 'string') {
+    const trimmed = vaccinations.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => (typeof item === 'string' ? item.trim() : ''))
+          .filter(Boolean);
+      }
+    } catch {
+      return trimmed
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+
+  return [];
+};
+
+
+const normalizeNullableInt = (value) => {
+  if (value === undefined || value === null || value === '' || value === 'null') {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
 const parseVaccinationsInput = (vaccinations) => {
@@ -164,24 +195,26 @@ export async function createCat(req, res, next) {
 export async function updateCat(req, res, next) {
   try {
     const { id } = req.params;
-    const {
-      shelterId,
-      userId,
-      name,
-      breed,
-      gender,
-      birthDate,
-      description,
-      vaccinations,
-      sourceType,
-      listingType,
-      listingStatus,
-      age,
-      source,
-      urgency,
-      personality,
-      sex,
-    } = req.body;
+  const {
+  shelterId,
+  userId,
+  name,
+  breed,
+  gender,
+  birthDate,
+  description,
+  vaccinations,
+  sourceType,
+  listingType,
+  listingStatus,
+  previousListingType,
+  previousListingStatus,
+  age,
+  source,
+  urgency,
+  personality,
+  sex,
+} = req.body;
 
     const cat = await Cat.findByPk(id);
 
@@ -193,6 +226,7 @@ export async function updateCat(req, res, next) {
     const normalizedShelterId = toOptionalPositiveInt(shelterId);
 
     let imageUrl = cat.image_url;
+
     if (req.file) {
       try {
         const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
@@ -203,6 +237,12 @@ export async function updateCat(req, res, next) {
     } else if (req.body.image_url || req.body.imageUrl) {
       imageUrl = req.body.image_url || req.body.imageUrl;
     }
+
+    const normalizedShelterId =
+      shelterId !== undefined ? normalizeNullableInt(shelterId) : cat.shelterId;
+
+    const normalizedUserId =
+      userId !== undefined ? normalizeNullableInt(userId) : cat.userId;
 
     await cat.update({
       shelterId: shelterId !== undefined ? normalizedShelterId : cat.shelterId,
@@ -219,14 +259,29 @@ export async function updateCat(req, res, next) {
           ? parseVaccinationsInput(vaccinations)
           : cat.vaccinations,
       image_url: imageUrl,
-      source: source !== undefined ? (source?.trim()?.toLowerCase() || 'shelter') : cat.source,
-      urgency: urgency !== undefined ? (urgency?.trim()?.toLowerCase() || null) : cat.urgency,
+      source:
+        source !== undefined
+          ? (source?.trim()?.toLowerCase() || 'shelter')
+          : cat.source,
+      urgency:
+        urgency !== undefined
+          ? (urgency?.trim()?.toLowerCase() || null)
+          : cat.urgency,
       personality:
-        personality !== undefined ? (personality?.trim() || null) : cat.personality,
-      sex: sex !== undefined ? (sex?.trim()?.toLowerCase() || null) : cat.sex,
+        personality !== undefined
+          ? (personality?.trim() || null)
+          : cat.personality,
+      sex:
+        sex !== undefined
+          ? (sex?.trim()?.toLowerCase() || null)
+          : cat.sex,
       sourceType: sourceType || cat.sourceType,
       listingType: listingType || cat.listingType,
       listingStatus: listingStatus || cat.listingStatus,
+      previousListingType:
+  previousListingType !== undefined ? previousListingType : cat.previousListingType,
+previousListingStatus:
+  previousListingStatus !== undefined ? previousListingStatus : cat.previousListingStatus,
     });
 
     return res.json(cat);
