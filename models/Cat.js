@@ -104,6 +104,16 @@ export const Cat = sequelize.define(
       defaultValue: 'active',
       field: 'listing_status',
     },
+    previousListingType: {
+  type: DataTypes.ENUM('adoption', 'foster', 'none'),
+  allowNull: true,
+  field: 'previous_listing_type',
+},
+previousListingStatus: {
+  type: DataTypes.ENUM('active', 'pending', 'placed', 'adopted', 'hidden'),
+  allowNull: true,
+  field: 'previous_listing_status',
+},
   },
   {
     tableName: 'cat',

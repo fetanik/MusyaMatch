@@ -22,6 +22,7 @@ export const BasicUser = sequelize.define(
     password: {
       type: DataTypes.STRING(255),
       allowNull: false,
+      field: 'password_hash',
     },
     role: {
       type: DataTypes.ENUM('user', 'manager', 'admin'),
@@ -32,6 +33,29 @@ export const BasicUser = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
+    phone: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    address: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    instagram: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    facebook: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    telegram: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    photo: {
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
   },
   {

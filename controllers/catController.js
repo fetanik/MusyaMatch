@@ -2,6 +2,7 @@ import { Cat } from '../models/Cat.js';
 import { cloudinary } from '../config/cloudinary.js';
 import { ACHIEVEMENT_TYPES, awardPoints } from '../services/achievements.js';
 import { AchievementEvent } from '../models/AchievementEvent.js';
+import { Shelter } from '../models/Shelter.js';
 
 function uploadBufferToCloudinary(fileBuffer, folder = 'musyamatch/cats') {
   return new Promise((resolve, reject) => {
@@ -21,11 +22,42 @@ function uploadBufferToCloudinary(fileBuffer, folder = 'musyamatch/cats') {
 }
 
 const normalizeVaccinations = (vaccinations) => {
-  if (!Array.isArray(vaccinations)) return [];
+  if (Array.isArray(vaccinations)) {
+    return vaccinations
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean);
+  }
 
-  return vaccinations
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter(Boolean);
+  if (typeof vaccinations === 'string') {
+    const trimmed = vaccinations.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => (typeof item === 'string' ? item.trim() : ''))
+          .filter(Boolean);
+      }
+    } catch {
+      return trimmed
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+
+  return [];
+};
+
+
+const normalizeNullableInt = (value) => {
+  if (value === undefined || value === null || value === '' || value === 'null') {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
 const parseVaccinationsInput = (vaccinations) => {
@@ -57,6 +89,17 @@ function isCatProfileComplete(cat) {
   const hasPersonality = Boolean(cat.personality);
   return hasPhoto && hasBreed && hasAge && hasPersonality;
 }
+const toOptionalPositiveInt = (value) => {
+  if (value === undefined || value === null) return null;
+
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed <= 0) return null;
+
+  return parsed;
+};
 
 export async function getCats(req, res, next) {
   try {
@@ -111,15 +154,30 @@ export async function createCat(req, res, next) {
       return res.status(400).json({ message: 'Name is required' });
     }
 
+    const normalizedUserId = toOptionalPositiveInt(userId);
+    let normalizedShelterId = toOptionalPositiveInt(shelterId);
+
+    if (!normalizedShelterId && normalizedUserId) {
+      const shelter = await Shelter.findOne({
+        where: { userId: normalizedUserId },
+        attributes: ['id'],
+      });
+      normalizedShelterId = shelter?.id || null;
+    }
+
     let imageUrl = req.body.image_url || req.body.imageUrl || null;
     if (req.file) {
-      const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
-      imageUrl = uploadResult.secure_url;
+      try {
+        const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
+        imageUrl = uploadResult.secure_url;
+      } catch (uploadError) {
+        console.error('Cloudinary upload failed, creating cat without image:', uploadError);
+      }
     }
 
     const cat = await Cat.create({
-      shelterId: shelterId ?? null,
-      userId: userId ?? null,
+      shelterId: normalizedShelterId,
+      userId: normalizedUserId,
       name: name.trim(),
       breed: breed?.trim() || null,
       gender: gender || null,
@@ -168,24 +226,26 @@ export async function createCat(req, res, next) {
 export async function updateCat(req, res, next) {
   try {
     const { id } = req.params;
-    const {
-      shelterId,
-      userId,
-      name,
-      breed,
-      gender,
-      birthDate,
-      description,
-      vaccinations,
-      sourceType,
-      listingType,
-      listingStatus,
-      age,
-      source,
-      urgency,
-      personality,
-      sex,
-    } = req.body;
+  const {
+  shelterId,
+  userId,
+  name,
+  breed,
+  gender,
+  birthDate,
+  description,
+  vaccinations,
+  sourceType,
+  listingType,
+  listingStatus,
+  previousListingType,
+  previousListingStatus,
+  age,
+  source,
+  urgency,
+  personality,
+  sex,
+} = req.body;
 
     const cat = await Cat.findByPk(id);
 
@@ -193,17 +253,31 @@ export async function updateCat(req, res, next) {
       return res.status(404).json({ message: 'Cat not found' });
     }
 
+    const normalizedUserId = toOptionalPositiveInt(userId);
+    const normalizedShelterId = toOptionalPositiveInt(shelterId);
+
     let imageUrl = cat.image_url;
+
     if (req.file) {
-      const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
-      imageUrl = uploadResult.secure_url;
+      try {
+        const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
+        imageUrl = uploadResult.secure_url;
+      } catch (uploadError) {
+        console.error('Cloudinary upload failed, keeping previous image:', uploadError);
+      }
     } else if (req.body.image_url || req.body.imageUrl) {
       imageUrl = req.body.image_url || req.body.imageUrl;
     }
 
+    const normalizedShelterId =
+      shelterId !== undefined ? normalizeNullableInt(shelterId) : cat.shelterId;
+
+    const normalizedUserId =
+      userId !== undefined ? normalizeNullableInt(userId) : cat.userId;
+
     await cat.update({
-      shelterId: shelterId !== undefined ? shelterId : cat.shelterId,
-      userId: userId !== undefined ? userId : cat.userId,
+      shelterId: shelterId !== undefined ? normalizedShelterId : cat.shelterId,
+      userId: userId !== undefined ? normalizedUserId : cat.userId,
       name: name !== undefined ? (name?.trim() || cat.name) : cat.name,
       breed: breed !== undefined ? (breed?.trim() || null) : cat.breed,
       gender: gender !== undefined ? (gender || null) : cat.gender,
@@ -216,14 +290,29 @@ export async function updateCat(req, res, next) {
           ? parseVaccinationsInput(vaccinations)
           : cat.vaccinations,
       image_url: imageUrl,
-      source: source !== undefined ? (source?.trim()?.toLowerCase() || 'shelter') : cat.source,
-      urgency: urgency !== undefined ? (urgency?.trim()?.toLowerCase() || null) : cat.urgency,
+      source:
+        source !== undefined
+          ? (source?.trim()?.toLowerCase() || 'shelter')
+          : cat.source,
+      urgency:
+        urgency !== undefined
+          ? (urgency?.trim()?.toLowerCase() || null)
+          : cat.urgency,
       personality:
-        personality !== undefined ? (personality?.trim() || null) : cat.personality,
-      sex: sex !== undefined ? (sex?.trim()?.toLowerCase() || null) : cat.sex,
+        personality !== undefined
+          ? (personality?.trim() || null)
+          : cat.personality,
+      sex:
+        sex !== undefined
+          ? (sex?.trim()?.toLowerCase() || null)
+          : cat.sex,
       sourceType: sourceType || cat.sourceType,
       listingType: listingType || cat.listingType,
       listingStatus: listingStatus || cat.listingStatus,
+      previousListingType:
+  previousListingType !== undefined ? previousListingType : cat.previousListingType,
+previousListingStatus:
+  previousListingStatus !== undefined ? previousListingStatus : cat.previousListingStatus,
     });
 
     if (cat.userId && isCatProfileComplete(cat)) {

@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fi';
 import { FaPaw } from 'react-icons/fa6';
 import BottomNav from '../components/BottomNav';
+import { useMessages } from '../components/MessagesContext';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
 
@@ -31,8 +32,30 @@ const formatGender = (gender) => {
   return 'Not specified';
 };
 
+const getCurrentUserIds = () => {
+  try {
+    const rawUser = localStorage.getItem('user');
+    if (!rawUser) {
+      return { userId: null, shelterId: null };
+    }
+
+    const parsedUser = JSON.parse(rawUser);
+    const parsedUserId = Number(parsedUser?.userId ?? parsedUser?.id);
+    const parsedShelterId = Number(parsedUser?.shelterId);
+
+    return {
+      userId: Number.isInteger(parsedUserId) && parsedUserId > 0 ? parsedUserId : null,
+      shelterId:
+        Number.isInteger(parsedShelterId) && parsedShelterId > 0 ? parsedShelterId : null,
+    };
+  } catch {
+    return { userId: null, shelterId: null };
+  }
+};
+
 const ManagerProfile = () => {
   const navigate = useNavigate();
+  const { notify, confirm } = useMessages();
 
   const topRef = useRef(null);
 
@@ -204,6 +227,7 @@ const ManagerProfile = () => {
     e.preventDefault();
 
     const existingCat = myCats.find((cat) => cat.id === editingCatId);
+    const { userId: currentUserId, shelterId: currentShelterId } = getCurrentUserIds();
 
     const formData = new FormData();
     formData.append('name', newCatData.name.trim());
@@ -216,8 +240,12 @@ const ManagerProfile = () => {
     formData.append('sourceType', existingCat?.sourceType || 'shelter');
     formData.append('listingType', existingCat?.listingType || 'adoption');
     formData.append('listingStatus', existingCat?.listingStatus || 'active');
-    formData.append('shelterId', String(existingCat?.shelterId ?? ''));
-    formData.append('userId', String(existingCat?.userId ?? ''));
+    if (existingCat?.shelterId || currentShelterId) {
+      formData.append('shelterId', String(existingCat?.shelterId || currentShelterId));
+    }
+    if (existingCat?.userId || currentUserId) {
+      formData.append('userId', String(existingCat?.userId || currentUserId));
+    }
 
     if (catImageFile) {
       formData.append('image', catImageFile);
@@ -284,12 +312,20 @@ const ManagerProfile = () => {
       closeCatModal();
     } catch (error) {
       console.error('Failed to save cat:', error);
-      alert('Failed to save cat profile. Please check the backend connection.');
+      await notify('Failed to save cat profile. Please check the backend connection.', {
+        type: 'error',
+        title: 'Error',
+      });
     }
   };
 
   const handleDeleteCat = async (catId) => {
-    const confirmed = window.confirm('Are you sure you want to delete this cat profile?');
+    const confirmed = await confirm('Are you sure you want to delete this cat profile?', {
+      type: 'error',
+      title: 'Confirm delete',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    });
     if (!confirmed) return;
 
     try {
@@ -312,7 +348,10 @@ const ManagerProfile = () => {
       }
     } catch (error) {
       console.error('Failed to delete cat:', error);
-      alert('Failed to delete cat profile. Please check the backend connection.');
+      await notify('Failed to delete cat profile. Please check the backend connection.', {
+        type: 'error',
+        title: 'Error',
+      });
     }
   };
 
@@ -344,7 +383,7 @@ const ManagerProfile = () => {
   };
 
   const showPlaceholder = (label) => {
-    alert(`${label} will be added later`);
+    notify(`${label} will be added later`, { type: 'info', title: 'Info' });
   };
 
   return (
@@ -513,13 +552,13 @@ const ManagerProfile = () => {
             <button
               className="action-card"
               type="button"
-              onClick={() => showPlaceholder('Shelter needs')}
+              onClick={() => navigate('/manager/needs')}
             >
               <div className="action-icon">
                 <FiClipboard size={22} />
               </div>
               <h3>Needs</h3>
-              <p>Temporary placeholder</p>
+              <p>Manage shelter support requests</p>
             </button>
           </div>
         </section>
