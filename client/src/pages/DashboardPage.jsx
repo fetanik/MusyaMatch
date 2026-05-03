@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import '../styles/DashboardPage.css';
 
 import {
@@ -18,9 +18,9 @@ import {
   X,
 } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
+import { useMessages } from '../components/MessagesContext';
 
-const CATS_API = 'http://localhost:5001/api/cats';
-const USERS_API = 'http://localhost:5001/api/users';
+const CATS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
 
 const emptyForm = {
   name: '',
@@ -71,6 +71,16 @@ const normalizeVaccinations = (vaccinations) => {
 };
 
 const getCurrentUserId = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const fromUserObject = Number(user.userId || user.id);
+    if (Number.isFinite(fromUserObject) && fromUserObject > 0) {
+      return fromUserObject;
+    }
+  } catch {
+    // fallback to legacy storage keys below
+  }
+
   const raw =
     localStorage.getItem('userId') ||
     localStorage.getItem('basicUserId') ||
@@ -98,6 +108,7 @@ const formatBirthDate = (birthDate) => {
 };
 
 const DashboardPage = () => {
+  const { notify, confirm } = useMessages();
   const userId = getCurrentUserId();
   const userName = localStorage.getItem('userName') || 'Alex Johnson';
 
@@ -141,7 +152,7 @@ const DashboardPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) {
@@ -151,7 +162,7 @@ const DashboardPage = () => {
     }
 
     fetchMyCats();
-  }, [userId]);
+  }, [fetchMyCats, userId]);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -281,12 +292,12 @@ const DashboardPage = () => {
     e.preventDefault();
 
     if (!userId) {
-      alert('User ID is missing. Please log in first.');
+      await notify('User ID is missing. Please log in first.', { type: 'error', title: 'Error' });
       return;
     }
 
     if (!form.name.trim()) {
-      alert('Cat name is required.');
+      await notify('Cat name is required.', { type: 'error', title: 'Error' });
       return;
     }
 
@@ -333,14 +344,19 @@ const DashboardPage = () => {
       await fetchMyCats();
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Failed to save cat.');
+      await notify(error.message || 'Failed to save cat.', { type: 'error', title: 'Error' });
     } finally {
       setSaveLoading(false);
     }
   };
 
   const handleDeleteCat = async (cat) => {
-    const confirmed = window.confirm(`Delete ${cat.name}?`);
+    const confirmed = await confirm(`Delete ${cat.name}?`, {
+      type: 'error',
+      title: 'Confirm delete',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    });
     if (!confirmed) return;
 
     try {
@@ -359,7 +375,7 @@ const DashboardPage = () => {
       await fetchMyCats();
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Failed to delete cat.');
+      await notify(error.message || 'Failed to delete cat.', { type: 'error', title: 'Error' });
     } finally {
       setDeleteLoadingId(null);
     }

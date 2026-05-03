@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fi';
 import { FaPaw } from 'react-icons/fa6';
 import BottomNav from '../components/BottomNav';
+import { useMessages } from '../components/MessagesContext';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
 
@@ -31,8 +32,30 @@ const formatGender = (gender) => {
   return 'Not specified';
 };
 
+const getCurrentUserIds = () => {
+  try {
+    const rawUser = localStorage.getItem('user');
+    if (!rawUser) {
+      return { userId: null, shelterId: null };
+    }
+
+    const parsedUser = JSON.parse(rawUser);
+    const parsedUserId = Number(parsedUser?.userId ?? parsedUser?.id);
+    const parsedShelterId = Number(parsedUser?.shelterId);
+
+    return {
+      userId: Number.isInteger(parsedUserId) && parsedUserId > 0 ? parsedUserId : null,
+      shelterId:
+        Number.isInteger(parsedShelterId) && parsedShelterId > 0 ? parsedShelterId : null,
+    };
+  } catch {
+    return { userId: null, shelterId: null };
+  }
+};
+
 const ManagerProfile = () => {
   const navigate = useNavigate();
+  const { notify, confirm } = useMessages();
 
   const topRef = useRef(null);
 
@@ -44,6 +67,16 @@ const ManagerProfile = () => {
   const [expandedCatId, setExpandedCatId] = useState(null);
   const [vaccinationInput, setVaccinationInput] = useState('');
   const [isLoadingCats, setIsLoadingCats] = useState(true);
+  const [catImageFile, setCatImageFile] = useState(null);
+  const [catImagePreview, setCatImagePreview] = useState('');
+
+  useEffect(() => {
+    return () => {
+      if (catImagePreview && catImagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(catImagePreview);
+      }
+    };
+  }, [catImagePreview]);
 
   const [newCatData, setNewCatData] = useState({
     name: '',
@@ -154,6 +187,8 @@ const ManagerProfile = () => {
     });
     setVaccinationInput('');
     setEditingCatId(null);
+    setCatImageFile(null);
+    setCatImagePreview('');
   };
 
   const openAddCatModal = () => {
@@ -172,6 +207,8 @@ const ManagerProfile = () => {
       vaccinations: normalizeVaccinations(cat.vaccinations),
     });
     setVaccinationInput('');
+    setCatImageFile(null);
+    setCatImagePreview(cat.image_url || '');
     setIsModalOpen(true);
   };
 
@@ -217,27 +254,36 @@ const ManagerProfile = () => {
     e.preventDefault();
 
     const existingCat = myCats.find((cat) => cat.id === editingCatId);
+    const { userId: currentUserId, shelterId: currentShelterId } = getCurrentUserIds();
 
-    const payload = {
-      name: newCatData.name.trim(),
-      breed: newCatData.breed.trim(),
-      gender: newCatData.gender || null,
-      birthDate: newCatData.birthDate || null,
-      description: newCatData.description.trim(),
-      vaccinations: normalizeVaccinations(newCatData.vaccinations),
-      sourceType: existingCat?.sourceType || 'shelter',
-      listingType: existingCat?.listingType || 'adoption',
-      listingStatus: existingCat?.listingStatus || 'active',
-      shelterId: existingCat?.shelterId ?? null,
-      userId: existingCat?.userId ?? null,
-    };
+    const formData = new FormData();
+    formData.append('name', newCatData.name.trim());
+    formData.append('breed', newCatData.breed.trim());
+    formData.append('gender', newCatData.gender || '');
+    formData.append('birthDate', newCatData.birthDate || '');
+    formData.append('description', newCatData.description.trim());
+    formData.append('vaccinations', JSON.stringify(normalizeVaccinations(newCatData.vaccinations)));
+    formData.append('sourceType', existingCat?.sourceType || 'shelter');
+    formData.append('listingType', existingCat?.listingType || 'adoption');
+    formData.append('listingStatus', existingCat?.listingStatus || 'active');
+    if (existingCat?.shelterId || currentShelterId) {
+      formData.append('shelterId', String(existingCat?.shelterId || currentShelterId));
+    }
+    if (existingCat?.userId || currentUserId) {
+      formData.append('userId', String(existingCat?.userId || currentUserId));
+    }
+
+    if (catImageFile) {
+      formData.append('image', catImageFile);
+    } else if (catImagePreview) {
+      formData.append('image_url', catImagePreview);
+    }
 
     try {
       if (editingCatId) {
         const response = await fetch(`${API_BASE_URL}/${editingCatId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: formData,
         });
 
         if (!response.ok) {
@@ -259,8 +305,7 @@ const ManagerProfile = () => {
       } else {
         const response = await fetch(API_BASE_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: formData,
         });
 
         if (!response.ok) {
@@ -281,12 +326,20 @@ const ManagerProfile = () => {
       closeCatModal();
     } catch (error) {
       console.error('Failed to save cat:', error);
-      alert('Failed to save cat profile. Please check the backend connection.');
+      await notify('Failed to save cat profile. Please check the backend connection.', {
+        type: 'error',
+        title: 'Error',
+      });
     }
   };
 
   const handleDeleteCat = async (catId) => {
-    const confirmed = window.confirm('Are you sure you want to delete this cat profile?');
+    const confirmed = await confirm('Are you sure you want to delete this cat profile?', {
+      type: 'error',
+      title: 'Confirm delete',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    });
     if (!confirmed) return;
 
     try {
@@ -309,7 +362,10 @@ const ManagerProfile = () => {
       }
     } catch (error) {
       console.error('Failed to delete cat:', error);
-      alert('Failed to delete cat profile. Please check the backend connection.');
+      await notify('Failed to delete cat profile. Please check the backend connection.', {
+        type: 'error',
+        title: 'Error',
+      });
     }
   };
 
@@ -341,7 +397,7 @@ const ManagerProfile = () => {
   };
 
   const showPlaceholder = (label) => {
-    alert(`${label} will be added later`);
+    notify(`${label} will be added later`, { type: 'info', title: 'Info' });
   };
 
   return (
@@ -510,13 +566,13 @@ const ManagerProfile = () => {
             <button
               className="action-card"
               type="button"
-              onClick={() => showPlaceholder('Shelter needs')}
+              onClick={() => navigate('/manager/needs')}
             >
               <div className="action-icon">
                 <FiClipboard size={22} />
               </div>
               <h3>Needs</h3>
-              <p>Temporary placeholder</p>
+              <p>Manage shelter support requests</p>
             </button>
           </div>
         </section>
@@ -562,6 +618,20 @@ const ManagerProfile = () => {
                         {cat.listingStatus || 'active'}
                       </span>
                     </div>
+
+                    {cat.image_url && (
+                      <img
+                        src={cat.image_url}
+                        alt={cat.name || 'Cat'}
+                        style={{
+                          width: '100%',
+                          height: '160px',
+                          objectFit: 'cover',
+                          borderRadius: '12px',
+                          marginTop: '12px',
+                        }}
+                      />
+                    )}
 
                     <div className="cat-meta">
                       <span>
@@ -709,6 +779,34 @@ const ManagerProfile = () => {
                     setNewCatData((prev) => ({ ...prev, birthDate: e.target.value }))
                   }
                 />
+              </div>
+
+              <div className="form-group">
+                <label>Photo</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    setCatImageFile(file || null);
+                    if (file) {
+                      setCatImagePreview(URL.createObjectURL(file));
+                    }
+                  }}
+                />
+                {catImagePreview && (
+                  <img
+                    src={catImagePreview}
+                    alt="Cat preview"
+                    style={{
+                      width: '100%',
+                      maxHeight: '180px',
+                      objectFit: 'cover',
+                      borderRadius: '12px',
+                      marginTop: '8px',
+                    }}
+                  />
+                )}
               </div>
 
               <div className="form-group">

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import '../styles/ManagerSettingsPage.css';
 import BottomNav from '../components/BottomNav';
+import { useMessages } from '../components/MessagesContext';
 
 import {
   FiUpload,
@@ -10,6 +11,14 @@ import {
 import { FaCat } from 'react-icons/fa6';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001'}/api/users`;
+
+const getStoredUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}');
+  } catch {
+    return {};
+  }
+};
 
 const ProfilePage = () => {
   const [userId, setUserId] = useState(null);
@@ -146,6 +155,11 @@ const ProfilePage = () => {
     if (!formData.fullName.trim()) {
       setError('Please enter your full name');
       return;
+    if (newPassword || confirmPassword) {
+      if (newPassword !== confirmPassword) {
+        await notify("Passwords don't match!", { type: 'error', title: 'Error' });
+        return;
+      }
     }
 
     if (!formData.email.trim()) {

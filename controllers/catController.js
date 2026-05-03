@@ -1,5 +1,6 @@
 import { Cat } from '../models/Cat.js';
 import { cloudinary } from '../config/cloudinary.js';
+import { Shelter } from '../models/Shelter.js';
 
 function uploadBufferToCloudinary(fileBuffer, folder = 'musyamatch/cats') {
   return new Promise((resolve, reject) => {
@@ -57,6 +58,40 @@ const normalizeNullableInt = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const parseVaccinationsInput = (vaccinations) => {
+  if (Array.isArray(vaccinations)) {
+    return normalizeVaccinations(vaccinations);
+  }
+
+  if (typeof vaccinations === 'string') {
+    const trimmed = vaccinations.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return normalizeVaccinations(parsed);
+      }
+    } catch {
+      return normalizeVaccinations(trimmed.split(','));
+    }
+  }
+
+  return [];
+};
+
+const toOptionalPositiveInt = (value) => {
+  if (value === undefined || value === null) return null;
+
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed <= 0) return null;
+
+  return parsed;
+};
+
 export async function getCats(req, res, next) {
   try {
     const cats = await Cat.findAll({
@@ -110,13 +145,25 @@ export async function createCat(req, res, next) {
       return res.status(400).json({ message: 'Name is required' });
     }
 
-    const normalizedShelterId = normalizeNullableInt(shelterId);
-    const normalizedUserId = normalizeNullableInt(userId);
+    const normalizedUserId = toOptionalPositiveInt(userId);
+    let normalizedShelterId = toOptionalPositiveInt(shelterId);
+
+    if (!normalizedShelterId && normalizedUserId) {
+      const shelter = await Shelter.findOne({
+        where: { userId: normalizedUserId },
+        attributes: ['id'],
+      });
+      normalizedShelterId = shelter?.id || null;
+    }
 
     let imageUrl = req.body.image_url || req.body.imageUrl || null;
     if (req.file) {
-      const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
-      imageUrl = uploadResult.secure_url;
+      try {
+        const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
+        imageUrl = uploadResult.secure_url;
+      } catch (uploadError) {
+        console.error('Cloudinary upload failed, creating cat without image:', uploadError);
+      }
     }
 
     const cat = await Cat.create({
@@ -128,7 +175,7 @@ export async function createCat(req, res, next) {
       birthDate: birthDate || null,
       age: age ? Number(age) : null,
       description: description?.trim() || null,
-      vaccinations: normalizeVaccinations(vaccinations),
+      vaccinations: parseVaccinationsInput(vaccinations),
       image_url: imageUrl,
       source: source?.trim()?.toLowerCase() || 'shelter',
       urgency: urgency?.trim()?.toLowerCase() || null,
@@ -175,11 +222,18 @@ export async function updateCat(req, res, next) {
       return res.status(404).json({ message: 'Cat not found' });
     }
 
+    const normalizedUserId = toOptionalPositiveInt(userId);
+    const normalizedShelterId = toOptionalPositiveInt(shelterId);
+
     let imageUrl = cat.image_url;
 
     if (req.file) {
-      const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
-      imageUrl = uploadResult.secure_url;
+      try {
+        const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
+        imageUrl = uploadResult.secure_url;
+      } catch (uploadError) {
+        console.error('Cloudinary upload failed, keeping previous image:', uploadError);
+      }
     } else if (req.body.image_url || req.body.imageUrl) {
       imageUrl = req.body.image_url || req.body.imageUrl;
     }
@@ -191,8 +245,8 @@ export async function updateCat(req, res, next) {
       userId !== undefined ? normalizeNullableInt(userId) : cat.userId;
 
     await cat.update({
-      shelterId: normalizedShelterId,
-      userId: normalizedUserId,
+      shelterId: shelterId !== undefined ? normalizedShelterId : cat.shelterId,
+      userId: userId !== undefined ? normalizedUserId : cat.userId,
       name: name !== undefined ? (name?.trim() || cat.name) : cat.name,
       breed: breed !== undefined ? (breed?.trim() || null) : cat.breed,
       gender: gender !== undefined ? (gender || null) : cat.gender,
@@ -202,7 +256,7 @@ export async function updateCat(req, res, next) {
         description !== undefined ? (description?.trim() || null) : cat.description,
       vaccinations:
         vaccinations !== undefined
-          ? normalizeVaccinations(vaccinations)
+          ? parseVaccinationsInput(vaccinations)
           : cat.vaccinations,
       image_url: imageUrl,
       source:
