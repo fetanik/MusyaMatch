@@ -10,6 +10,7 @@ import ManagerSettingsPage from './pages/ManagerSettingsPage';
 import NeedsPage from './pages/NeedsPage';
 import Gallery from './pages/Gallery';
 import PharmaciesPage from './pages/PharmaciesPage';
+import MessagesProvider from './components/MessagesProvider';
 
 const getCurrentUser = () => {
   try {
@@ -27,47 +28,36 @@ function App() {
   const isManager = currentUser?.role === 'manager';
 
   return (
-    <BrowserRouter>
-      <div className="App">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/home" element={<Navigate to="/" replace />} />
-          <Route path="/register" element={<RegistrationPage />} />
-          <Route path="/calendar" element={<CalendarPage />} />
-          <Route path="/gallery" element={<Gallery />} />
-          <Route
-            path="/manager"
-            element={isAuthenticated && isManager ? <Navigate to="/manager/profile" replace /> : <Navigate to="/register" replace />}
-          />
-          <Route
-            path="/manager/profile"
-            element={isAuthenticated && isManager ? <ManagerProfile /> : <Navigate to="/register" replace />}
-          />
-          <Route
-            path="/manager/settings"
-            element={isAuthenticated && isManager ? <ManagerSettingsPage /> : <Navigate to="/register" replace />}
-          />
-          <Route
-            path="/manager/needs"
-            element={isAuthenticated && isManager ? <NeedsPage /> : <Navigate to="/register" replace />}
-          />
-          <Route
-            path="/manager/cats/:catId/vaccinations"
-            element={isAuthenticated && isManager ? <CalendarPage /> : <Navigate to="/register" replace />}
-          />
-          <Route
-            path="/profile"
-            element={isAuthenticated && !isManager ? <ProfilePage /> : <Navigate to="/register" replace />}
-          />
-          <Route
-            path="/dashboard"
-            element={isAuthenticated && !isManager ? <DashboardPage /> : <Navigate to="/register" replace />}
-          />
-          <Route path="/pharmacies" element={<PharmaciesPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
-    </BrowserRouter>
+    <MessagesProvider>
+      <BrowserRouter>
+        <div className="App">
+          <Routes>
+            <Route
+              path="/"
+              element={<Navigate to={isRegistered ? '/dashboard' : '/home'} replace />}
+            />
+            <Route path="/home" element={<HomePage />} />
+            <Route path="/register" element={<RegistrationPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/gallery" element={<Gallery />} />
+            <Route path="/manager" element={<Navigate to="/manager/profile" replace />} />
+            <Route path="/manager/profile" element={<ManagerProfile />} />
+            <Route path="/manager/settings" element={<ManagerSettingsPage />} />
+            <Route path="/manager/cats/:catId/vaccinations" element={<CalendarPage />} />
+            <Route
+              path="/profile"
+              element={isRegistered ? <ProfilePage /> : <Navigate to="/register" replace />}
+            />
+            <Route
+              path="/dashboard"
+              element={isRegistered ? <DashboardPage /> : <Navigate to="/register" replace />}
+            />
+            <Route path="/pharmacies" element={<PharmaciesPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </BrowserRouter>
+    </MessagesProvider>
   );
 }
 

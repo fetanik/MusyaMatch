@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import '../styles/ProfilePage.css';
 import BottomNav from '../components/BottomNav';
+import { useMessages } from '../components/MessagesContext';
 
 import { User, Mail, Save } from 'lucide-react';
 
@@ -13,10 +14,8 @@ const getStoredUser = () => {
 };
 
 const ProfilePage = () => {
-  const storedUser = getStoredUser();
-  const [name, setName] = useState(
-    () => localStorage.getItem('userName') || storedUser.name || 'Alex Johnson'
-  );
+  const { notify } = useMessages();
+  const [name, setName] = useState(() => localStorage.getItem('userName') || 'Alex Johnson');
   const [email, setEmail] = useState(
     () => localStorage.getItem('userEmail') || storedUser.email || 'alex.j@example.com'
   );
@@ -30,12 +29,12 @@ const ProfilePage = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
 
     if (newPassword || confirmPassword) {
       if (newPassword !== confirmPassword) {
-        alert("Passwords don't match!");
+        await notify("Passwords don't match!", { type: 'error', title: 'Error' });
         return;
       }
     }
@@ -56,7 +55,7 @@ const ProfilePage = () => {
       localStorage.setItem('userId', '1');
     }
 
-    alert('Profile updated successfully!');
+    await notify('Profile updated successfully!', { type: 'success', title: 'Success' });
   };
 
   return (
