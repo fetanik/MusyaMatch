@@ -7,14 +7,25 @@ import ProfilePage from './pages/ProfilePage';
 import DashboardPage from './pages/DashboardPage'; 
 import ManagerProfile from './pages/ManagerProfile';
 import ManagerSettingsPage from './pages/ManagerSettingsPage';
+import NeedsPage from './pages/NeedsPage';
 import Gallery from './pages/Gallery';
 import PharmaciesPage from './pages/PharmaciesPage';
 import MessagesProvider from './components/MessagesProvider';
 
-const getIsRegistered = () => localStorage.getItem('musyamatch_is_registered') === 'true';
+const getCurrentUser = () => {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
 
 function App() {
-  const isRegistered = getIsRegistered();
+  const currentUser = getCurrentUser();
+  const isAuthenticated = Boolean(currentUser);
+  const isManager = currentUser?.role === 'manager';
 
   return (
     <MessagesProvider>

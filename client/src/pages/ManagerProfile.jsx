@@ -32,6 +32,27 @@ const formatGender = (gender) => {
   return 'Not specified';
 };
 
+const getCurrentUserIds = () => {
+  try {
+    const rawUser = localStorage.getItem('user');
+    if (!rawUser) {
+      return { userId: null, shelterId: null };
+    }
+
+    const parsedUser = JSON.parse(rawUser);
+    const parsedUserId = Number(parsedUser?.userId ?? parsedUser?.id);
+    const parsedShelterId = Number(parsedUser?.shelterId);
+
+    return {
+      userId: Number.isInteger(parsedUserId) && parsedUserId > 0 ? parsedUserId : null,
+      shelterId:
+        Number.isInteger(parsedShelterId) && parsedShelterId > 0 ? parsedShelterId : null,
+    };
+  } catch {
+    return { userId: null, shelterId: null };
+  }
+};
+
 const ManagerProfile = () => {
   const navigate = useNavigate();
   const { notify, confirm } = useMessages();
@@ -233,6 +254,7 @@ const ManagerProfile = () => {
     e.preventDefault();
 
     const existingCat = myCats.find((cat) => cat.id === editingCatId);
+    const { userId: currentUserId, shelterId: currentShelterId } = getCurrentUserIds();
 
     const formData = new FormData();
     formData.append('name', newCatData.name.trim());
@@ -244,8 +266,12 @@ const ManagerProfile = () => {
     formData.append('sourceType', existingCat?.sourceType || 'shelter');
     formData.append('listingType', existingCat?.listingType || 'adoption');
     formData.append('listingStatus', existingCat?.listingStatus || 'active');
-    formData.append('shelterId', String(existingCat?.shelterId ?? ''));
-    formData.append('userId', String(existingCat?.userId ?? ''));
+    if (existingCat?.shelterId || currentShelterId) {
+      formData.append('shelterId', String(existingCat?.shelterId || currentShelterId));
+    }
+    if (existingCat?.userId || currentUserId) {
+      formData.append('userId', String(existingCat?.userId || currentUserId));
+    }
 
     if (catImageFile) {
       formData.append('image', catImageFile);
@@ -540,13 +566,13 @@ const ManagerProfile = () => {
             <button
               className="action-card"
               type="button"
-              onClick={() => showPlaceholder('Shelter needs')}
+              onClick={() => navigate('/manager/needs')}
             >
               <div className="action-icon">
                 <FiClipboard size={22} />
               </div>
               <h3>Needs</h3>
-              <p>Temporary placeholder</p>
+              <p>Manage shelter support requests</p>
             </button>
           </div>
         </section>
