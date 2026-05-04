@@ -3,6 +3,9 @@ import { cloudinary } from '../config/cloudinary.js';
 import { ACHIEVEMENT_TYPES, awardPoints } from '../services/achievements.js';
 import { AchievementEvent } from '../models/AchievementEvent.js';
 import { Shelter } from '../models/Shelter.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { randomUUID } from 'crypto';
 
 function uploadBufferToCloudinary(fileBuffer, folder = 'musyamatch/cats') {
   return new Promise((resolve, reject) => {
@@ -20,6 +23,44 @@ function uploadBufferToCloudinary(fileBuffer, folder = 'musyamatch/cats') {
     stream.end(fileBuffer);
   });
 }
+
+const hasCloudinaryConfig = () =>
+  Boolean(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+      process.env.CLOUDINARY_API_KEY &&
+      process.env.CLOUDINARY_API_SECRET
+  );
+
+const toPublicImageUrl = (imageUrl, req) => {
+  if (!imageUrl) return null;
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
+  if (imageUrl.startsWith('/')) {
+    return `${req.protocol}://${req.get('host')}${imageUrl}`;
+  }
+  return imageUrl;
+};
+
+const serializeCat = (cat, req) => {
+  const raw = typeof cat?.toJSON === 'function' ? cat.toJSON() : cat;
+  return {
+    ...raw,
+    image_url: toPublicImageUrl(raw?.image_url, req),
+  };
+};
+
+const saveBufferToLocalUploads = async (file) => {
+  const uploadsDir = path.resolve(process.cwd(), 'uploads');
+  await fs.mkdir(uploadsDir, { recursive: true });
+
+  const originalExt = path.extname(file.originalname || '').toLowerCase();
+  const fallbackExt = file.mimetype === 'image/png' ? '.png' : '.jpg';
+  const extension = originalExt || fallbackExt;
+  const filename = `${Date.now()}-${randomUUID()}${extension}`;
+  const absolutePath = path.join(uploadsDir, filename);
+
+  await fs.writeFile(absolutePath, file.buffer);
+  return `/uploads/${filename}`;
+};
 
 const normalizeVaccinations = (vaccinations) => {
   if (Array.isArray(vaccinations)) {
@@ -107,7 +148,7 @@ export async function getCats(req, res, next) {
       order: [['id', 'DESC']],
     });
 
-    res.json(cats);
+    res.json(cats.map((cat) => serializeCat(cat, req)));
   } catch (err) {
     next(err);
   }
@@ -123,7 +164,7 @@ export async function getCatById(req, res, next) {
       return res.status(404).json({ message: 'Cat not found' });
     }
 
-    res.json(cat);
+    res.json(serializeCat(cat, req));
   } catch (err) {
     next(err);
   }
@@ -167,11 +208,16 @@ export async function createCat(req, res, next) {
 
     let imageUrl = req.body.image_url || req.body.imageUrl || null;
     if (req.file) {
-      try {
-        const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
-        imageUrl = uploadResult.secure_url;
-      } catch (uploadError) {
-        console.error('Cloudinary upload failed, creating cat without image:', uploadError);
+      if (hasCloudinaryConfig()) {
+        try {
+          const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
+          imageUrl = uploadResult.secure_url;
+        } catch (uploadError) {
+          console.error('Cloudinary upload failed, falling back to local uploads:', uploadError);
+          imageUrl = await saveBufferToLocalUploads(req.file);
+        }
+      } else {
+        imageUrl = await saveBufferToLocalUploads(req.file);
       }
     }
 
@@ -217,7 +263,7 @@ export async function createCat(req, res, next) {
       }
     }
 
-    return res.status(201).json(cat);
+    return res.status(201).json(serializeCat(cat, req));
   } catch (err) {
     next(err);
   }
@@ -259,11 +305,16 @@ export async function updateCat(req, res, next) {
     let imageUrl = cat.image_url;
 
     if (req.file) {
-      try {
-        const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
-        imageUrl = uploadResult.secure_url;
-      } catch (uploadError) {
-        console.error('Cloudinary upload failed, keeping previous image:', uploadError);
+      if (hasCloudinaryConfig()) {
+        try {
+          const uploadResult = await uploadBufferToCloudinary(req.file.buffer);
+          imageUrl = uploadResult.secure_url;
+        } catch (uploadError) {
+          console.error('Cloudinary upload failed, falling back to local uploads:', uploadError);
+          imageUrl = await saveBufferToLocalUploads(req.file);
+        }
+      } else {
+        imageUrl = await saveBufferToLocalUploads(req.file);
       }
     } else if (req.body.image_url || req.body.imageUrl) {
       imageUrl = req.body.image_url || req.body.imageUrl;
@@ -330,7 +381,7 @@ previousListingStatus:
       }
     }
 
-    return res.json(cat);
+    return res.json(serializeCat(cat, req));
   } catch (err) {
     next(err);
   }
