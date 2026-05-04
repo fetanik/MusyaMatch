@@ -23,6 +23,7 @@ import { useMessages } from '../components/MessagesContext';
 
 const CATS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
 const USERS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/users`;
+const ACHIEVEMENTS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/achievements`;
 
 const emptyForm = {
   name: '',
@@ -98,6 +99,7 @@ const DashboardPage = () => {
 
   const [cats, setCats] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
+  const [achievementSummary, setAchievementSummary] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
@@ -169,6 +171,37 @@ const DashboardPage = () => {
 
     fetchUserProfile();
   }, [userId]);
+
+  useEffect(() => {
+    const fetchAchievementSummary = async () => {
+      if (!userId) return;
+
+      try {
+        const response = await fetch(`${ACHIEVEMENTS_API}/${userId}/summary`);
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(data?.message || 'Failed to load achievements');
+        }
+
+        setAchievementSummary(data);
+      } catch (error) {
+        console.error('Failed to load achievements summary:', error);
+        setAchievementSummary(null);
+      }
+    };
+
+    fetchAchievementSummary();
+  }, [userId]);
+
+  const totalPoints = Number(achievementSummary?.points || 0);
+  const completedAchievementsCount = useMemo(() => {
+    const completedByType = achievementSummary?.completedByType || {};
+    return Object.values(completedByType).filter((count) => Number(count) > 0).length;
+  }, [achievementSummary]);
+  const currentLevel = Math.floor(totalPoints / 250) + 1;
+  const pointsToNextLevel = 250 - (totalPoints % 250 || 0);
+  const progressWidth = `${Math.min(100, Math.max(0, (totalPoints % 250) / 2.5))}%`;
 
   const fosterCount = useMemo(
     () =>
@@ -518,17 +551,17 @@ const DashboardPage = () => {
           </div>
 
           <div className="points-value">
-            <h2>0</h2>
+            <h2>{totalPoints}</h2>
             <span>pts</span>
           </div>
 
           <div className="level-info">
-            <span className="current-level">Level 1</span>
-            <span className="points-to-next">250 pts to Level 2</span>
+            <span className="current-level">Level {currentLevel}</span>
+            <span className="points-to-next">{pointsToNextLevel} pts to Level {currentLevel + 1}</span>
           </div>
 
           <div className="progress-bar-container">
-            <div className="progress-bar-fill" style={{ width: '0%' }} />
+            <div className="progress-bar-fill" style={{ width: progressWidth }} />
           </div>
 
           <div className="achievements-row">
@@ -542,7 +575,7 @@ const DashboardPage = () => {
               }}
               title="Open achievements"
             >
-              <Star /> 0 Achievements
+              <Star /> {completedAchievementsCount} Achievements
             </div>
             <div className="achievement-badge foster-badge">
               <Heart fill="currentColor" /> {fosterCount} Fosters
@@ -586,7 +619,7 @@ const DashboardPage = () => {
             <p>Connect with others</p>
           </div>
 
-          <div className="action-card">
+          <div className="action-card" onClick={() => navigate('/pharmacies')}>
             <div className="action-icon">
               <MapPin />
             </div>
