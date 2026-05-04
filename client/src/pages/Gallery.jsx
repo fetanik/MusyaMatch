@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import '../styles/Gallery.css';
 import BottomNav from '../components/BottomNav';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 const isCatVisibleInGallery = (cat) => {
   const source = (cat.source || 'shelter').toLowerCase();
@@ -30,6 +30,12 @@ const getGalleryBadgeLabel = (cat) => {
   }
 
   return (cat.source || 'shelter').toLowerCase();
+};
+
+const getValidImageUrl = (cat) => {
+  const url = (cat?.image_url || '').trim();
+  if (!url || url === 'null' || url === 'undefined') return '';
+  return url;
 };
 
 const Gallery = () => {
@@ -227,7 +233,13 @@ const Gallery = () => {
                     }}
                   >
                     <div className="image-wrapper">
-                      <img src={cat.image_url} alt={cat.name} />
+                      {getValidImageUrl(cat) ? (
+                        <img src={getValidImageUrl(cat)} alt={cat.name} />
+                      ) : (
+                        <div className="cat-modal-image" style={{ display: 'grid', placeItems: 'center', color: '#9aa3b2' }}>
+                          No photo
+                        </div>
+                      )}
                       <span className={`badge ${getGalleryBadgeLabel(cat)}`}>
                        {getGalleryBadgeLabel(cat)}
                       </span>
@@ -276,11 +288,17 @@ const Gallery = () => {
               x
             </button>
 
-            <img
-              className="cat-modal-image"
-              src={selectedCat.image_url}
-              alt={selectedCat.name}
-            />
+            {getValidImageUrl(selectedCat) ? (
+              <img
+                className="cat-modal-image"
+                src={getValidImageUrl(selectedCat)}
+                alt={selectedCat.name}
+              />
+            ) : (
+              <div className="cat-modal-image" style={{ display: 'grid', placeItems: 'center', color: '#9aa3b2' }}>
+                No photo
+              </div>
+            )}
 
             <div className="cat-modal-content">
               <h3>{selectedCat.name}</h3>

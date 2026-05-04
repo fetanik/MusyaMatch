@@ -9,7 +9,7 @@ import {
 } from 'react-icons/fi';
 import { FaCat } from 'react-icons/fa6';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001'}/api/users`;
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/users`;
 
 const ProfilePage = () => {
   const [userId, setUserId] = useState(null);
