@@ -1,8 +1,18 @@
 import { BasicUser } from '../models/BasicUser.js';
 import { Shelter } from '../models/Shelter.js';
 
+const normalizeRole = (role) => {
+  const raw = String(role || '').trim().toLowerCase();
+  if (raw === 'manager' || raw === 'shelter_manager' || raw === 'shelter-manager') {
+    return 'manager';
+  }
+  return 'user';
+};
+
 const buildUserResponse = async (user) => {
-  if (user.role === 'manager') {
+  const normalizedRole = normalizeRole(user.role);
+
+  if (normalizedRole === 'manager') {
     const shelter = await Shelter.findOne({
       where: { userId: user.id },
     });
@@ -11,7 +21,7 @@ const buildUserResponse = async (user) => {
       id: user.id,
       userId: user.id,
       shelterId: shelter?.id || null,
-      role: user.role,
+      role: normalizedRole,
       email: user.email,
       name: shelter?.name || user.firstName || '',
       shelterName: shelter?.name || '',
@@ -29,7 +39,7 @@ const buildUserResponse = async (user) => {
   return {
     id: user.id,
     userId: user.id,
-    role: user.role,
+    role: normalizedRole,
     email: user.email,
     name: user.firstName || '',
     fosters: 0,
@@ -43,6 +53,7 @@ export async function register(req, res, next) {
 
     const normalizedEmail = email?.trim().toLowerCase();
     const trimmedName = name?.trim();
+    const normalizedPassword = password?.trim();
 
     if (!role || !['user', 'manager'].includes(role)) {
       return res.status(400).json({ message: 'Invalid role' });
@@ -54,11 +65,11 @@ export async function register(req, res, next) {
       });
     }
 
-    if (!normalizedEmail || !password) {
+    if (!normalizedEmail || !normalizedPassword) {
       return res.status(400).json({ message: 'Please fill in all required fields' });
     }
 
-    if (password.length < 8) {
+    if (normalizedPassword.length < 8) {
       return res.status(400).json({ message: 'Password must be at least 8 characters long' });
     }
 
@@ -73,7 +84,7 @@ export async function register(req, res, next) {
     const user = await BasicUser.create({
       firstName: trimmedName,
       email: normalizedEmail,
-      password, // later you can replace this with bcrypt hash
+      password: normalizedPassword, // later you can replace this with bcrypt hash
       role,
     });
 
@@ -100,20 +111,27 @@ export async function login(req, res, next) {
     const { email, password } = req.body;
 
     const normalizedEmail = email?.trim().toLowerCase();
+    const normalizedPassword = password?.trim();
 
-    if (!normalizedEmail || !password) {
+    if (!normalizedEmail || !normalizedPassword) {
       return res.status(400).json({ message: 'Please fill in all required fields' });
     }
 
-    const user = await BasicUser.findOne({
-      where: {
-        email: normalizedEmail,
-        password,
-      },
-    });
+    const user = await BasicUser.findOne({ where: { email: normalizedEmail } });
 
-    if (!user) {
+    const isPasswordMatch =
+      user &&
+      (user.password === password ||
+        user.password === normalizedPassword ||
+        user.password?.trim() === normalizedPassword);
+
+    if (!isPasswordMatch) {
       return res.status(401).json({ message: 'Incorrect email or password' });
+    }
+
+    if (user.password !== normalizedPassword) {
+      user.password = normalizedPassword;
+      await user.save();
     }
 
     const responseUser = await buildUserResponse(user);
