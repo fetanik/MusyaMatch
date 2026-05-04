@@ -269,12 +269,6 @@ export async function updateCat(req, res, next) {
       imageUrl = req.body.image_url || req.body.imageUrl;
     }
 
-    const normalizedShelterId =
-      shelterId !== undefined ? normalizeNullableInt(shelterId) : cat.shelterId;
-
-    const normalizedUserId =
-      userId !== undefined ? normalizeNullableInt(userId) : cat.userId;
-
     await cat.update({
       shelterId: shelterId !== undefined ? normalizedShelterId : cat.shelterId,
       userId: userId !== undefined ? normalizedUserId : cat.userId,

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiPlus, FiClipboard, FiEdit2, FiTrash2, FiX } from 'react-icons/fi';
 import BottomNav from '../components/BottomNav';
+import { useMessages } from '../components/MessagesContext';
 import '../styles/NeedsPage.css';
 
 const getNeedsApiBaseUrl = () => {
@@ -27,6 +28,7 @@ const emptyForm = {
 
 const NeedsPage = () => {
   const navigate = useNavigate();
+  const { notify } = useMessages();
   const [needs, setNeeds] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -132,7 +134,7 @@ const NeedsPage = () => {
       await loadNeeds();
     } catch (error) {
       console.error('Failed to delete need:', error);
-      alert('Failed to delete need. Please try again.');
+      await notify('Failed to delete need. Please try again.', { type: 'error', title: 'Error' });
     }
   };
 
@@ -181,6 +183,7 @@ const NeedsPage = () => {
     } catch (error) {
       console.error('Failed to save need:', error);
       setFormError(error.message || 'Failed to save need.');
+      await notify('Failed to save need. Please try again.', { type: 'error', title: 'Error' });
     } finally {
       setIsSaving(false);
     }

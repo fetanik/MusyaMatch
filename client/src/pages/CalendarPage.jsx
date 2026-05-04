@@ -3,11 +3,13 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, Syringe, CheckCircle2, Clock } from 'lucide-react';
 import '../styles/CalendarPage.css';
 import BottomNav from '../components/BottomNav';
+import { useMessages } from '../components/MessagesContext';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 const CalendarPage = () => {
   const navigate = useNavigate();
+  const { notify } = useMessages();
   const location = useLocation();
   const { catId } = useParams();
   const numericCatId = Number(catId);
@@ -112,7 +114,8 @@ const CalendarPage = () => {
       setVaccinations((prev) => [data, ...prev]);
       closeModal();
     } catch (e2) {
-      alert(e2?.message || 'Failed to add vaccination');
+      console.error(e2);
+      await notify('Failed to add vaccination. Please try again.', { type: 'error', title: 'Error' });
     } finally {
       setSaving(false);
     }

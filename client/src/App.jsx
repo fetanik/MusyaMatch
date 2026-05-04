@@ -26,7 +26,6 @@ const getCurrentUser = () => {
 function App() {
   const currentUser = getCurrentUser();
   const isAuthenticated = Boolean(currentUser);
-  const isManager = currentUser?.role === 'manager';
 
   return (
     <MessagesProvider>
@@ -35,7 +34,7 @@ function App() {
           <Routes>
             <Route
               path="/"
-              element={<Navigate to={isRegistered ? '/dashboard' : '/home'} replace />}
+              element={<Navigate to={isAuthenticated ? '/dashboard' : '/home'} replace />}
             />
             <Route path="/home" element={<HomePage />} />
             <Route path="/register" element={<RegistrationPage />} />
@@ -49,11 +48,11 @@ function App() {
             <Route path="/cats/:catId/vaccinations" element={<CalendarPage />} />
             <Route
               path="/profile"
-              element={isRegistered ? <ProfilePage /> : <Navigate to="/register" replace />}
+              element={isAuthenticated ? <ProfilePage /> : <Navigate to="/register" replace />}
             />
             <Route
               path="/dashboard"
-              element={isRegistered ? <DashboardPage /> : <Navigate to="/register" replace />}
+              element={isAuthenticated ? <DashboardPage /> : <Navigate to="/register" replace />}
             />
             <Route path="/pharmacies" element={<PharmaciesPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />

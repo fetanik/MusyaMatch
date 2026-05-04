@@ -22,6 +22,7 @@ import BottomNav from '../components/BottomNav';
 import { useMessages } from '../components/MessagesContext';
 
 const CATS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
+const USERS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/users`;
 
 const emptyForm = {
   name: '',
@@ -115,7 +116,7 @@ const DashboardPage = () => {
   const [selectedFosterCat, setSelectedFosterCat] = useState(null);
   const [fosterForm, setFosterForm] = useState(emptyFosterForm);
 
-  const fetchMyCats = async () => {
+  const fetchMyCats = useCallback(async () => {
     try {
       setLoading(true);
       setPageError('');
@@ -287,21 +288,6 @@ const DashboardPage = () => {
       return;
     }
 
-    const payload = {
-      userId,
-      shelterId: null,
-      name: form.name.trim(),
-      breed: form.breed.trim() || null,
-      age: form.age ? Number(form.age) : null,
-      gender: form.gender || null,
-      description: form.description.trim() || null,
-      vaccinations: editingCat?.vaccinations || [],
-      source: 'private',
-      sourceType: 'private',
-      listingType: editingCat?.listingType || 'none',
-      listingStatus: editingCat?.listingStatus || 'active',
-    };
-
     try {
       setSaveLoading(true);
 
@@ -393,12 +379,12 @@ const DashboardPage = () => {
     if (!selectedFosterCat) return;
 
     if (!fosterForm.startDate || !fosterForm.endDate) {
-      alert('Please select foster period.');
+      await notify('Please select foster period.', { type: 'error', title: 'Error' });
       return;
     }
 
     if (fosterForm.endDate < fosterForm.startDate) {
-      alert('End date cannot be earlier than start date.');
+      await notify('End date cannot be earlier than start date.', { type: 'error', title: 'Error' });
       return;
     }
 
@@ -458,10 +444,10 @@ const DashboardPage = () => {
 
       await fetchMyCats();
       closeFosterModal();
-      alert(`${selectedFosterCat.name} was successfully submitted for foster.`);
+      await notify(`${selectedFosterCat.name} was successfully submitted for fostering.`, { type: 'success', title: 'Success' });
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Failed to send foster request.');
+      await notify('Failed to submit foster request. Please try again.', { type: 'error', title: 'Error' });
     } finally {
       setFosterLoadingId(null);
     }
@@ -496,10 +482,10 @@ const DashboardPage = () => {
       }
 
       await fetchMyCats();
-      alert(`${cat.name} was returned to the previous status.`);
+      await notify(`${cat.name} was successfully withdrawn from fostering.`, { type: 'success', title: 'Success' });
     } catch (error) {
       console.error(error);
-      alert(error.message || 'Failed to withdraw foster.');
+      await notify('Failed to withdraw foster request. Please try again.', { type: 'error', title: 'Error' });
     } finally {
       setFosterLoadingId(null);
     }
@@ -874,6 +860,7 @@ const DashboardPage = () => {
                   >
                     Save & open vaccination calendar
                   </button>
+                )}
                 <label>Photo</label>
                 <input
                   type="file"
