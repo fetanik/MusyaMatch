@@ -64,7 +64,6 @@ const ManagerProfile = () => {
   const [myCats, setMyCats] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCatId, setEditingCatId] = useState(null);
-  const [expandedCatId, setExpandedCatId] = useState(null);
   const [isLoadingCats, setIsLoadingCats] = useState(true);
   const [catImageFile, setCatImageFile] = useState(null);
   const [catImagePreview, setCatImagePreview] = useState('');
@@ -84,6 +83,7 @@ const ManagerProfile = () => {
     gender: '',
     birthDate: '',
     description: '',
+    vaccinationInput: '',
     vaccinations: [],
   });
 
@@ -131,6 +131,7 @@ const ManagerProfile = () => {
     const loadCats = async () => {
       try {
         setIsLoadingCats(true);
+        const { userId: currentUserId, shelterId: currentShelterId } = getCurrentUserIds();
 
         const response = await fetch(API_BASE_URL);
 
@@ -146,7 +147,22 @@ const ManagerProfile = () => {
             }))
           : [];
 
-        setMyCats(apiCats);
+        const filteredCats = apiCats.filter((cat) => {
+          const catShelterId = Number(cat.shelterId);
+          const catUserId = Number(cat.userId);
+
+          if (currentShelterId && Number.isInteger(catShelterId) && catShelterId > 0) {
+            return catShelterId === currentShelterId;
+          }
+
+          if (currentUserId && Number.isInteger(catUserId) && catUserId > 0) {
+            return catUserId === currentUserId;
+          }
+
+          return false;
+        });
+
+        setMyCats(filteredCats);
       } catch (error) {
         console.error('Failed to load cats from API:', error);
         setMyCats([]);
@@ -183,6 +199,7 @@ const ManagerProfile = () => {
       gender: '',
       birthDate: '',
       description: '',
+      vaccinationInput: '',
       vaccinations: [],
     });
     setEditingCatId(null);
@@ -204,6 +221,7 @@ const ManagerProfile = () => {
       gender: cat.gender || '',
       birthDate: cat.birthDate || '',
       description: cat.description || '',
+      vaccinationInput: '',
       vaccinations: normalizeVaccinations(cat.vaccinations),
     });
     setCatImageFile(null);
@@ -222,6 +240,29 @@ const ManagerProfile = () => {
     setIsModalOpen(false);
   };
 
+  const addVaccination = () => {
+    const value = (newCatData.vaccinationInput || '').trim();
+    if (!value) return;
+
+    if (newCatData.vaccinations.includes(value)) {
+      setNewCatData((prev) => ({ ...prev, vaccinationInput: '' }));
+      return;
+    }
+
+    setNewCatData((prev) => ({
+      ...prev,
+      vaccinations: [...prev.vaccinations, value],
+      vaccinationInput: '',
+    }));
+  };
+
+  const removeVaccination = (itemToRemove) => {
+    setNewCatData((prev) => ({
+      ...prev,
+      vaccinations: prev.vaccinations.filter((item) => item !== itemToRemove),
+    }));
+  };
+
 
   const handleSaveCat = async (e) => {
     e.preventDefault();
@@ -235,8 +276,7 @@ const ManagerProfile = () => {
     formData.append('gender', newCatData.gender || '');
     formData.append('birthDate', newCatData.birthDate || '');
     formData.append('description', newCatData.description.trim());
-    // Vaccinations are managed on CalendarPage and stored separately.
-    formData.append('vaccinations', JSON.stringify([]));
+    formData.append('vaccinations', JSON.stringify(newCatData.vaccinations || []));
     formData.append('sourceType', existingCat?.sourceType || 'shelter');
     formData.append('listingType', existingCat?.listingType || 'adoption');
     formData.append('listingStatus', existingCat?.listingStatus || 'active');
@@ -338,10 +378,6 @@ const ManagerProfile = () => {
       }
 
       setMyCats((prev) => prev.filter((cat) => cat.id !== catId));
-
-      if (expandedCatId === catId) {
-        setExpandedCatId(null);
-      }
 
       if (editingCatId === catId) {
         closeCatModal();
@@ -567,7 +603,7 @@ const ManagerProfile = () => {
           <div className="section-head">
             <div>
               <h2>My cats</h2>
-              <p>Tap a cat card to edit, delete, or open vaccinations</p>
+              <p>Edit, delete, or open vaccinations for each cat profile</p>
             </div>
             <span className="section-count">{myCats.length}</span>
           </div>
@@ -583,16 +619,12 @@ const ManagerProfile = () => {
           ) : (
             <div className="cats-grid">
               {myCats.map((cat) => {
-                const isExpanded = expandedCatId === cat.id;
                 const vaccinations = normalizeVaccinations(cat.vaccinations);
 
                 return (
                   <article
                     key={cat.id}
-                    className={`cat-card clickable-cat-card ${isExpanded ? 'expanded-cat-card' : ''}`}
-                    onClick={() =>
-                      setExpandedCatId((prev) => (prev === cat.id ? null : cat.id))
-                    }
+                    className="cat-card clickable-cat-card expanded-cat-card"
                   >
                     <div className="cat-card-head">
                       <div>
@@ -611,8 +643,9 @@ const ManagerProfile = () => {
                         alt={cat.name || 'Cat'}
                         style={{
                           width: '100%',
-                          height: '160px',
-                          objectFit: 'cover',
+                          height: '260px',
+                          objectFit: 'contain',
+                          background: '#f7f8fa',
                           borderRadius: '12px',
                           marginTop: '12px',
                         }}
@@ -632,66 +665,55 @@ const ManagerProfile = () => {
                       </span>
                     </div>
 
-                    {isExpanded && (
-                      <div className="cat-expanded-content">
-                        <p className="cat-description">
-                          {cat.description || 'No description yet.'}
-                        </p>
+                    <div className="cat-expanded-content">
+                      <p className="cat-description">
+                        {cat.description || 'No description yet.'}
+                      </p>
 
-                        <div className="cat-vaccination-block">
-                          <p className="cat-vaccination-title">Vaccinations</p>
+                      <div className="cat-vaccination-block">
+                        <p className="cat-vaccination-title">Vaccinations</p>
 
-                          {vaccinations.length > 0 ? (
-                            <div className="cat-vaccination-list">
-                              {vaccinations.map((item, index) => (
-                                <span key={`${item}-${index}`} className="cat-vaccination-chip">
-                                  {item}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="no-vaccinations-text">
-                              No vaccinations added yet.
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="cat-card-actions">
-                          <button
-                            type="button"
-                            className="cat-edit-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openVaccinationPage(cat);
-                            }}
-                          >
-                            Vaccinations
-                          </button>
-
-                          <button
-                            type="button"
-                            className="cat-edit-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditCatModal(cat);
-                            }}
-                          >
-                            Edit profile
-                          </button>
-
-                          <button
-                            type="button"
-                            className="cat-delete-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteCat(cat.id);
-                            }}
-                          >
-                            Delete profile
-                          </button>
-                        </div>
+                        {vaccinations.length > 0 ? (
+                          <div className="cat-vaccination-list">
+                            {vaccinations.map((item, index) => (
+                              <span key={`${item}-${index}`} className="cat-vaccination-chip">
+                                {item}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="no-vaccinations-text">
+                            No vaccinations added yet.
+                          </p>
+                        )}
                       </div>
-                    )}
+
+                      <div className="cat-card-actions">
+                        <button
+                          type="button"
+                          className="cat-edit-btn"
+                          onClick={() => openVaccinationPage(cat)}
+                        >
+                          Vaccinations
+                        </button>
+
+                        <button
+                          type="button"
+                          className="cat-edit-btn"
+                          onClick={() => openEditCatModal(cat)}
+                        >
+                          Edit profile
+                        </button>
+
+                        <button
+                          type="button"
+                          className="cat-delete-btn"
+                          onClick={() => handleDeleteCat(cat.id)}
+                        >
+                          Delete profile
+                        </button>
+                      </div>
+                    </div>
                   </article>
                 );
               })}
@@ -797,6 +819,41 @@ const ManagerProfile = () => {
 
               <div className="form-group">
                 <label>Vaccinations</label>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    value={newCatData.vaccinationInput}
+                    onChange={(e) =>
+                      setNewCatData((prev) => ({ ...prev, vaccinationInput: e.target.value }))
+                    }
+                    placeholder="Add vaccination"
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={addVaccination}
+                  >
+                    + Add vaccine
+                  </button>
+                </div>
+
+                {newCatData.vaccinations.length > 0 && (
+                  <div className="cat-vaccination-list" style={{ marginTop: '12px' }}>
+                    {newCatData.vaccinations.map((item, index) => (
+                      <button
+                        key={`${item}-${index}`}
+                        type="button"
+                        className="cat-vaccination-chip"
+                        onClick={() => removeVaccination(item)}
+                        title="Remove vaccination"
+                      >
+                        {item} ×
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {editingCatId ? (
                   <button
                     type="button"
