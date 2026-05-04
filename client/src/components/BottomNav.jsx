@@ -6,7 +6,11 @@ import '../styles/BottomNav.css';
 const getRole = () => {
   try {
     const user = JSON.parse(localStorage.getItem('user')) || {};
-    return user.role || 'user';
+    const normalizedRole = String(user.role || '').toLowerCase();
+    if (['manager', 'shelter_manager', 'shelter-manager'].includes(normalizedRole)) {
+      return 'manager';
+    }
+    return 'user';
   } catch {
     return 'user';
   }

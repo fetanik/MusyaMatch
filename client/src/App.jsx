@@ -32,17 +32,16 @@ function App() {
       <BrowserRouter>
         <div className="App">
           <Routes>
-            <Route
-              path="/"
-              element={<Navigate to={isAuthenticated ? '/dashboard' : '/home'} replace />}
-            />
+            <Route path="/" element={<HomePage />} />
             <Route path="/home" element={<HomePage />} />
             <Route path="/register" element={<RegistrationPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/achievements" element={<AchievementsPage />} />
             <Route path="/manager" element={<Navigate to="/manager/profile" replace />} />
-            <Route path="/manager/profile" element={<ManagerProfile />} />
+            <Route path="/manager/profile" element={<Navigate to="/manager-profile" replace />} />
+            <Route path="/manager-profile" element={<ManagerProfile />} />
+            <Route path="/manager/needs" element={<NeedsPage />} />
             <Route path="/manager/settings" element={<ManagerSettingsPage />} />
             <Route path="/manager/cats/:catId/vaccinations" element={<CalendarPage />} />
             <Route path="/cats/:catId/vaccinations" element={<CalendarPage />} />

@@ -201,7 +201,7 @@ const NeedsPage = () => {
           <button
             type="button"
             className="needs-back-btn"
-            onClick={() => navigate('/manager/profile')}
+            onClick={() => navigate('/manager-profile')}
             aria-label="Back to manager profile"
           >
             <FiArrowLeft size={18} />
