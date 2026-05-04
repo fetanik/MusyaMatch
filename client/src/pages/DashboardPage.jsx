@@ -23,6 +23,7 @@ import { useMessages } from '../components/MessagesContext';
 
 const CATS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
 const USERS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/users`;
+const ACHIEVEMENTS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/achievements`;
 
 const emptyForm = {
   name: '',
@@ -30,8 +31,6 @@ const emptyForm = {
   gender: '',
   birthDate: '',
   description: '',
-  vaccinationInput: '',
-  vaccinations: [],
   imageFile: null,
   imagePreview: '',
 };
@@ -97,7 +96,9 @@ const DashboardPage = () => {
   const userName = localStorage.getItem('userName') || 'Alex Johnson';
 
   const [cats, setCats] = useState([]);
+  const [catVaccinations, setCatVaccinations] = useState({});
   const [userProfile, setUserProfile] = useState(null);
+  const [achievementsSummary, setAchievementsSummary] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
@@ -110,16 +111,39 @@ const DashboardPage = () => {
   const [form, setForm] = useState(emptyForm);
   const [openCalendarAfterSave, setOpenCalendarAfterSave] = useState(false);
 
-  const [selectedVaccinationCat, setSelectedVaccinationCat] = useState(null);
-
   const [isFosterModalOpen, setIsFosterModalOpen] = useState(false);
   const [selectedFosterCat, setSelectedFosterCat] = useState(null);
   const [fosterForm, setFosterForm] = useState(emptyFosterForm);
+
+  const fetchCatVaccinations = useCallback(async (catList) => {
+    const records = {};
+
+    await Promise.all(
+      catList.map(async (cat) => {
+        try {
+          const response = await fetch(`${CATS_API}/${cat.id}/vaccinations`);
+          if (!response.ok) {
+            records[cat.id] = [];
+            return;
+          }
+
+          const data = await response.json();
+          records[cat.id] = Array.isArray(data) ? data : [];
+        } catch (error) {
+          console.error('Failed to load vaccinations for cat', cat.id, error);
+          records[cat.id] = [];
+        }
+      })
+    );
+
+    setCatVaccinations(records);
+  }, []);
 
   const fetchMyCats = useCallback(async () => {
     try {
       setLoading(true);
       setPageError('');
+      setCatVaccinations({});
 
       const response = await fetch(CATS_API);
       if (!response.ok) {
@@ -131,13 +155,17 @@ const DashboardPage = () => {
 
       const myCats = allCats.filter((cat) => Number(cat.userId) === userId);
       setCats(myCats);
+
+      if (myCats.length > 0) {
+        await fetchCatVaccinations(myCats);
+      }
     } catch (error) {
       console.error(error);
       setPageError(error.message || 'Failed to load cats');
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, fetchCatVaccinations]);
 
   useEffect(() => {
     if (!userId) {
@@ -167,7 +195,22 @@ const DashboardPage = () => {
       }
     };
 
+    const fetchAchievementsSummary = async () => {
+      if (!userId) return;
+
+      try {
+        const response = await fetch(`${ACHIEVEMENTS_API}/${userId}/summary`);
+        const data = await response.json().catch(() => null);
+        if (response.ok) {
+          setAchievementsSummary(data);
+        }
+      } catch (error) {
+        console.error('Failed to load achievements summary:', error);
+      }
+    };
+
     fetchUserProfile();
+    fetchAchievementsSummary();
   }, [userId]);
 
   const fosterCount = useMemo(
@@ -178,9 +221,31 @@ const DashboardPage = () => {
     [cats]
   );
 
+  const achievementsCount = useMemo(() => {
+    const definitions = Array.isArray(achievementsSummary?.definitions)
+      ? achievementsSummary.definitions
+      : [];
+    const completedByType = achievementsSummary?.completedByType || {};
+
+    return definitions.filter((def) => Number(completedByType[def.type] || 0) > 0).length;
+  }, [achievementsSummary]);
+
+  const totalPoints = achievementsSummary?.points ?? 0;
+  const maxLevels = 10;
+  const pointsPerLevel = 250;
+  const currentLevel = Math.min(maxLevels, Math.max(1, Math.floor(totalPoints / pointsPerLevel) + 1));
+  const pointsIntoLevel = Math.max(0, totalPoints - (currentLevel - 1) * pointsPerLevel);
+  const progressPercent = currentLevel === maxLevels ? 100 : Math.min(100, Math.max(0, (pointsIntoLevel / pointsPerLevel) * 100));
+  const pointsToNext = currentLevel === maxLevels ? 0 : pointsPerLevel - pointsIntoLevel;
+  const nextLevelText =
+    currentLevel === maxLevels
+      ? 'Max level reached'
+      : `${pointsToNext} pts to Level ${currentLevel + 1}`;
+
   const openAddCatModal = () => {
     setEditingCat(null);
     setForm({ ...emptyForm });
+    setOpenCalendarAfterSave(false);
     setIsCatModalOpen(true);
   };
 
@@ -192,8 +257,6 @@ const DashboardPage = () => {
       gender: cat.gender || '',
       birthDate: cat.birthDate || '',
       description: cat.description || '',
-      vaccinationInput: '',
-      vaccinations: normalizeVaccinations(cat.vaccinations),
       imageFile: null,
       imagePreview: cat.image_url || '',
     });
@@ -205,7 +268,6 @@ const DashboardPage = () => {
     setEditingCat(null);
     setForm(emptyForm);
     setOpenCalendarAfterSave(false);
-    setForm({ ...emptyForm });
   };
 
   const openFosterModal = (cat) => {
@@ -233,28 +295,6 @@ const DashboardPage = () => {
     setFosterForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const addVaccination = () => {
-    const value = form.vaccinationInput.trim();
-    if (!value) return;
-
-    if (form.vaccinations.includes(value)) {
-      setForm((prev) => ({ ...prev, vaccinationInput: '' }));
-      return;
-    }
-
-    setForm((prev) => ({
-      ...prev,
-      vaccinations: [...prev.vaccinations, value],
-      vaccinationInput: '',
-    }));
-  };
-
-  const removeVaccination = (itemToRemove) => {
-    setForm((prev) => ({
-      ...prev,
-      vaccinations: prev.vaccinations.filter((item) => item !== itemToRemove),
-    }));
-  };
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0] || null;
@@ -303,7 +343,7 @@ const DashboardPage = () => {
       formData.append('gender', form.gender);
       formData.append('birthDate', form.birthDate || '');
       formData.append('description', form.description.trim());
-      formData.append('vaccinations', JSON.stringify(form.vaccinations));
+      formData.append('vaccinations', JSON.stringify([]));
       formData.append('source', 'private');
       formData.append('sourceType', 'private');
       formData.append('listingType', editingCat?.listingType || 'adoption');
@@ -501,7 +541,7 @@ const DashboardPage = () => {
             </div>
             <div className="text-info">
               <h1>Hello, {userName}!</h1>
-              <p>Level 1 Cat Parent</p>
+              <p>Level {currentLevel} Cat Parent</p>
             </div>
           </div>
           <button className="notification-btn" type="button">
@@ -518,17 +558,17 @@ const DashboardPage = () => {
           </div>
 
           <div className="points-value">
-            <h2>0</h2>
+            <h2>{totalPoints}</h2>
             <span>pts</span>
           </div>
 
           <div className="level-info">
-            <span className="current-level">Level 1</span>
-            <span className="points-to-next">250 pts to Level 2</span>
+            <span className="current-level">Level {currentLevel}</span>
+            <span className="points-to-next">{nextLevelText}</span>
           </div>
 
           <div className="progress-bar-container">
-            <div className="progress-bar-fill" style={{ width: '0%' }} />
+            <div className="progress-bar-fill" style={{ width: `${progressPercent}%` }} />
           </div>
 
           <div className="achievements-row">
@@ -542,7 +582,7 @@ const DashboardPage = () => {
               }}
               title="Open achievements"
             >
-              <Star /> 0 Achievements
+              <Star /> {achievementsCount} Achievements
             </div>
             <div className="achievement-badge foster-badge">
               <Heart fill="currentColor" /> {fosterCount} Fosters
@@ -628,7 +668,19 @@ const DashboardPage = () => {
         ) : (
           <div className="cats-grid">
             {cats.map((cat) => {
-              const vaccinations = normalizeVaccinations(cat.vaccinations);
+              const savedVaccinations = Array.isArray(catVaccinations[cat.id])
+                ? catVaccinations[cat.id]
+                : normalizeVaccinations(cat.vaccinations).map((name) => ({
+                    name,
+                    status: 'completed',
+                  }));
+              const completedVaccinations = savedVaccinations.filter(
+                (item) => String(item.status).toLowerCase() === 'completed'
+              );
+              const completedCount = completedVaccinations.length;
+              const completedNames = completedVaccinations
+                .map((item) => item.name)
+                .filter(Boolean);
               const statusMeta = getStatusMeta(cat);
               const isOnFoster =
                 cat.listingType === 'foster' || cat.listingStatus === 'pending';
@@ -666,7 +718,9 @@ const DashboardPage = () => {
                     </span>
                     <span>
                       <strong>Vaccinations:</strong>{' '}
-                      {vaccinations.length > 0 ? `${vaccinations.length} added` : 'Not added'}
+                      {completedCount > 0
+                        ? `${completedCount} completed`
+                        : 'No vaccinations added yet.'}
                     </span>
                   </div>
 
@@ -675,18 +729,18 @@ const DashboardPage = () => {
                       {cat.description || 'No description yet.'}
                     </p>
 
-                    <h4>Vaccinations</h4>
+                    <h4>Completed vaccinations</h4>
                     <p className="cat-vaccinations-text">
-                      {vaccinations.length > 0
-                        ? vaccinations.join(', ')
-                        : 'No vaccinations added yet.'}
+                      {completedNames.length > 0
+                        ? completedNames.join(', ')
+                        : 'No completed vaccinations yet.'}
                     </p>
 
                     <div className="cat-card-actions">
                       <button
                         type="button"
                         className="secondary-btn"
-                        onClick={() => setSelectedVaccinationCat(cat)}
+                        onClick={() => navigate(`/cats/${cat.id}/vaccinations`, { state: { cat } })}
                       >
                         Vaccinations
                       </button>
@@ -788,43 +842,6 @@ const DashboardPage = () => {
               </div>
 
               <div className="form-group">
-                <label>Add vaccinations</label>
-
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <input
-                    type="text"
-                    value={form.vaccinationInput}
-                    onChange={(e) => handleFormChange('vaccinationInput', e.target.value)}
-                    placeholder="Add vaccination"
-                    style={{ flex: 1 }}
-                  />
-                  <button
-                    type="button"
-                    className="primary-btn"
-                    onClick={addVaccination}
-                  >
-                    + Add vaccine
-                  </button>
-                </div>
-
-                {form.vaccinations.length > 0 && (
-                  <div className="cat-vaccination-list" style={{ marginTop: '12px' }}>
-                    {form.vaccinations.map((item, index) => (
-                      <button
-                        key={`${item}-${index}`}
-                        type="button"
-                        className="cat-vaccination-chip"
-                        onClick={() => removeVaccination(item)}
-                        title="Remove vaccination"
-                      >
-                        {item} ×
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="form-group">
                 <label>Description</label>
                 <textarea
                   rows="4"
@@ -898,46 +915,6 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {selectedVaccinationCat && (
-        <div className="modal-overlay">
-          <div className="modal-card">
-            <div className="modal-head">
-              <h3>{selectedVaccinationCat.name} vaccinations</h3>
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() => setSelectedVaccinationCat(null)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {normalizeVaccinations(selectedVaccinationCat.vaccinations).length > 0 ? (
-              <div className="cat-vaccination-list">
-                {normalizeVaccinations(selectedVaccinationCat.vaccinations).map(
-                  (item, index) => (
-                    <span key={index} className="cat-vaccination-chip">
-                      {item}
-                    </span>
-                  )
-                )}
-              </div>
-            ) : (
-              <p className="cat-vaccinations-empty">No vaccinations added yet.</p>
-            )}
-
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="secondary-btn"
-                onClick={() => setSelectedVaccinationCat(null)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isFosterModalOpen && selectedFosterCat && (
         <div className="modal-overlay">

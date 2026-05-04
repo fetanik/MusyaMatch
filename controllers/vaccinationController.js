@@ -7,6 +7,22 @@ async function ensureCatExists(catId) {
   return Boolean(cat);
 }
 
+function isFutureDate(dateString) {
+  if (!dateString) return false;
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return false;
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  return date.getTime() > today.getTime();
+}
+
+function validateVaccinationDate({ status, dueDate }) {
+  if (status === 'completed' && dueDate && isFutureDate(dueDate)) {
+    return 'Completed vaccination cannot have a future due date.';
+  }
+  return null;
+}
+
 export async function listVaccinations(req, res, next) {
   try {
     const catId = Number(req.params.catId);
@@ -53,6 +69,11 @@ export async function createVaccination(req, res, next) {
 
     const normalizedStatus =
       status === 'completed' || status === 'upcoming' ? status : 'upcoming';
+
+    const validationError = validateVaccinationDate({ status: normalizedStatus, dueDate });
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
 
     const existingCount = await Vaccination.count({ where: { catId } });
 
@@ -103,6 +124,18 @@ export async function updateVaccination(req, res, next) {
     }
 
     const { name, dueDate, status, notes } = req.body || {};
+
+    const normalizedStatus =
+      status !== undefined
+        ? status === 'completed' || status === 'upcoming'
+          ? status
+          : item.status
+        : item.status;
+    const dueDateValue = dueDate !== undefined ? dueDate : item.dueDate;
+    const validationError = validateVaccinationDate({ status: normalizedStatus, dueDate: dueDateValue });
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
 
     await item.update({
       name: name !== undefined ? (name?.trim() || item.name) : item.name,
