@@ -6,6 +6,33 @@ import BottomNav from '../components/BottomNav';
 import { useMessages } from '../components/MessagesContext';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+const normalizeVaccinationNames = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => (typeof item === 'string' ? item.trim() : ''))
+          .filter(Boolean);
+      }
+    } catch {
+      return trimmed
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+
+  return [];
+};
 
 const CalendarPage = () => {
   const navigate = useNavigate();
@@ -16,6 +43,9 @@ const CalendarPage = () => {
 
   const [cat, setCat] = useState(location.state?.cat || null);
   const [vaccinations, setVaccinations] = useState([]);
+  const [profileVaccinations, setProfileVaccinations] = useState(
+    normalizeVaccinationNames(location.state?.cat?.vaccinations)
+  );
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
 
@@ -44,11 +74,11 @@ const CalendarPage = () => {
         setPageError('');
 
         const [catRes, vaxRes] = await Promise.all([
-          cat ? Promise.resolve(null) : fetch(`${API_BASE}/api/cats/${numericCatId}`),
+          fetch(`${API_BASE}/api/cats/${numericCatId}`),
           fetch(`${API_BASE}/api/cats/${numericCatId}/vaccinations`),
         ]);
 
-        if (catRes && !catRes.ok) {
+        if (!catRes.ok) {
           const data = await catRes.json().catch(() => ({}));
           throw new Error(data?.message || 'Failed to load cat');
         }
@@ -57,10 +87,9 @@ const CalendarPage = () => {
           throw new Error(data?.message || 'Failed to load vaccinations');
         }
 
-        if (catRes) {
-          const catData = await catRes.json();
-          setCat(catData || null);
-        }
+        const catData = await catRes.json();
+        setCat(catData || null);
+        setProfileVaccinations(normalizeVaccinationNames(catData?.vaccinations));
 
         const vaxData = await vaxRes.json();
         setVaccinations(Array.isArray(vaxData) ? vaxData : []);
@@ -75,13 +104,33 @@ const CalendarPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [numericCatId]);
 
+  const visibleVaccinations = useMemo(() => {
+    const reminderNames = new Set(
+      vaccinations
+        .map((item) => String(item?.name || '').trim().toLowerCase())
+        .filter(Boolean)
+    );
+
+    const fromCatProfile = profileVaccinations
+      .filter((name) => !reminderNames.has(name.toLowerCase()))
+      .map((name, index) => ({
+        id: `profile-${name}-${index}`,
+        name,
+        dueDate: null,
+        status: 'completed',
+        source: 'profile',
+      }));
+
+    return [...vaccinations, ...fromCatProfile];
+  }, [vaccinations, profileVaccinations]);
+
   const upcomingCount = useMemo(
-    () => vaccinations.filter((item) => item.status === 'upcoming').length,
-    [vaccinations]
+    () => visibleVaccinations.filter((item) => item.status === 'upcoming').length,
+    [visibleVaccinations]
   );
   const doneCount = useMemo(
-    () => vaccinations.filter((item) => item.status === 'completed').length,
-    [vaccinations]
+    () => visibleVaccinations.filter((item) => item.status === 'completed').length,
+    [visibleVaccinations]
   );
 
   const closeModal = () => {
@@ -199,19 +248,21 @@ const CalendarPage = () => {
         </div>
 
         <div className="vax-list">
-          {vaccinations.length === 0 ? (
+          {visibleVaccinations.length === 0 ? (
             <div className="vax-card upcoming">
               <div className="vax-info">
                 <h3>No reminders yet</h3>
                 <p>Add the first vaccination reminder for this cat.</p>
               </div>
             </div>
-          ) : vaccinations.map((vax) => (
+          ) : visibleVaccinations.map((vax) => (
             <div key={vax.id} className={`vax-card ${vax.status}`}>
               <div className="vax-icon"><Syringe size={20} /></div>
               <div className="vax-info">
                 <h3>{vax.name}</h3>
-                <p>{vax.dueDate || 'No date'} • Reminder</p>
+                <p>
+                  {vax.dueDate || 'No date'} • {vax.source === 'profile' ? 'From cat profile' : 'Reminder'}
+                </p>
               </div>
               <div className="vax-status">
                 {vax.status === "completed" ? 
