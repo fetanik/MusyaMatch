@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/ChatPage.css';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
 export default function ChatPage() {
   const navigate = useNavigate();
   
@@ -13,6 +15,9 @@ export default function ChatPage() {
   const [showResults, setShowResults] = useState(false);
   const [matches, setMatches] = useState([]);
   const [customAnswer, setCustomAnswer] = useState('');
+  const [matchingLoading, setMatchingLoading] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState(null);
+  const [chatLoading, setChatLoading] = useState(false);
 
   const questions = [
     {
@@ -86,8 +91,10 @@ export default function ChatPage() {
   };
 
   const handleCustomAnswer = () => {
+    if (!customAnswer.trim()) return;
     const newAnswers = { ...answers, [questions[currentQuestion].id]: customAnswer };
     setAnswers(newAnswers);
+    setCustomAnswer('');
     
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion((prev) => prev + 1);
@@ -98,8 +105,9 @@ export default function ChatPage() {
   };
 
   const findMatches = async (userAnswers) => {
+    setMatchingLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/match', {
+      const response = await fetch(`${API_BASE_URL}/api/match`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answers: userAnswers })
@@ -109,6 +117,8 @@ export default function ChatPage() {
     } catch (error) {
       console.error('Error finding matches:', error);
       setMatches([]);
+    } finally {
+      setMatchingLoading(false);
     }
   };
 
@@ -150,21 +160,25 @@ export default function ChatPage() {
   };
 
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || chatLoading) return;
     
     const userMsg = input;
     const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     setMessages(prev => [...prev, { role: 'user', text: userMsg, time: currentTime }]);
     setInput('');
+    setChatLoading(true);
 
     try {
-      const res = await fetch('http://localhost:3000/api/chat', {
+      const res = await fetch(`${API_BASE_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg })
       });
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.reply || 'Failed to get AI reply');
+      }
       setMessages(prev => [...prev, { 
         role: 'ai', 
         text: data.reply, 
@@ -178,6 +192,8 @@ export default function ChatPage() {
         time: currentTime,
         formatted: formatMessage("⚠️ Sorry, I'm having trouble responding. Please try again! 🐱")
       }]);
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -379,7 +395,10 @@ export default function ChatPage() {
                   <div className="match-reason">
                     <p>{match.reason}</p>
                   </div>
-                  <button className="view-cat-btn">
+                  <button
+                    className="view-cat-btn"
+                    onClick={() => setSelectedMatch(match)}
+                  >
                     View Profile
                   </button>
                 </div>
@@ -387,12 +406,54 @@ export default function ChatPage() {
             ) : (
               <div className="no-matches">
                 <div className="no-matches-icon">🔍</div>
-                <h3>Finding perfect cats...</h3>
-                <p>Analyzing your answers and database</p>
+                <h3>{matchingLoading ? 'Finding perfect cats...' : 'No matches found yet'}</h3>
+                <p>
+                  {matchingLoading
+                    ? 'Analyzing your answers and database'
+                    : 'Try restarting the quiz or adding more available cats'}
+                </p>
               </div>
             )}
           </div>
         </main>
+      )}
+
+      {selectedMatch?.cat && (
+        <div className="cat-modal-backdrop" onClick={() => setSelectedMatch(null)}>
+          <article className="cat-modal" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className="cat-modal-close"
+              onClick={() => setSelectedMatch(null)}
+              aria-label="Close details"
+            >
+              x
+            </button>
+            {selectedMatch.cat.imageUrl ? (
+              <img className="cat-modal-image" src={selectedMatch.cat.imageUrl} alt={selectedMatch.cat.name} />
+            ) : null}
+            <div className="cat-modal-content">
+              <h3>{selectedMatch.cat.name}</h3>
+              <p className="cat-modal-meta">
+                {selectedMatch.cat.breed || 'Unknown breed'}
+                {Number.isFinite(selectedMatch.cat.age) ? ` • ${selectedMatch.cat.age} years` : ''}
+              </p>
+              <p className="cat-modal-description">
+                {selectedMatch.cat.description || 'No description available.'}
+              </p>
+              <div className="cat-modal-chips">
+                {selectedMatch.cat.gender && <span className="cat-chip">Gender: {selectedMatch.cat.gender}</span>}
+                {selectedMatch.cat.energyLevel && <span className="cat-chip">Energy: {selectedMatch.cat.energyLevel}</span>}
+                {selectedMatch.cat.experienceLevel && (
+                  <span className="cat-chip">Experience level: {selectedMatch.cat.experienceLevel}</span>
+                )}
+                <span className="cat-chip">Good with kids: {selectedMatch.cat.goodWithKids ? 'Yes' : 'No'}</span>
+                <span className="cat-chip">Good with pets: {selectedMatch.cat.goodWithPets ? 'Yes' : 'No'}</span>
+                <span className="cat-chip">Special needs: {selectedMatch.cat.specialNeeds ? 'Yes' : 'No'}</span>
+              </div>
+            </div>
+          </article>
+        </div>
       )}
     </div>
   );

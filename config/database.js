@@ -1,9 +1,9 @@
+import dotenv from 'dotenv';
 import { Sequelize } from 'sequelize';
 
-/**
- * Sequelize instance for MySQL. Expects DB_* and optional DB_PORT in process.env
- * (load dotenv in index.js before importing this module).
- */
+// Load environment variables
+dotenv.config({ path: '.env' });
+
 export const sequelize = new Sequelize(
   process.env.DB_NAME,
   process.env.DB_USER,
@@ -16,9 +16,6 @@ export const sequelize = new Sequelize(
   }
 );
 
-/**
- * Verifies TCP/auth to MySQL. Call once on startup before sync or queries.
- */
 export async function connectDatabase() {
   await sequelize.authenticate();
 }

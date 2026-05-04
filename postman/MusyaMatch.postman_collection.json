@@ -1,0 +1,122 @@
+{
+  "info": {
+    "_postman_id": "f7f7c4bf-79bd-49de-a4f5-d6f8f1a424f7",
+    "name": "MusyaMatch API",
+    "description": "Collection for MusyaMatch backend endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        },
+        "description": "Check if API process is alive."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Cats",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/cats",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cats"
+          ]
+        },
+        "description": "Fetch all cats from database."
+      },
+      "response": []
+    },
+    {
+      "name": "Create Cat (Cloudinary Upload)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "name",
+              "value": "Milo",
+              "type": "text"
+            },
+            {
+              "key": "breed",
+              "value": "British Shorthair",
+              "type": "text"
+            },
+            {
+              "key": "age",
+              "value": "2",
+              "type": "text"
+            },
+            {
+              "key": "description",
+              "value": "Calm and friendly cat.",
+              "type": "text"
+            },
+            {
+              "key": "source",
+              "value": "shelter",
+              "type": "text"
+            },
+            {
+              "key": "urgency",
+              "value": "medium",
+              "type": "text"
+            },
+            {
+              "key": "personality",
+              "value": "Calm",
+              "type": "text"
+            },
+            {
+              "key": "sex",
+              "value": "male",
+              "type": "text"
+            },
+            {
+              "key": "image",
+              "type": "file",
+              "src": ""
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/cats",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cats"
+          ]
+        },
+        "description": "Create cat and upload image to Cloudinary. Select a local image file for the `image` field before sending."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    }
+  ]
+}

@@ -1,102 +1,172 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/database.js';
 
-/**
- * Cat entity — adoption listing in MusyaMatch.
- */
 export const Cat = sequelize.define(
   'Cat',
   {
     id: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
     },
-    shelter_id: {
-      type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: false,
+    shelterId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'shelter_id',
+    },
+    userId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'user_id',
     },
     name: {
-      type: DataTypes.STRING(255),
+      type: DataTypes.STRING(100),
       allowNull: false,
     },
     gender: {
-      type: DataTypes.STRING(10),
+      type: DataTypes.ENUM('male', 'female'),
       allowNull: true,
     },
-    birth_date: {
-      type: DataTypes.DATE,
+    birthDate: {
+      type: DataTypes.DATEONLY,
       allowNull: true,
+      field: 'birth_date',
     },
     breed: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-    },
-    age: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.STRING(100),
       allowNull: true,
     },
     description: {
       type: DataTypes.TEXT,
       allowNull: true,
     },
-    compatibility_score: {
+    age: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    vaccinations: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+      defaultValue: '[]',
+      get() {
+        const raw = this.getDataValue('vaccinations');
+        if (!raw) return [];
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return [];
+        }
+      },
+      set(value) {
+        this.setDataValue('vaccinations', JSON.stringify(Array.isArray(value) ? value : []));
+      },
+    },
+    imageUrl: {
+      type: DataTypes.STRING(1024),
+      allowNull: true,
+      field: 'image_url',
+    },
+    source: {
+      type: DataTypes.STRING(64),
+      allowNull: false,
+      defaultValue: 'shelter',
+    },
+    urgency: {
+      type: DataTypes.STRING(64),
+      allowNull: true,
+    },
+    personality: {
+      type: DataTypes.STRING(128),
+      allowNull: true,
+    },
+    sex: {
+      type: DataTypes.STRING(16),
+      allowNull: true,
+    },
+    compatibilityScore: {
       type: DataTypes.FLOAT,
       allowNull: true,
     },
-    status: {
-      type: DataTypes.STRING(64),
+    sourceType: {
+      type: DataTypes.ENUM('shelter', 'private'),
       allowNull: false,
-      defaultValue: 'available',
+      defaultValue: 'shelter',
+      field: 'source_type',
     },
     // Enhanced fields for smart matching
-    experience_level: {
+    experienceLevel: {
       type: DataTypes.STRING(20),
       allowNull: true,
+      field: 'experience_level',
       comment: 'first_time, experienced',
     },
-    good_with_kids: {
+    goodWithKids: {
       type: DataTypes.BOOLEAN,
       allowNull: true,
       defaultValue: false,
+      field: 'good_with_kids',
     },
-    good_with_pets: {
+    goodWithPets: {
       type: DataTypes.BOOLEAN,
       allowNull: true,
       defaultValue: false,
+      field: 'good_with_pets',
     },
-    space_requirements: {
+    spaceRequirements: {
       type: DataTypes.STRING(20),
       allowNull: true,
+      field: 'space_requirements',
       comment: 'apartment, house',
     },
-    energy_level: {
+    energyLevel: {
       type: DataTypes.STRING(20),
       allowNull: true,
+      field: 'energy_level',
       comment: 'low, medium, high',
     },
-    age_category: {
+    ageCategory: {
       type: DataTypes.STRING(20),
       allowNull: true,
+      field: 'age_category',
       comment: 'kitten, adult, senior',
     },
-    special_needs: {
+    specialNeeds: {
       type: DataTypes.BOOLEAN,
       allowNull: true,
       defaultValue: false,
+      field: 'special_needs',
     },
-    care_requirements: {
+    careRequirements: {
       type: DataTypes.STRING(20),
       allowNull: true,
+      field: 'care_requirements',
       comment: 'low, medium, high',
     },
-    image_url: {
-      type: DataTypes.STRING(500),
+    listingType: {
+      type: DataTypes.ENUM('adoption', 'foster', 'none'),
+      allowNull: false,
+      defaultValue: 'adoption',
+      field: 'listing_type',
+    },
+    listingStatus: {
+      type: DataTypes.ENUM('active', 'pending', 'placed', 'adopted', 'hidden'),
+      allowNull: false,
+      defaultValue: 'active',
+      field: 'listing_status',
+    },
+    previousListingType: {
+      type: DataTypes.ENUM('adoption', 'foster', 'none'),
       allowNull: true,
+      field: 'previous_listing_type',
+    },
+    previousListingStatus: {
+      type: DataTypes.ENUM('active', 'pending', 'placed', 'adopted', 'hidden'),
+      allowNull: true,
+      field: 'previous_listing_status',
     },
   },
   {
-    tableName: 'cats',
-    underscored: true,
+    tableName: 'cat',
+    timestamps: false,
   }
 );

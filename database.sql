@@ -6,6 +6,7 @@ USE musyamatch;
 DROP TABLE IF EXISTS Cat_photo;
 DROP TABLE IF EXISTS Event;
 DROP TABLE IF EXISTS AdoptionRequest;
+DROP TABLE IF EXISTS shelter_need;
 DROP TABLE IF EXISTS Cat;
 DROP TABLE IF EXISTS Shelter;
 DROP TABLE IF EXISTS Basic_user;
@@ -36,6 +37,7 @@ CREATE TABLE Cat (
     gender ENUM('male', 'female'),
     birth_date DATE,
     description TEXT,
+    image_url TEXT,
     status ENUM('shelter', 'private') NOT NULL,
 
     CONSTRAINT fk_cat_shelter
@@ -85,6 +87,33 @@ CREATE TABLE Cat_photo (
 );
 
 CREATE INDEX idx_photo_cat ON Cat_photo(cat_id);
+
+-- TABLE: shelter_need
+CREATE TABLE shelter_need (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    shelter_id INT NULL,
+    user_id INT NULL,
+    title VARCHAR(150) NOT NULL,
+    description TEXT,
+    category VARCHAR(64) NOT NULL DEFAULT 'General',
+    priority ENUM('low', 'medium', 'high') NOT NULL DEFAULT 'medium',
+    status ENUM('open', 'fulfilled') NOT NULL DEFAULT 'open',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_need_shelter
+        FOREIGN KEY (shelter_id)
+        REFERENCES Shelter(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_need_user
+        FOREIGN KEY (user_id)
+        REFERENCES Basic_user(id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX idx_need_shelter ON shelter_need(shelter_id);
+CREATE INDEX idx_need_user ON shelter_need(user_id);
+CREATE INDEX idx_need_status ON shelter_need(status);
 
 -- TABLE: Event
 CREATE TABLE Event (
