@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { CheckCircle2, XCircle, Info } from 'lucide-react';
+import { CheckCircle2, XCircle, Info, HelpCircle } from 'lucide-react';
 
 const typeToUi = {
   success: { icon: CheckCircle2, title: 'Успіх' },
   error: { icon: XCircle, title: 'Помилка' },
   info: { icon: Info, title: 'Інформація' },
+  confirm: { icon: HelpCircle, title: 'Підтвердження' },
 };
 
 function MessageModal({ state, onClose, onConfirm }) {

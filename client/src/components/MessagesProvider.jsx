@@ -44,7 +44,7 @@ function MessagesProvider({ children }) {
 
   const confirm = useCallback((text, options = {}) => {
     const {
-      type = 'info',
+      type = 'confirm',
       title = '',
       confirmText = 'OK',
       cancelText = 'Cancel',

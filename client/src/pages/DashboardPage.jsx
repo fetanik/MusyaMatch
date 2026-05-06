@@ -376,10 +376,10 @@ const DashboardPage = () => {
   };
 
   const handleDeleteCat = async (cat) => {
-    const confirmed = await confirm(`Delete ${cat.name}?`, {
-      type: 'error',
-      title: 'Confirm delete',
-      confirmText: 'Delete',
+    const confirmed = await confirm(`Are you sure you want to delete ${cat.name}? This action cannot be undone.`, {
+      type: 'confirm',
+      title: 'Delete cat',
+      confirmText: 'Yes, delete',
       cancelText: 'Cancel',
     });
     if (!confirmed) return;
@@ -487,7 +487,12 @@ const DashboardPage = () => {
   };
 
   const handleWithdrawFoster = async (cat) => {
-    const confirmed = window.confirm(`Withdraw foster request for ${cat.name}?`);
+    const confirmed = await confirm(`Withdraw foster request for ${cat.name}?`, {
+      type: 'confirm',
+      title: 'Withdraw foster request',
+      confirmText: 'Yes, withdraw',
+      cancelText: 'Cancel',
+    });
     if (!confirmed) return;
 
     try {

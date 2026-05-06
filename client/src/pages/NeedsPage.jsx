@@ -28,7 +28,7 @@ const emptyForm = {
 
 const NeedsPage = () => {
   const navigate = useNavigate();
-  const { notify } = useMessages();
+  const { notify, confirm } = useMessages();
   const [needs, setNeeds] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -119,7 +119,12 @@ const NeedsPage = () => {
   };
 
   const handleDeleteNeed = async (needId) => {
-    const confirmed = window.confirm('Delete this need?');
+    const confirmed = await confirm('Are you sure you want to delete this need? This action cannot be undone.', {
+      type: 'confirm',
+      title: 'Delete need',
+      confirmText: 'Yes, delete',
+      cancelText: 'Cancel',
+    });
     if (!confirmed) return;
 
     try {

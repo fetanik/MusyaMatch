@@ -360,10 +360,10 @@ const ManagerProfile = () => {
   };
 
   const handleDeleteCat = async (catId) => {
-    const confirmed = await confirm('Are you sure you want to delete this cat profile?', {
-      type: 'error',
-      title: 'Confirm delete',
-      confirmText: 'Delete',
+    const confirmed = await confirm('Are you sure you want to delete this cat profile? This action cannot be undone.', {
+      type: 'confirm',
+      title: 'Delete cat profile',
+      confirmText: 'Yes, delete',
       cancelText: 'Cancel',
     });
     if (!confirmed) return;
