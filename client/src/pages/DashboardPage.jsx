@@ -598,7 +598,7 @@ const DashboardPage = () => {
             <h3>Chat with Musya AI</h3>
             <p>Get expert advice & find your perfect match</p>
           </div>
-          <button className="ai-action-btn" type="button">
+          <button className="ai-action-btn" onClick={() => navigate('/chat')}>
             <MessageSquare />
           </button>
         </div>

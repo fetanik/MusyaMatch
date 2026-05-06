@@ -27,11 +27,11 @@ const HomePage = () => {
 
         {/* Інформаційні картки (раніше були кнопками) */}
         <section className="grid-cards">
-          <div className="action-card-info">
+          <button className="action-card-btn" onClick={() => navigate('/chat')}>
             <div className="icon-box"><Sparkles size={24} /></div>
             <h3>AI Matching</h3>
             <p>Find cats that match your lifestyle</p>
-          </div>
+          </button>
           
           <div className="action-card-info">
             <div className="icon-box"><Calendar size={24} /></div>
@@ -56,7 +56,7 @@ const HomePage = () => {
         <button className="btn-main" onClick={() => navigate('/register')}>Get Started 😻</button>
         
         <div className="btn-secondary-group">
-          <button className="btn-outline">💬 Chat with AI</button>
+          <button className="btn-outline" onClick={() => navigate('/chat')}>💬 Chat with AI</button>
           <button className="btn-outline" onClick={() => navigate('/pharmacies')}>
             <Pill size={18} style={{marginRight: '8px'}}/> Pharmacies
           </button>

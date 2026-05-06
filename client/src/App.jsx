@@ -10,6 +10,7 @@ import ManagerSettingsPage from './pages/ManagerSettingsPage';
 import NeedsPage from './pages/NeedsPage';
 import Gallery from './pages/Gallery';
 import PharmaciesPage from './pages/PharmaciesPage';
+import ChatPage from './pages/ChatPage';
 import AchievementsPage from './pages/AchievementsPage';
 import MessagesProvider from './components/MessagesProvider';
 
@@ -54,6 +55,7 @@ function App() {
               element={isAuthenticated ? <DashboardPage /> : <Navigate to="/register" replace />}
             />
             <Route path="/pharmacies" element={<PharmaciesPage />} />
+            <Route path="/chat" element={<ChatPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

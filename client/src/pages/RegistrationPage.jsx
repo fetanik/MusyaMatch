@@ -5,7 +5,6 @@ import { Sparkles, AlertCircle, Home, Cat } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/auth`;
-const isManagerRole = (role) => ['manager', 'shelter_manager', 'shelter-manager'].includes(String(role || '').toLowerCase());
 
 const RegistrationPage = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -93,10 +92,10 @@ const RegistrationPage = () => {
         localStorage.setItem('userName', result.user?.name || '');
         localStorage.setItem('userEmail', result.user?.email || '');
 
-        if (isManagerRole(result.user.role)) {
-          navigate('/manager-profile');
+        if (result.user.role === 'manager') {
+          navigate('/manager/profile', { replace: true });
         } else {
-          navigate('/dashboard');
+          navigate('/dashboard', { replace: true });
         }
 
         return;
@@ -129,10 +128,10 @@ const RegistrationPage = () => {
       localStorage.setItem('userEmail', result.user?.email || '');
       resetFormState();
 
-      if (isManagerRole(result.user.role)) {
-        navigate('/manager-profile');
+      if (result.user.role === 'manager') {
+        navigate('/manager/profile', { replace: true });
       } else {
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
       }
     } catch (e) {
       console.error(e);
