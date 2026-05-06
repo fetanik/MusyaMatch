@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/DashboardPage.css';
 
@@ -118,6 +118,97 @@ const DashboardPage = () => {
   const [selectedFosterCat, setSelectedFosterCat] = useState(null);
   const [fosterForm, setFosterForm] = useState(emptyFosterForm);
 
+  const [needs, setNeeds] = useState([]);
+  const carouselRef = useRef(null);
+
+  // Mock data for needs
+  const mockNeeds = [
+    {
+      id: 1,
+      title: 'Корм для котів',
+      description: 'Потрібен сухий корм преміум класу для 50 котів',
+      priority: 'high',
+      status: 'open',
+      category: 'Food',
+      shelter: {
+        id: 1,
+        name: 'Сонячний притулок',
+        phone: '+380501234567',
+        address: 'вул. Львівська, 45, Київ',
+      },
+    },
+    {
+      id: 2,
+      title: 'Медикаменти',
+      description: 'Антибіотики та вітаміни для лікування інфекцій',
+      priority: 'high',
+      status: 'open',
+      category: 'Medical',
+      shelter: {
+        id: 2,
+        name: 'Пушистики',
+        phone: '+380502345678',
+        address: 'вул. Героїв Крут, 12, Київ',
+      },
+    },
+    {
+      id: 3,
+      title: 'Подушки та ліжка',
+      description: 'М\'які подушки для сну та лежаки для котів',
+      priority: 'medium',
+      status: 'open',
+      category: 'Bedding',
+      shelter: {
+        id: 3,
+        name: 'Кошачий дім',
+        phone: '+380503456789',
+        address: 'пр. Миру, 88, Харків',
+      },
+    },
+    {
+      id: 4,
+      title: 'Туалетний папір та підстилка',
+      description: 'Абсорбуюча підстилка для туалетів на 100 літрів',
+      priority: 'medium',
+      status: 'open',
+      category: 'Supplies',
+      shelter: {
+        id: 1,
+        name: 'Сонячний притулок',
+        phone: '+380501234567',
+        address: 'вул. Львівська, 45, Київ',
+      },
+    },
+    {
+      id: 5,
+      title: 'Іграшки та розваги',
+      description: 'М\'ячики, палички, приладдя для гри з котами',
+      priority: 'low',
+      status: 'open',
+      category: 'Toys',
+      shelter: {
+        id: 2,
+        name: 'Пушистики',
+        phone: '+380502345678',
+        address: 'вул. Героїв Крут, 12, Київ',
+      },
+    },
+    {
+      id: 6,
+      title: 'Переноски для котів',
+      description: 'Переноски для транспортування на ветеринара',
+      priority: 'medium',
+      status: 'open',
+      category: 'Equipment',
+      shelter: {
+        id: 3,
+        name: 'Кошачий дім',
+        phone: '+380503456789',
+        address: 'пр. Миру, 88, Харків',
+      },
+    },
+  ];
+
   const fetchMyCats = useCallback(async () => {
     try {
       setLoading(true);
@@ -149,6 +240,8 @@ const DashboardPage = () => {
     }
 
     fetchMyCats();
+    // Load mock needs
+    setNeeds(mockNeeds.slice(0, 10));
   }, [fetchMyCats, userId]);
 
   useEffect(() => {
@@ -193,6 +286,16 @@ const DashboardPage = () => {
 
     fetchAchievementSummary();
   }, [userId]);
+
+  const scrollCarousel = (direction) => {
+    if (carouselRef.current) {
+      const scrollAmount = 300;
+      carouselRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  };
 
   const totalPoints = Number(achievementSummary?.points || 0);
   const completedAchievementsCount = useMemo(() => {
@@ -1072,6 +1175,65 @@ const DashboardPage = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Shelter Needs Carousel */}
+      {needs.length > 0 && (
+        <section className="dashboard-needs-carousel-section">
+          <div className="carousel-header">
+            <h3>Help Shelters in Need</h3>
+            <a href="/shelter-needs" className="view-all-link">
+              View all →
+            </a>
+          </div>
+
+          <div className="carousel-container">
+            <button
+              type="button"
+              className="carousel-btn carousel-btn-left"
+              onClick={() => scrollCarousel('left')}
+              aria-label="Scroll left"
+            >
+              ‹
+            </button>
+
+            <div className="carousel-track" ref={carouselRef}>
+              {needs.map((need) => (
+                <div key={need.id} className="carousel-card">
+                  <div className="card-priority">
+                    {need.priority === 'high' && '🔴'}
+                    {need.priority === 'medium' && '🟡'}
+                    {need.priority === 'low' && '🟢'}
+                  </div>
+                  <h4>{need.title}</h4>
+                  {need.description && (
+                    <p className="card-description">{need.description}</p>
+                  )}
+                  {need.shelter && (
+                    <div className="card-shelter">
+                      <div className="shelter-name">{need.shelter.name}</div>
+                      {need.shelter.address && (
+                        <div className="shelter-location">
+                          <MapPin size={12} />
+                          {need.shelter.address}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="carousel-btn carousel-btn-right"
+              onClick={() => scrollCarousel('right')}
+              aria-label="Scroll right"
+            >
+              ›
+            </button>
+          </div>
+        </section>
       )}
 
       <BottomNav active="home" />

@@ -12,6 +12,7 @@ import Gallery from './pages/Gallery';
 import PharmaciesPage from './pages/PharmaciesPage';
 import ChatPage from './pages/ChatPage';
 import AchievementsPage from './pages/AchievementsPage';
+import ShelterNeedsPage from './pages/ShelterNeedsPage';
 import MessagesProvider from './components/MessagesProvider';
 
 const getCurrentUser = () => {
@@ -39,6 +40,7 @@ function App() {
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/achievements" element={<AchievementsPage />} />
+            <Route path="/shelter-needs" element={<ShelterNeedsPage />} />
             <Route path="/manager" element={<Navigate to="/manager/profile" replace />} />
             <Route path="/manager/profile" element={<Navigate to="/manager-profile" replace />} />
             <Route path="/manager-profile" element={<ManagerProfile />} />

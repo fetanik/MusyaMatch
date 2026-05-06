@@ -675,3 +675,163 @@
   cursor: not-allowed;
 }
 
+/* Shelter Needs Carousel */
+.dashboard-needs-carousel-section {
+  width: 100%;
+  margin: 40px 0;
+  padding: 0 20px;
+}
+
+.carousel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.carousel-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.view-all-link {
+  text-decoration: none;
+  color: #ff8a00;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: color 0.2s;
+}
+
+.view-all-link:hover {
+  color: #ff7700;
+}
+
+.carousel-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.carousel-track {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+  scrollbar-width: none;
+}
+
+.carousel-track::-webkit-scrollbar {
+  display: none;
+}
+
+.carousel-card {
+  flex-shrink: 0;
+  width: 280px;
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card-priority {
+  font-size: 1.5rem;
+  height: 24px;
+}
+
+.carousel-card h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.3;
+}
+
+.card-description {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-shelter {
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+  display: grid;
+  gap: 6px;
+}
+
+.shelter-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.shelter-location {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #ff8a00;
+}
+
+.shelter-location svg {
+  flex-shrink: 0;
+}
+
+.carousel-btn {
+  position: absolute;
+  z-index: 10;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #ff8a00;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.carousel-btn:hover {
+  background: #ff7700;
+}
+
+.carousel-btn-left {
+  left: 0;
+}
+
+.carousel-btn-right {
+  right: 0;
+}
+
+@media (max-width: 768px) {
+  .carousel-card {
+    width: 240px;
+  }
+
+  .carousel-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 1.2rem;
+  }
+
+  .dashboard-needs-carousel-section {
+    margin: 30px 0;
+  }
+}
+
