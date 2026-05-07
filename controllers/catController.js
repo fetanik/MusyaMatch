@@ -3,6 +3,7 @@ import { cloudinary } from '../config/cloudinary.js';
 import { ACHIEVEMENT_TYPES, awardPoints } from '../services/achievements.js';
 import { AchievementEvent } from '../models/AchievementEvent.js';
 import { Shelter } from '../models/Shelter.js';
+import { AdoptionRequest } from '../models/AdoptionRequest.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
@@ -400,9 +401,50 @@ export async function createFosterRequest(req, res, next) {
       return res.status(404).json({ message: 'Cat not found' });
     }
 
-    return res.status(202).json({
-      message: 'Foster request accepted (stub). We will contact you soon.',
+    const applicantUserId = toOptionalPositiveInt(req.body?.userId ?? req.body?.user_id);
+    if (!applicantUserId) {
+      return res.status(400).json({ message: 'Applicant userId is required' });
+    }
+
+    const requestedTypeRaw = String(req.body?.type || '').trim().toLowerCase();
+    const inferredType =
+      cat.listingType === 'foster' || cat.listingStatus === 'pending' ? 'foster' : 'adoption';
+    const requestType =
+      requestedTypeRaw === 'foster' || requestedTypeRaw === 'adoption'
+        ? requestedTypeRaw
+        : inferredType;
+
+    const existingPending = await AdoptionRequest.findOne({
+      where: {
+        userId: applicantUserId,
+        catId: cat.id,
+        type: requestType,
+        status: 'pending',
+      },
+    });
+
+    if (existingPending) {
+      return res.status(409).json({
+        message: 'You already have a pending request for this cat.',
+        requestId: existingPending.id,
+      });
+    }
+
+    const requestComment = req.body?.comment?.trim() || req.body?.message?.trim() || null;
+
+    const request = await AdoptionRequest.create({
+      userId: applicantUserId,
       catId: cat.id,
+      type: requestType,
+      status: 'pending',
+      comment: requestComment,
+    });
+
+    return res.status(202).json({
+      message: 'Your request has been sent successfully.',
+      catId: cat.id,
+      requestId: request.id,
+      type: request.type,
     });
   } catch (err) {
     next(err);

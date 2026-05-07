@@ -16,6 +16,7 @@ import './models/Shelter.js';
 import './models/Vaccination.js';
 import './models/AchievementEvent.js';
 import './models/Need.js';
+import './models/AdoptionRequest.js';
 
 import usersRouter from './routes/users.js';
 

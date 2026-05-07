@@ -17,6 +17,7 @@ router.get('/:id', getCatById);
 router.put('/:id', upload.single('image'), updateCat);
 router.delete('/:id', deleteCat);
 router.post('/', upload.single('image'), createCat);
+router.post('/:id/request', createFosterRequest);
 router.post('/:id/foster-request', createFosterRequest);
 router.use('/:catId/vaccinations', catVaccinationsRouter);
 
