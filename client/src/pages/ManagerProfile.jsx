@@ -17,6 +17,7 @@ import BottomNav from '../components/BottomNav';
 import { useMessages } from '../components/MessagesContext';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
+const SHELTER_API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/shelter`;
 
 const normalizeVaccinations = (vaccinations) => {
   if (!Array.isArray(vaccinations)) return [];
@@ -87,32 +88,7 @@ const ManagerProfile = () => {
     vaccinations: [],
   });
 
-  const [requests, setRequests] = useState([
-    {
-      id: 1,
-      type: 'Adoption',
-      catName: 'Luna',
-      applicant: 'Maria S.',
-      status: 'pending',
-      time: '2 hrs ago',
-    },
-    {
-      id: 2,
-      type: 'Adoption',
-      catName: 'Milo',
-      applicant: 'Andrii K.',
-      status: 'pending',
-      time: '5 hrs ago',
-    },
-    {
-      id: 3,
-      type: 'Adoption',
-      catName: 'Nala',
-      applicant: 'Oksana P.',
-      status: 'approved',
-      time: '1 day ago',
-    },
-  ]);
+  const [requests, setRequests] = useState([]);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -171,7 +147,29 @@ const ManagerProfile = () => {
       }
     };
 
+    const loadRequests = async () => {
+      try {
+        const { userId: currentUserId } = getCurrentUserIds();
+        if (!currentUserId) {
+          setRequests([]);
+          return;
+        }
+
+        const response = await fetch(`${SHELTER_API_BASE_URL}/requests/${currentUserId}`);
+        if (!response.ok) {
+          throw new Error('Failed to load requests');
+        }
+
+        const data = await response.json();
+        setRequests(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Failed to load shelter requests:', error);
+        setRequests([]);
+      }
+    };
+
     loadCats();
+    loadRequests();
   }, []);
 
   const stats = useMemo(() => {
@@ -184,12 +182,30 @@ const ManagerProfile = () => {
 
   const pendingRequests = requests.filter((request) => request.status === 'pending');
 
-  const handleRequestAction = (requestId, newStatus) => {
-    setRequests((prev) =>
-      prev.map((request) =>
-        request.id === requestId ? { ...request, status: newStatus } : request
-      )
-    );
+  const handleRequestAction = async (requestId, newStatus) => {
+    try {
+      const { userId: currentUserId } = getCurrentUserIds();
+      const response = await fetch(`${SHELTER_API_BASE_URL}/requests/${requestId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus, userId: currentUserId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update request');
+      }
+
+      setRequests((prev) =>
+        prev.map((request) =>
+          request.id === requestId ? { ...request, status: newStatus } : request
+        )
+      );
+    } catch (error) {
+      console.error('Failed to update request:', error);
+      notify('Failed to update request status.', { type: 'error', title: 'Error' });
+    }
   };
 
   const resetCatForm = () => {
@@ -507,7 +523,7 @@ const ManagerProfile = () => {
 
                     <div className="request-info">
                       <h3>
-                        {request.type}: {request.catName}
+                        {request.typeLabel || request.type}: {request.catName}
                       </h3>
                       <p>
                         Applicant: {request.applicant} • {request.time}

@@ -7,6 +7,7 @@ import ProfilePage from './pages/ProfilePage';
 import DashboardPage from './pages/DashboardPage'; 
 import ManagerProfile from './pages/ManagerProfile';
 import ManagerSettingsPage from './pages/ManagerSettingsPage';
+import ManagerRequestsPage from './pages/ManagerRequestsPage';
 import NeedsPage from './pages/NeedsPage';
 import Gallery from './pages/Gallery';
 import PharmaciesPage from './pages/PharmaciesPage';
@@ -41,6 +42,7 @@ function App() {
             <Route path="/manager" element={<Navigate to="/manager/profile" replace />} />
             <Route path="/manager/profile" element={<Navigate to="/manager-profile" replace />} />
             <Route path="/manager-profile" element={<ManagerProfile />} />
+            <Route path="/manager/requests" element={<ManagerRequestsPage />} />
             <Route path="/manager/needs" element={<NeedsPage />} />
             <Route path="/manager/settings" element={<ManagerSettingsPage />} />
             <Route path="/manager/cats/:catId/vaccinations" element={<CalendarPage />} />

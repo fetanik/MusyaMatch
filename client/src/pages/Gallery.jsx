@@ -4,6 +4,24 @@ import '../styles/Gallery.css';
 import BottomNav from '../components/BottomNav';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const getCurrentUserId = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const fromUserObject = Number(user.userId || user.id);
+    if (Number.isFinite(fromUserObject) && fromUserObject > 0) {
+      return fromUserObject;
+    }
+  } catch {
+    // fallback below
+  }
+
+  const raw =
+    localStorage.getItem('userId') ||
+    localStorage.getItem('basicUserId') ||
+    localStorage.getItem('currentUserId');
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
 
 const isCatVisibleInGallery = (cat) => {
   const source = (cat.source || 'shelter').toLowerCase();
@@ -46,6 +64,9 @@ const Gallery = () => {
   const [fosterSubmitting, setFosterSubmitting] = useState(false);
   const [fosterMessage, setFosterMessage] = useState('');
   const [fosterError, setFosterError] = useState('');
+  const [requestType, setRequestType] = useState('adoption');
+  const [requestComment, setRequestComment] = useState('');
+  const currentUserId = getCurrentUserId();
   const [filters, setFilters] = useState({
     source: 'all',
     sex: '',
@@ -94,6 +115,8 @@ const Gallery = () => {
   useEffect(() => {
     setFosterMessage('');
     setFosterError('');
+    setRequestComment('');
+    setRequestType(selectedCat?.listingType === 'foster' ? 'foster' : 'adoption');
   }, [selectedCat]);
 
   const filteredCats = useMemo(() => {
@@ -128,22 +151,43 @@ const Gallery = () => {
     if (!selectedCat?.id || fosterSubmitting) {
       return;
     }
+    if (!currentUserId) {
+      setFosterError('Please log in first.');
+      return;
+    }
 
     try {
       setFosterSubmitting(true);
       setFosterError('');
       setFosterMessage('');
 
-      const response = await fetch(`${API_BASE_URL}/api/cats/${selectedCat.id}/foster-request`, {
-        method: 'POST',
+      const requestBody = JSON.stringify({
+        userId: currentUserId,
+        type: requestType,
+        comment: requestComment.trim(),
       });
+
+      let response = await fetch(`${API_BASE_URL}/api/cats/${selectedCat.id}/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: requestBody,
+      });
+
+      // Backward compatibility: if server still uses old endpoint.
+      if (response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/api/cats/${selectedCat.id}/foster-request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: requestBody,
+        });
+      }
 
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.message || 'Failed to send foster request');
+        throw new Error(payload.message || 'Failed to send request');
       }
 
-      setFosterMessage(payload.message || 'Request sent');
+      setFosterMessage(payload.message || 'Your request has been sent successfully.');
     } catch (requestError) {
       setFosterError(requestError.message);
     } finally {
@@ -322,13 +366,32 @@ const Gallery = () => {
                 )}
               </div>
               <div className="cat-modal-actions">
+                <label htmlFor="request-type" className="cat-chip" style={{ marginBottom: '8px' }}>
+                  Request type
+                </label>
+                <select
+                  id="request-type"
+                  value={requestType}
+                  onChange={(event) => setRequestType(event.target.value)}
+                  style={{ marginBottom: '10px' }}
+                >
+                  <option value="adoption">Adoption</option>
+                  <option value="foster">Foster Care</option>
+                </select>
+                <textarea
+                  rows={3}
+                  placeholder="Add a message for the shelter (optional)"
+                  value={requestComment}
+                  onChange={(event) => setRequestComment(event.target.value)}
+                  style={{ marginBottom: '10px' }}
+                />
                 <button
                   type="button"
                   className="btn-foster-request"
                   onClick={handleFosterRequest}
                   disabled={fosterSubmitting}
                 >
-                  {fosterSubmitting ? 'Sending...' : 'Request Foster Care'}
+                  {fosterSubmitting ? 'Sending...' : 'Send Request'}
                 </button>
                 {fosterMessage && <p className="foster-success">{fosterMessage}</p>}
                 {fosterError && <p className="form-error">{fosterError}</p>}
