@@ -122,7 +122,9 @@ CREATE TABLE Event (
     address TEXT,
     name VARCHAR(255) NOT NULL,
     event_date DATETIME NOT NULL,
-    type ENUM('private', 'opened') NOT NULL,
+    type ENUM('private', 'opened') NOT NULL DEFAULT 'opened',
+    description TEXT,
+    status ENUM('upcoming', 'completed', 'cancelled') DEFAULT 'upcoming',
 
     CONSTRAINT fk_event_shelter
         FOREIGN KEY (shelter_id)

@@ -14,6 +14,7 @@ import shelterRouter from './routes/shelter.js';
 import authRouter from './routes/auth.js';
 import achievementsRouter from './routes/achievements.js';
 import needsRouter from './routes/needs.js';
+import eventRoutes from './routes/events.js';
 
 import './models/Cat.js';
 import './models/BasicUser.js';
@@ -39,6 +40,7 @@ app.use('/api/cats', catsRouter);
 app.use('/api/shelter', shelterRouter);
 app.use('/api/achievements', achievementsRouter);
 app.use('/api/needs', needsRouter);
+app.use('/api/events', eventRoutes);
 
 // Ollama API helper function for chat
 async function queryOllama(prompt, system = '') {
