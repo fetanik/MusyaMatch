@@ -576,7 +576,7 @@ const ManagerProfile = () => {
             <button
               className="action-card"
               type="button"
-              onClick={() => navigate('/events')}
+              onClick={() => showPlaceholder('Events')}
             >
               <div className="action-icon">
                 <FiCalendar size={22} />
