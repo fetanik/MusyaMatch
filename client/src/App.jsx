@@ -12,6 +12,7 @@ import NeedsPage from './pages/NeedsPage';
 import Gallery from './pages/Gallery';
 import PharmaciesPage from './pages/PharmaciesPage';
 import AchievementsPage from './pages/AchievementsPage';
+import ChatPage from './pages/ChatPage';
 import MessagesProvider from './components/MessagesProvider';
 
 const getCurrentUser = () => {
@@ -39,6 +40,10 @@ function App() {
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/achievements" element={<AchievementsPage />} />
+            <Route
+              path="/chat"
+              element={isAuthenticated ? <ChatPage /> : <Navigate to="/register" replace />}
+            />
             <Route path="/manager" element={<Navigate to="/manager/profile" replace />} />
             <Route path="/manager/profile" element={<Navigate to="/manager-profile" replace />} />
             <Route path="/manager-profile" element={<ManagerProfile />} />
