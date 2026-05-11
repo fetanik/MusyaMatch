@@ -2,6 +2,8 @@ import { BasicUser } from '../models/BasicUser.js';
 import { Shelter } from '../models/Shelter.js';
 import { Cat } from '../models/Cat.js';
 import { AdoptionRequest } from '../models/AdoptionRequest.js';
+import { sequelize } from '../config/database.js';
+import { Op } from 'sequelize';
 
 const buildProfileResponse = (user, shelter) => ({
   userId: user.id,
@@ -275,11 +277,44 @@ export async function updateShelterRequestStatus(req, res, next) {
       return res.status(403).json({ message: 'You can update only your shelter requests' });
     }
 
-    await request.update({ status });
+    if (status === 'approved') {
+      await sequelize.transaction(async (transaction) => {
+        await request.update({ status }, { transaction });
+
+        await requestedCat.update(
+          {
+            userId: request.userId,
+            shelterId: null,
+            source: 'shelter',
+            sourceType: 'shelter',
+            listingType: request.type === 'foster' ? 'foster' : 'adoption',
+            listingStatus: 'adopted',
+            previousListingType: null,
+            previousListingStatus: null,
+          },
+          { transaction }
+        );
+
+        await AdoptionRequest.update(
+          { status: 'rejected' },
+          {
+            where: {
+              catId: request.catId,
+              status: 'pending',
+              id: { [Op.ne]: request.id },
+            },
+            transaction,
+          }
+        );
+      });
+    } else {
+      await request.update({ status });
+    }
+
     return res.json({
       message: 'Request updated successfully',
       id: request.id,
-      status: request.status,
+      status,
       updatedAt: request.updatedAt || request.updated_at || null,
     });
   } catch (err) {

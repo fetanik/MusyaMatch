@@ -405,14 +405,28 @@ export async function createFosterRequest(req, res, next) {
     if (!applicantUserId) {
       return res.status(400).json({ message: 'Applicant userId is required' });
     }
-
     const requestedTypeRaw = String(req.body?.type || '').trim().toLowerCase();
+    const isLegacyFosterEndpoint = String(req.originalUrl || '')
+      .toLowerCase()
+      .includes('/foster-request');
     const inferredType =
-      cat.listingType === 'foster' || cat.listingStatus === 'pending' ? 'foster' : 'adoption';
+      isLegacyFosterEndpoint || cat.listingType === 'foster' || cat.listingStatus === 'pending'
+        ? 'foster'
+        : 'adoption';
     const requestType =
       requestedTypeRaw === 'foster' || requestedTypeRaw === 'adoption'
         ? requestedTypeRaw
         : inferredType;
+
+    const isOwnCat = Number(cat.userId) === Number(applicantUserId);
+    const isPrivateCat =
+      String(cat.sourceType || '').toLowerCase() === 'private' ||
+      String(cat.source || '').toLowerCase() === 'private';
+    if (isOwnCat && !(isPrivateCat && requestType === 'foster')) {
+      return res
+        .status(400)
+        .json({ message: 'You cannot submit an adoption request for your own cat profile.' });
+    }
 
     const existingPending = await AdoptionRequest.findOne({
       where: {
