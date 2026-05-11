@@ -28,6 +28,10 @@ const isCatVisibleInGallery = (cat) => {
   const listingType = (cat.listingType || '').toLowerCase();
   const listingStatus = (cat.listingStatus || '').toLowerCase();
 
+  if (['adopted', 'placed', 'hidden'].includes(listingStatus)) {
+    return false;
+  }
+
   if (source === 'shelter') {
     return true;
   }
@@ -54,6 +58,41 @@ const getValidImageUrl = (cat) => {
   const url = (cat?.image_url || '').trim();
   if (!url || url === 'null' || url === 'undefined') return '';
   return url;
+};
+
+const getCatAgeLabel = (cat) => {
+  if (Number.isFinite(cat?.age)) {
+    const numericAge = Number(cat.age);
+    if (numericAge < 1) {
+      const months = Math.max(1, Math.round(numericAge * 12));
+      return `${months} month${months === 1 ? '' : 's'}`;
+    }
+    return `${numericAge} year${numericAge === 1 ? '' : 's'}`;
+  }
+
+  if (!cat?.birthDate) return '';
+  const birth = new Date(cat.birthDate);
+  if (Number.isNaN(birth.getTime())) return '';
+
+  const now = new Date();
+  let years = now.getFullYear() - birth.getFullYear();
+  const monthDiff = now.getMonth() - birth.getMonth();
+  const dayDiff = now.getDate() - birth.getDate();
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    years -= 1;
+  }
+  if (years < 0) return '';
+
+  if (years === 0) {
+    let months = (now.getFullYear() - birth.getFullYear()) * 12 + monthDiff;
+    if (dayDiff < 0) {
+      months -= 1;
+    }
+    months = Math.max(1, months);
+    return `${months} month${months === 1 ? '' : 's'}`;
+  }
+
+  return `${years} year${years === 1 ? '' : 's'}`;
 };
 
 const Gallery = () => {
@@ -295,13 +334,11 @@ const Gallery = () => {
                         {cat.personality && <span className="ai-tag">✨ {cat.personality}</span>}
                       </div>
 
-                      <p className="specs">{cat.breed || 'Unknown breed'} {Number.isFinite(cat.age) ? `• ${cat.age} years` : ''}</p>
+                      <p className="specs">
+                        {cat.breed || 'Unknown breed'}
+                        {getCatAgeLabel(cat) ? ` • ${getCatAgeLabel(cat)}` : ''}
+                      </p>
 
-                      {cat.source === 'private' && cat.urgency && (
-                        <div className={`urgency-banner ${cat.urgency.toLowerCase()}`}>
-                          Urgency: {cat.urgency}
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -348,7 +385,7 @@ const Gallery = () => {
               <h3>{selectedCat.name}</h3>
               <p className="cat-modal-meta">
                 {selectedCat.breed || 'Unknown breed'}
-                {Number.isFinite(selectedCat.age) ? ` • ${selectedCat.age} years` : ''}
+                {getCatAgeLabel(selectedCat) ? ` • ${getCatAgeLabel(selectedCat)}` : ''}
               </p>
               <p className="cat-modal-description">
                 {selectedCat.description || 'No description added yet.'}
@@ -366,33 +403,39 @@ const Gallery = () => {
                 )}
               </div>
               <div className="cat-modal-actions">
-                <label htmlFor="request-type" className="cat-chip" style={{ marginBottom: '8px' }}>
-                  Request type
-                </label>
-                <select
-                  id="request-type"
-                  value={requestType}
-                  onChange={(event) => setRequestType(event.target.value)}
-                  style={{ marginBottom: '10px' }}
-                >
-                  <option value="adoption">Adoption</option>
-                  <option value="foster">Foster Care</option>
-                </select>
-                <textarea
-                  rows={3}
-                  placeholder="Add a message for the shelter (optional)"
-                  value={requestComment}
-                  onChange={(event) => setRequestComment(event.target.value)}
-                  style={{ marginBottom: '10px' }}
-                />
-                <button
-                  type="button"
-                  className="btn-foster-request"
-                  onClick={handleFosterRequest}
-                  disabled={fosterSubmitting}
-                >
-                  {fosterSubmitting ? 'Sending...' : 'Send Request'}
-                </button>
+                <div className="request-form-panel">
+                  <div className="request-form-grid">
+                    <div className="request-form-field request-type-field">
+                      <label htmlFor="request-type">Request type</label>
+                      <select
+                        id="request-type"
+                        value={requestType}
+                        onChange={(event) => setRequestType(event.target.value)}
+                      >
+                        <option value="adoption">Adoption</option>
+                        <option value="foster">Foster Care</option>
+                      </select>
+                    </div>
+                    <div className="request-form-field request-comment-field">
+                      <label htmlFor="request-comment">Message</label>
+                      <textarea
+                        id="request-comment"
+                        rows={3}
+                        placeholder="Add a message for the shelter (optional)"
+                        value={requestComment}
+                        onChange={(event) => setRequestComment(event.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-foster-request"
+                    onClick={handleFosterRequest}
+                    disabled={fosterSubmitting}
+                  >
+                    {fosterSubmitting ? 'Sending...' : 'Send Request'}
+                  </button>
+                </div>
                 {fosterMessage && <p className="foster-success">{fosterMessage}</p>}
                 {fosterError && <p className="form-error">{fosterError}</p>}
               </div>

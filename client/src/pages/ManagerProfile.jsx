@@ -68,7 +68,6 @@ const ManagerProfile = () => {
   const [isLoadingCats, setIsLoadingCats] = useState(true);
   const [catImageFile, setCatImageFile] = useState(null);
   const [catImagePreview, setCatImagePreview] = useState('');
-  const [openCalendarAfterSave, setOpenCalendarAfterSave] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -83,6 +82,7 @@ const ManagerProfile = () => {
     breed: '',
     gender: '',
     birthDate: '',
+    personality: '',
     description: '',
     vaccinationInput: '',
     vaccinations: [],
@@ -214,6 +214,7 @@ const ManagerProfile = () => {
       breed: '',
       gender: '',
       birthDate: '',
+      personality: '',
       description: '',
       vaccinationInput: '',
       vaccinations: [],
@@ -221,7 +222,6 @@ const ManagerProfile = () => {
     setEditingCatId(null);
     setCatImageFile(null);
     setCatImagePreview('');
-    setOpenCalendarAfterSave(false);
   };
 
   const openAddCatModal = () => {
@@ -236,6 +236,7 @@ const ManagerProfile = () => {
       breed: cat.breed || '',
       gender: cat.gender || '',
       birthDate: cat.birthDate || '',
+      personality: cat.personality || '',
       description: cat.description || '',
       vaccinationInput: '',
       vaccinations: normalizeVaccinations(cat.vaccinations),
@@ -291,6 +292,7 @@ const ManagerProfile = () => {
     formData.append('breed', newCatData.breed.trim());
     formData.append('gender', newCatData.gender || '');
     formData.append('birthDate', newCatData.birthDate || '');
+    formData.append('personality', newCatData.personality || '');
     formData.append('description', newCatData.description.trim());
     formData.append('vaccinations', JSON.stringify(newCatData.vaccinations || []));
     formData.append('sourceType', existingCat?.sourceType || 'shelter');
@@ -332,12 +334,6 @@ const ManagerProfile = () => {
               : cat
           )
         );
-
-        if (openCalendarAfterSave && updatedCat?.id) {
-          closeCatModal();
-          navigate(`/manager/cats/${updatedCat.id}/vaccinations`, { state: { cat: updatedCat } });
-          return;
-        }
       } else {
         const response = await fetch(API_BASE_URL, {
           method: 'POST',
@@ -357,12 +353,6 @@ const ManagerProfile = () => {
           },
           ...prev,
         ]);
-
-        if (openCalendarAfterSave && savedCat?.id) {
-          closeCatModal();
-          navigate(`/manager/cats/${savedCat.id}/vaccinations`, { state: { cat: savedCat } });
-          return;
-        }
       }
 
       closeCatModal();
@@ -806,6 +796,18 @@ const ManagerProfile = () => {
               </div>
 
               <div className="form-group">
+                <label>Personality</label>
+                <input
+                  type="text"
+                  value={newCatData.personality}
+                  onChange={(e) =>
+                    setNewCatData((prev) => ({ ...prev, personality: e.target.value }))
+                  }
+                  placeholder="e.g. playful, calm, social"
+                />
+              </div>
+
+              <div className="form-group">
                 <label>Photo</label>
                 <input
                   type="file"
@@ -883,17 +885,7 @@ const ManagerProfile = () => {
                   >
                     Open vaccination calendar
                   </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="secondary-btn"
-                    onClick={() => setOpenCalendarAfterSave(true)}
-                    style={{ width: '100%' }}
-                    title="Save cat and open calendar"
-                  >
-                    Save & open vaccination calendar
-                  </button>
-                )}
+                ) : null}
               </div>
 
               <div className="form-group">

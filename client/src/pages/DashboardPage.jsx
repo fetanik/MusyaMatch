@@ -30,6 +30,7 @@ const emptyForm = {
   breed: '',
   gender: '',
   birthDate: '',
+  personality: '',
   description: '',
   vaccinationInput: '',
   vaccinations: [],
@@ -42,6 +43,7 @@ const emptyFosterForm = {
   endDate: '',
   comment: '',
   location: '',
+  urgency: '',
 };
 
 const normalizeVaccinations = (vaccinations) => {
@@ -79,8 +81,10 @@ const getStatusMeta = (cat) => {
     return { label: 'Fostered', className: 'fostered' };
   }
 
-  if (cat.listingStatus === 'placed' || cat.listingStatus === 'adopted') {
-    return { label: 'Placed', className: 'adopted' };
+  const catOrigin = String(cat.sourceType || cat.source || '').toLowerCase();
+  const isShelterOrigin = catOrigin === 'shelter';
+  if ((cat.listingStatus === 'placed' || cat.listingStatus === 'adopted') && isShelterOrigin) {
+    return { label: 'Adopted', className: 'adopted' };
   }
 
   return { label: 'Private', className: 'available' };
@@ -110,7 +114,6 @@ const DashboardPage = () => {
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [editingCat, setEditingCat] = useState(null);
   const [form, setForm] = useState(emptyForm);
-  const [openCalendarAfterSave, setOpenCalendarAfterSave] = useState(false);
 
   const [selectedVaccinationCat, setSelectedVaccinationCat] = useState(null);
 
@@ -224,6 +227,7 @@ const DashboardPage = () => {
       breed: cat.breed || '',
       gender: cat.gender || '',
       birthDate: cat.birthDate || '',
+      personality: cat.personality || '',
       description: cat.description || '',
       vaccinationInput: '',
       vaccinations: normalizeVaccinations(cat.vaccinations),
@@ -237,7 +241,6 @@ const DashboardPage = () => {
     setIsCatModalOpen(false);
     setEditingCat(null);
     setForm(emptyForm);
-    setOpenCalendarAfterSave(false);
     setForm({ ...emptyForm });
   };
 
@@ -248,6 +251,7 @@ const DashboardPage = () => {
       endDate: '',
       comment: '',
       location: userProfile?.address || localStorage.getItem('userAddress') || '',
+      urgency: '',
     });
     setIsFosterModalOpen(true);
   };
@@ -335,6 +339,7 @@ const DashboardPage = () => {
       formData.append('breed', form.breed.trim());
       formData.append('gender', form.gender);
       formData.append('birthDate', form.birthDate || '');
+      formData.append('personality', form.personality || '');
       formData.append('description', form.description.trim());
       formData.append('vaccinations', JSON.stringify(form.vaccinations));
       formData.append('source', 'private');
@@ -362,11 +367,6 @@ const DashboardPage = () => {
 
       closeCatModal();
       await fetchMyCats();
-
-      const savedCatId = Number(data?.id);
-      if (openCalendarAfterSave && Number.isInteger(savedCatId) && savedCatId > 0) {
-        navigate(`/cats/${savedCatId}/vaccinations`, { state: { cat: data } });
-      }
     } catch (error) {
       console.error(error);
       await notify(error.message || 'Failed to save cat.', { type: 'error', title: 'Error' });
@@ -421,6 +421,11 @@ const DashboardPage = () => {
       return;
     }
 
+    if (!fosterForm.urgency) {
+      await notify('Please select how urgent foster care is needed.', { type: 'error', title: 'Error' });
+      return;
+    }
+
     try {
       setFosterLoadingId(selectedFosterCat.id);
 
@@ -466,6 +471,7 @@ const DashboardPage = () => {
             'active',
           sourceType: selectedFosterCat.sourceType || 'private',
           source: selectedFosterCat.source || 'private',
+          urgency: fosterForm.urgency,
         }),
       });
 
@@ -480,7 +486,10 @@ const DashboardPage = () => {
       await notify(`${selectedFosterCat.name} was successfully submitted for fostering.`, { type: 'success', title: 'Success' });
     } catch (error) {
       console.error(error);
-      await notify('Failed to submit foster request. Please try again.', { type: 'error', title: 'Error' });
+      await notify(error.message || 'Failed to submit foster request. Please try again.', {
+        type: 'error',
+        title: 'Error',
+      });
     } finally {
       setFosterLoadingId(null);
     }
@@ -505,6 +514,7 @@ const DashboardPage = () => {
           previousListingStatus: null,
           sourceType: cat.sourceType || 'private',
           source: cat.source || 'private',
+          urgency: null,
         }),
       });
 
@@ -593,7 +603,7 @@ const DashboardPage = () => {
             <h3>Chat with Musya AI</h3>
             <p>Get expert advice & find your perfect match</p>
           </div>
-          <button className="ai-action-btn" type="button">
+          <button className="ai-action-btn" type="button" onClick={() => navigate('/chat')}>
             <MessageSquare />
           </button>
         </div>
@@ -821,6 +831,16 @@ const DashboardPage = () => {
               </div>
 
               <div className="form-group">
+                <label>Personality</label>
+                <input
+                  type="text"
+                  value={form.personality}
+                  onChange={(e) => handleFormChange('personality', e.target.value)}
+                  placeholder="e.g. playful, calm, social"
+                />
+              </div>
+
+              <div className="form-group">
                 <label>Add vaccinations</label>
 
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -867,9 +887,9 @@ const DashboardPage = () => {
                 />
               </div>
 
-              <div className="form-group">
-                <label>Vaccinations</label>
-                {editingCat?.id ? (
+              {editingCat?.id ? (
+                <div className="form-group">
+                  <label>Vaccinations</label>
                   <button
                     type="button"
                     className="secondary-btn"
@@ -883,17 +903,10 @@ const DashboardPage = () => {
                   >
                     Open vaccination calendar
                   </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="secondary-btn"
-                    onClick={() => setOpenCalendarAfterSave(true)}
-                    style={{ width: '100%' }}
-                    title="Save cat and open calendar"
-                  >
-                    Save & open vaccination calendar
-                  </button>
-                )}
+                </div>
+              ) : null}
+
+              <div className="form-group">
                 <label>Photo</label>
                 <input
                   type="file"
@@ -1020,6 +1033,19 @@ const DashboardPage = () => {
                   onChange={(e) => handleFosterFormChange('location', e.target.value)}
                   placeholder="Enter city or location"
                 />
+              </div>
+
+              <div className="form-group">
+                <label>Urgency</label>
+                <select
+                  value={fosterForm.urgency}
+                  onChange={(e) => handleFosterFormChange('urgency', e.target.value)}
+                >
+                  <option value="">Select urgency</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="immediate">Immediate</option>
+                </select>
               </div>
 
               <div className="foster-period-grid">

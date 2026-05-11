@@ -94,12 +94,46 @@
 
 .input-with-icon input {
   width: 100%;
-  padding: 15px 15px 15px 45px;
+  padding: 15px;
   border: 2px solid #F1F2F6;
   border-radius: 18px;
   font-family: inherit;
   font-size: 1rem;
   transition: all 0.3s;
+}
+
+.input-with-icon input.has-right-icon {
+  padding-right: 45px;
+}
+
+/* Edge/IE (and Chromium Edge) add a native “show password” control that stacks
+   next to our Lucide toggle — hide it so only one eye shows. */
+.input-with-icon input[type="password"]::-ms-reveal,
+.input-with-icon input[type="password"]::-ms-clear {
+  display: none !important;
+}
+
+.input-with-icon .password-toggle-btn {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: #A4B0BE;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.input-with-icon .password-toggle-btn:hover {
+  color: #636E72;
+}
+
+.input-with-icon .password-toggle-btn:focus {
+  outline: none;
 }
 
 .input-with-icon input:focus {
