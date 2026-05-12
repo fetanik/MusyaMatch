@@ -103,3 +103,92 @@
   position: relative;
   flex-shrink: 0;
 }
+
+.status-badge.open {
+  color: #2e7d32;
+  background: #e8f5e9;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+}
+.pulse-dot {
+  height: 8px;
+  width: 8px;
+  background-color: #4CAF50;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 5px;
+  box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+}
+
+.rating-stars {
+  color: #ffb300;
+  font-size: 14px;
+  margin: 5px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.rating-count {
+  color: #999;
+  font-size: 12px;
+}
+
+.filters-section {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+.filter-chip {
+  padding: 8px 16px;
+  background: #eee;
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.3s;
+}
+.filter-chip.active {
+  background: #ffb347;
+  color: white;
+}
+
+.pharma-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rating-tag {
+  background: #fff9e6;
+  color: #ffb300;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.status-indicator {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 10px 0;
+  display: block;
+}
+
+.status-indicator.open {
+  color: #4CAF50;
+}
+
+.status-indicator.closed {
+  color: #f44336;
+}
+
+.pharma-item.is-open {
+  border-left: 4px solid #4CAF50;
+}
