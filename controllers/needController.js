@@ -38,6 +38,22 @@ const resolveShelterId = async (rawShelterId, rawUserId) => {
   return { shelterId: null, userId };
 };
 
+const serializeNeed = async (needInstance) => {
+  const need = typeof needInstance?.toJSON === 'function' ? needInstance.toJSON() : needInstance;
+  if (!need?.shelterId) {
+    return need;
+  }
+
+  const shelter = await Shelter.findByPk(need.shelterId, {
+    attributes: ['id', 'name', 'phone', 'address'],
+  });
+
+  return {
+    ...need,
+    shelter: shelter ? shelter.toJSON() : null,
+  };
+};
+
 export async function getNeeds(req, res, next) {
   try {
     const { shelterId, userId } = await resolveShelterId(req.query.shelterId, req.query.userId);
@@ -54,7 +70,8 @@ export async function getNeeds(req, res, next) {
       order: [['createdAt', 'DESC']],
     });
 
-    return res.json(needs);
+    const serialized = await Promise.all(needs.map((need) => serializeNeed(need)));
+    return res.json(serialized);
   } catch (err) {
     return next(err);
   }
@@ -91,7 +108,8 @@ export async function createNeed(req, res, next) {
       status,
     });
 
-    return res.status(201).json(need);
+    const serialized = await serializeNeed(need);
+    return res.status(201).json(serialized);
   } catch (err) {
     return next(err);
   }
@@ -133,7 +151,8 @@ export async function updateNeed(req, res, next) {
       status,
     });
 
-    return res.json(need);
+    const serialized = await serializeNeed(need);
+    return res.json(serialized);
   } catch (err) {
     return next(err);
   }

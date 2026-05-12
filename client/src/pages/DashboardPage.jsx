@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/DashboardPage.css';
 
@@ -24,6 +24,7 @@ import { useMessages } from '../components/MessagesContext';
 const CATS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
 const USERS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/users`;
 const ACHIEVEMENTS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/achievements`;
+const NEEDS_API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/needs`;
 
 const emptyForm = {
   name: '',
@@ -95,6 +96,76 @@ const formatBirthDate = (birthDate) => {
   return birthDate;
 };
 
+const getCatOwnerId = (cat) => {
+  const ownerId = Number(
+    cat?.userId ??
+      cat?.user_id ??
+      cat?.basicUserId ??
+      cat?.basic_user_id ??
+      cat?.ownerId ??
+      null
+  );
+  return Number.isFinite(ownerId) && ownerId > 0 ? ownerId : null;
+};
+
+const toPositiveInt = (value) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+const getCurrentUserContext = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return {
+      userId:
+        toPositiveInt(user.userId) ??
+        toPositiveInt(user.id) ??
+        toPositiveInt(localStorage.getItem('userId')) ??
+        toPositiveInt(localStorage.getItem('basicUserId')) ??
+        toPositiveInt(localStorage.getItem('currentUserId')),
+      shelterId:
+        toPositiveInt(user.shelterId) ??
+        toPositiveInt(user.shelter_id) ??
+        toPositiveInt(localStorage.getItem('shelterId')) ??
+        toPositiveInt(localStorage.getItem('currentShelterId')),
+    };
+  } catch {
+    return {
+      userId:
+        toPositiveInt(localStorage.getItem('userId')) ??
+        toPositiveInt(localStorage.getItem('basicUserId')) ??
+        toPositiveInt(localStorage.getItem('currentUserId')),
+      shelterId:
+        toPositiveInt(localStorage.getItem('shelterId')) ??
+        toPositiveInt(localStorage.getItem('currentShelterId')),
+    };
+  }
+};
+
+const getNeedShelterInfo = (need) => {
+  if (need?.shelter?.name || need?.shelter?.address) {
+    return need.shelter;
+  }
+
+  const nameFromNeed =
+    need?.shelterName ||
+    need?.shelter_name ||
+    need?.organizationName ||
+    need?.organization_name;
+  const addressFromNeed =
+    need?.shelterAddress ||
+    need?.shelter_address ||
+    need?.address ||
+    need?.location;
+  if (nameFromNeed || addressFromNeed) {
+    return {
+      name: nameFromNeed || 'My Shelter',
+      address: addressFromNeed || '',
+    };
+  }
+  return null;
+};
+
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { notify, confirm } = useMessages();
@@ -121,6 +192,32 @@ const DashboardPage = () => {
   const [selectedFosterCat, setSelectedFosterCat] = useState(null);
   const [fosterForm, setFosterForm] = useState(emptyFosterForm);
 
+  const [needs, setNeeds] = useState([]);
+  const carouselRef = useRef(null);
+  const [showCarouselLeft, setShowCarouselLeft] = useState(false);
+  const [showCarouselRight, setShowCarouselRight] = useState(false);
+
+  const SCROLL_EDGE_EPS = 3;
+
+  const updateCarouselArrows = useCallback(() => {
+    const el = carouselRef.current;
+    if (!el) {
+      setShowCarouselLeft(false);
+      setShowCarouselRight(false);
+      return;
+    }
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const maxScroll = Math.max(0, scrollWidth - clientWidth);
+    const overflow = maxScroll > SCROLL_EDGE_EPS;
+    if (!overflow) {
+      setShowCarouselLeft(false);
+      setShowCarouselRight(false);
+      return;
+    }
+    setShowCarouselLeft(scrollLeft > SCROLL_EDGE_EPS);
+    setShowCarouselRight(scrollLeft < maxScroll - SCROLL_EDGE_EPS);
+  }, []);
+
   const fetchMyCats = useCallback(async () => {
     try {
       setLoading(true);
@@ -134,7 +231,7 @@ const DashboardPage = () => {
       const data = await response.json();
       const allCats = Array.isArray(data) ? data : [];
 
-      const myCats = allCats.filter((cat) => Number(cat.userId) === userId);
+      const myCats = allCats.filter((cat) => getCatOwnerId(cat) === userId);
       setCats(myCats);
     } catch (error) {
       console.error(error);
@@ -145,13 +242,84 @@ const DashboardPage = () => {
   }, [userId]);
 
   useEffect(() => {
+    const fetchShelterByUserId = async (targetUserId) => {
+      const parsedUserId = toPositiveInt(targetUserId);
+      if (!parsedUserId) return null;
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/shelter/profile/${parsedUserId}`);
+      if (!response.ok) return null;
+      const profile = await response.json().catch(() => null);
+      if (!profile) return null;
+      return {
+        id: profile.shelterId || null,
+        name: profile.name || profile.shelterName || '',
+        address: profile.address || '',
+        phone: profile.phone || '',
+      };
+    };
+
+    const enrichNeedsWithShelter = async (items) => {
+      const cache = new Map();
+      return Promise.all(
+        items.map(async (need) => {
+          if (need?.shelter?.name || need?.shelter?.address) return need;
+          const ownerUserId = toPositiveInt(need?.userId ?? need?.user_id);
+          if (!ownerUserId) return need;
+          if (!cache.has(ownerUserId)) {
+            cache.set(ownerUserId, fetchShelterByUserId(ownerUserId));
+          }
+          const shelter = await cache.get(ownerUserId);
+          return shelter ? { ...need, shelter } : need;
+        })
+      );
+    };
+
+    const loadNeedsForCarousel = async () => {
+      try {
+        const { userId: ctxUserId, shelterId } = getCurrentUserContext();
+        const params = new URLSearchParams();
+        if (shelterId) params.set('shelterId', String(shelterId));
+        if (ctxUserId) params.set('userId', String(ctxUserId));
+
+        const url = params.toString()
+          ? `${NEEDS_API_BASE_URL}?${params.toString()}`
+          : NEEDS_API_BASE_URL;
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error('Failed to load shelter needs');
+        }
+
+        let data = await response.json();
+        let realNeeds = (Array.isArray(data) ? data : [])
+          .filter((need) => need?.status === 'open')
+          .map((need) => ({ ...need, _carouselKey: `real-${need.id}` }));
+
+        // Fallback: if owner-scoped query is empty, show open DB needs.
+        if (realNeeds.length === 0 && (ctxUserId || shelterId)) {
+          const allNeedsResponse = await fetch(NEEDS_API_BASE_URL);
+          if (allNeedsResponse.ok) {
+            data = await allNeedsResponse.json();
+            realNeeds = (Array.isArray(data) ? data : [])
+              .filter((need) => need?.status === 'open')
+              .map((need) => ({ ...need, _carouselKey: `real-${need.id}` }));
+          }
+        }
+        realNeeds = await enrichNeedsWithShelter(realNeeds);
+        setNeeds(realNeeds);
+      } catch (error) {
+        console.error('Failed to load needs for carousel:', error);
+        setNeeds([]);
+      }
+    };
+
     if (!userId) {
       setLoading(false);
       setPageError('User ID was not found. Please log in or save your profile first.');
+      loadNeedsForCarousel();
       return;
     }
 
     fetchMyCats();
+    loadNeedsForCarousel();
   }, [fetchMyCats, userId]);
 
   useEffect(() => {
@@ -196,6 +364,37 @@ const DashboardPage = () => {
 
     fetchAchievementSummary();
   }, [userId]);
+
+  const scrollCarousel = (direction) => {
+    if (carouselRef.current) {
+      const scrollAmount = 300;
+      carouselRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  useLayoutEffect(() => {
+    updateCarouselArrows();
+  }, [needs, updateCarouselArrows]);
+
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el) return undefined;
+    updateCarouselArrows();
+    el.addEventListener('scroll', updateCarouselArrows, { passive: true });
+    el.addEventListener('scrollend', updateCarouselArrows);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCarouselArrows) : null;
+    ro?.observe(el);
+    window.addEventListener('resize', updateCarouselArrows);
+    return () => {
+      el.removeEventListener('scroll', updateCarouselArrows);
+      el.removeEventListener('scrollend', updateCarouselArrows);
+      ro?.disconnect();
+      window.removeEventListener('resize', updateCarouselArrows);
+    };
+  }, [needs, updateCarouselArrows]);
 
   const totalPoints = Number(achievementSummary?.points || 0);
   const completedAchievementsCount = useMemo(() => {
@@ -376,10 +575,10 @@ const DashboardPage = () => {
   };
 
   const handleDeleteCat = async (cat) => {
-    const confirmed = await confirm(`Delete ${cat.name}?`, {
-      type: 'error',
-      title: 'Confirm delete',
-      confirmText: 'Delete',
+    const confirmed = await confirm(`Are you sure you want to delete ${cat.name}? This action cannot be undone.`, {
+      type: 'confirm',
+      title: 'Delete cat',
+      confirmText: 'Yes, delete',
       cancelText: 'Cancel',
     });
     if (!confirmed) return;
@@ -496,7 +695,12 @@ const DashboardPage = () => {
   };
 
   const handleWithdrawFoster = async (cat) => {
-    const confirmed = window.confirm(`Withdraw foster request for ${cat.name}?`);
+    const confirmed = await confirm(`Withdraw foster request for ${cat.name}?`, {
+      type: 'confirm',
+      title: 'Withdraw foster request',
+      confirmText: 'Yes, withdraw',
+      cancelText: 'Cancel',
+    });
     if (!confirmed) return;
 
     try {
@@ -1093,6 +1297,73 @@ const DashboardPage = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Shelter Needs Carousel */}
+      {needs.length > 0 && (
+        <section className="dashboard-needs-carousel-section">
+          <div className="carousel-header">
+            <h3>Help Shelters in Need</h3>
+            <a href="/shelter-needs" className="view-all-link">
+              View all →
+            </a>
+          </div>
+
+          <div className="carousel-shell">
+            <div className="carousel-container">
+            {showCarouselLeft && (
+            <button
+              type="button"
+              className="carousel-btn carousel-btn-left"
+              onClick={() => scrollCarousel('left')}
+              aria-label="Scroll left"
+            >
+              ‹
+            </button>
+            )}
+
+            <div className="carousel-track" ref={carouselRef}>
+              {needs.map((need) => {
+                const shelterInfo = getNeedShelterInfo(need);
+                return (
+                <div key={need._carouselKey || need.id} className="carousel-card">
+                  <div className="card-priority">
+                    {need.priority === 'high' && '🔴'}
+                    {need.priority === 'medium' && '🟡'}
+                    {need.priority === 'low' && '🟢'}
+                  </div>
+                  <h4>{need.title}</h4>
+                  {need.description && (
+                    <p className="card-description">{need.description}</p>
+                  )}
+                  {shelterInfo && (
+                    <div className="card-shelter">
+                      <div className="shelter-name">{shelterInfo.name}</div>
+                      {shelterInfo.address && (
+                        <div className="shelter-location">
+                          <MapPin size={12} />
+                          {shelterInfo.address}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )})}
+            </div>
+
+            {showCarouselRight && (
+            <button
+              type="button"
+              className="carousel-btn carousel-btn-right"
+              onClick={() => scrollCarousel('right')}
+              aria-label="Scroll right"
+            >
+              ›
+            </button>
+            )}
+            </div>
+          </div>
+        </section>
       )}
 
       <BottomNav active="home" />

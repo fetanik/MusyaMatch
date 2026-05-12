@@ -160,3 +160,17 @@
   color: #b45309;
 }
 
+.mm-card--confirm .mm-icon-wrap {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.mm-btn--primary.mm-btn--confirm {
+  background: #4f46e5;
+}
+
+.mm-card--confirm .mm-close-btn {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+

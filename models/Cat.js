@@ -23,10 +23,6 @@ export const Cat = sequelize.define(
       type: DataTypes.STRING(100),
       allowNull: false,
     },
-    breed: {
-      type: DataTypes.STRING(100),
-      allowNull: true,
-    },
     gender: {
       type: DataTypes.ENUM('male', 'female'),
       allowNull: true,
@@ -35,6 +31,10 @@ export const Cat = sequelize.define(
       type: DataTypes.DATEONLY,
       allowNull: true,
       field: 'birth_date',
+    },
+    breed: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
     },
     description: {
       type: DataTypes.TEXT,
@@ -61,9 +61,10 @@ export const Cat = sequelize.define(
         this.setDataValue('vaccinations', JSON.stringify(Array.isArray(value) ? value : []));
       },
     },
-    image_url: {
+    imageUrl: {
       type: DataTypes.STRING(1024),
       allowNull: true,
+      field: 'image_url',
     },
     source: {
       type: DataTypes.STRING(64),
@@ -82,7 +83,7 @@ export const Cat = sequelize.define(
       type: DataTypes.STRING(16),
       allowNull: true,
     },
-    compatibility_score: {
+    compatibilityScore: {
       type: DataTypes.FLOAT,
       allowNull: true,
     },
@@ -91,6 +92,55 @@ export const Cat = sequelize.define(
       allowNull: false,
       defaultValue: 'shelter',
       field: 'source_type',
+    },
+    // Enhanced fields for smart matching
+    experienceLevel: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      field: 'experience_level',
+      comment: 'first_time, experienced',
+    },
+    goodWithKids: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+      field: 'good_with_kids',
+    },
+    goodWithPets: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+      field: 'good_with_pets',
+    },
+    spaceRequirements: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      field: 'space_requirements',
+      comment: 'apartment, house',
+    },
+    energyLevel: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      field: 'energy_level',
+      comment: 'low, medium, high',
+    },
+    ageCategory: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      field: 'age_category',
+      comment: 'kitten, adult, senior',
+    },
+    specialNeeds: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+      field: 'special_needs',
+    },
+    careRequirements: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      field: 'care_requirements',
+      comment: 'low, medium, high',
     },
     listingType: {
       type: DataTypes.ENUM('adoption', 'foster', 'none'),
@@ -105,15 +155,15 @@ export const Cat = sequelize.define(
       field: 'listing_status',
     },
     previousListingType: {
-  type: DataTypes.ENUM('adoption', 'foster', 'none'),
-  allowNull: true,
-  field: 'previous_listing_type',
-},
-previousListingStatus: {
-  type: DataTypes.ENUM('active', 'pending', 'placed', 'adopted', 'hidden'),
-  allowNull: true,
-  field: 'previous_listing_status',
-},
+      type: DataTypes.ENUM('adoption', 'foster', 'none'),
+      allowNull: true,
+      field: 'previous_listing_type',
+    },
+    previousListingStatus: {
+      type: DataTypes.ENUM('active', 'pending', 'placed', 'adopted', 'hidden'),
+      allowNull: true,
+      field: 'previous_listing_status',
+    },
   },
   {
     tableName: 'cat',

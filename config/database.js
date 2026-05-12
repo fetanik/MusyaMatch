@@ -1,4 +1,8 @@
+import dotenv from 'dotenv';
 import { Sequelize } from 'sequelize';
+
+// Load environment variables
+dotenv.config({ path: '.env' });
 
 function assertDbEnv() {
   const dbName = process.env.DB_NAME?.trim();
