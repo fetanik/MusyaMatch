@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+import { sequelize } from '../config/database.js';
 import { BasicUser } from '../models/BasicUser.js';
 import { AchievementEvent } from '../models/AchievementEvent.js';
 import { ACHIEVEMENT_TYPES, awardPoints } from '../services/achievements.js';
@@ -76,6 +77,13 @@ export async function getAchievementsSummary(req, res, next) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    const balanceRow = await AchievementEvent.findOne({
+      where: { userId },
+      attributes: [[sequelize.fn('SUM', sequelize.col('points')), 'totalPoints']],
+      raw: true,
+    });
+    const pointsFromEvents = Number(balanceRow?.totalPoints || 0);
+
     const events = await AchievementEvent.findAll({
       where: { userId },
       order: [['created_at', 'DESC']],
@@ -115,7 +123,8 @@ export async function getAchievementsSummary(req, res, next) {
 
     return res.json({
       userId,
-      points: user.points || 0,
+      points: pointsFromEvents,
+      legacyUserPoints: user.points || 0,
       definitions: DEFINITIONS,
       completedByType,
       lastEventAtByType,
@@ -180,6 +189,160 @@ export async function claimAchievement(req, res, next) {
       points: updated?.points || 0,
     });
   } catch (err) {
+    next(err);
+  }
+}
+
+export async function redeemDiscount(req, res, next) {
+  try {
+    const userId = Number(req.params.userId);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
+
+    const user = await BasicUser.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const { partnerName, points: redeemPoints } = req.body;
+    if (!partnerName || !Number.isInteger(redeemPoints) || redeemPoints <= 0) {
+      return res.status(400).json({ message: 'Invalid partnerName or points' });
+    }
+
+    // Calculate current balance (sum all points from achievement_event)
+    const events = await AchievementEvent.findAll({
+      where: { userId },
+      attributes: [
+        [sequelize.fn('SUM', sequelize.col('points')), 'totalPoints']
+      ],
+      raw: true,
+    });
+
+    const currentBalance = Number(events[0]?.totalPoints || 0);
+
+    // Check if user has enough points
+    if (currentBalance < redeemPoints) {
+      return res.status(400).json({
+        message: 'Not enough points',
+        currentBalance,
+        required: redeemPoints,
+      });
+    }
+
+    // Generate promo code
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const promoCode = 'MUSYA' + Array.from({ length: 4 }, () =>
+      characters.charAt(Math.floor(Math.random() * characters.length))
+    ).join('');
+
+    // Create redemption event
+    const redemptionEvent = await AchievementEvent.create({
+      userId,
+      type: 'REDEEM_DISCOUNT',
+      points: -redeemPoints,
+      meta: {
+        partnerName,
+        promoCode,
+      },
+    });
+
+    const newBalance = currentBalance - redeemPoints;
+
+    return res.status(201).json({
+      message: 'Discount redeemed successfully',
+      event: redemptionEvent,
+      promoCode,
+      newBalance,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+function normalizePartnerName(raw) {
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
+function generatePromoCode() {
+  const suffix = Math.floor(1000 + Math.random() * 9000);
+  return `MUSYA${new Date().getFullYear()}${suffix}`;
+}
+
+export async function redeemDiscountV2(req, res, next) {
+  const t = await sequelize.transaction();
+  try {
+    const userId = Number(req.body?.userId);
+    const partnerName = normalizePartnerName(req.body?.partner_name || req.body?.partnerName);
+    const redeemPointsRaw = req.body?.points ?? req.body?.redeem_points ?? req.body?.redeemPoints;
+    const redeemPoints = Number(redeemPointsRaw);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
+    if (!partnerName || !Number.isFinite(redeemPoints) || !Number.isInteger(redeemPoints) || redeemPoints <= 0) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Invalid partner_name or points' });
+    }
+
+    const user = await BasicUser.findByPk(userId, { transaction: t });
+    if (!user) {
+      await t.rollback();
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const balanceRow = await AchievementEvent.findOne({
+      where: { userId },
+      attributes: [[sequelize.fn('SUM', sequelize.col('points')), 'totalPoints']],
+      raw: true,
+      transaction: t,
+    });
+    const currentBalance = Number(balanceRow?.totalPoints || 0);
+
+    if (currentBalance < redeemPoints) {
+      await t.rollback();
+      return res.status(400).json({
+        message: 'Not enough points',
+        current_balance: currentBalance,
+        required: redeemPoints,
+      });
+    }
+
+    const promoCode = generatePromoCode();
+
+    const redemptionEvent = await AchievementEvent.create(
+      {
+        userId,
+        type: 'redeem_discount',
+        points: -redeemPoints,
+        meta: {
+          partner_name: partnerName,
+          promo_code: promoCode,
+        },
+      },
+      { transaction: t }
+    );
+
+    const newBalance = currentBalance - redeemPoints;
+    if (newBalance < 0) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Balance cannot be negative' });
+    }
+
+    await t.commit();
+    return res.status(201).json({
+      message: 'Discount redeemed successfully',
+      event: redemptionEvent,
+      promo_code: promoCode,
+      new_balance: newBalance,
+    });
+  } catch (err) {
+    try {
+      await t.rollback();
+    } catch {
+      // ignore
+    }
     next(err);
   }
 }
