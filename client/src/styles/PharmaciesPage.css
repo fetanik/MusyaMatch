@@ -52,20 +52,56 @@
   width: auto;
 }
 
+.pharma-item p {
+  margin: 0 0 8px 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.phone {
+  display: block;
+  font-size: 13px;
+  color: #555;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.status {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.status.open {
+  color: #2e7d32;
+  background: #e8f5e9;
+}
+
+.status.closed {
+  color: #d32f2f;
+  background: #ffebee;
+}
+
 .distance {
   display: block;
   font-size: 12px;
   color: #666;
-  margin-top: 5px;
+  margin-bottom: 12px;
+  font-weight: 500;
 }
 
 .pharmacies-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 15px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
   padding: 20px;
   overflow-y: visible;
   background-color: #fdf8f4;
+  align-items: start;
 }
 
 .pharma-item {
@@ -74,6 +110,10 @@
   border-radius: 15px;
   cursor: pointer;
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+  justify-content: space-between;
 }
 
 .pharma-item:hover, .pharma-item.active {
@@ -82,14 +122,21 @@
 }
 
 .btn-directions {
-  margin-top: 10px;
+  margin-top: auto;
   width: 100%;
-  padding: 8px;
+  padding: 10px;
   background: #ffb347;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+}
+
+.btn-directions:hover {
+  background: #ff9f1a;
 }
 
 .map-section {
@@ -162,7 +209,17 @@
 .pharma-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.pharma-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  flex: 1;
+  margin-right: 10px;
 }
 
 .rating-tag {

@@ -29,7 +29,7 @@ const HomePage = () => {
         <section className="grid-cards">
           <button className="action-card-btn" onClick={() => navigate('/chat')}>
             <div className="icon-box"><Sparkles size={24} /></div>
-            <h3>AI Matching</h3>
+            <h3>Cat Matching</h3>
             <p>Find cats that match your lifestyle</p>
           </button>
           

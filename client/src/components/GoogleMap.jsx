@@ -1,4 +1,3 @@
-/* global google */
 import React, { useEffect, useRef } from 'react';
 
 export default function GoogleMap({ pharmacies, center }) {
