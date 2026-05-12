@@ -16,158 +16,97 @@ const getNeedsApiBaseUrl = () => {
 };
 
 const API_BASE_URL = getNeedsApiBaseUrl();
+const SHELTER_API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/shelter`;
+
+const toPositiveInt = (value) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+const getNeedShelterInfo = (need) => {
+  if (need?.shelter?.name || need?.shelter?.address) {
+    return need.shelter;
+  }
+
+  const nameFromNeed =
+    need?.shelterName ||
+    need?.shelter_name ||
+    need?.organizationName ||
+    need?.organization_name;
+  const addressFromNeed =
+    need?.shelterAddress ||
+    need?.shelter_address ||
+    need?.address ||
+    need?.location;
+
+  if (!nameFromNeed && !addressFromNeed) return null;
+  return {
+    name: nameFromNeed || 'Shelter',
+    address: addressFromNeed || '',
+  };
+};
 
 const ShelterNeedsPage = () => {
   const navigate = useNavigate();
   const [needs, setNeeds] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [searchText, setSearchText] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedPriority, setSelectedPriority] = useState('');
 
-  // Mock data for shelter needs
-  const mockNeeds = [
-    {
-      id: 1,
-      title: 'Корм для котів',
-      description: 'Потрібен сухий корм преміум класу для 50 котів',
-      priority: 'high',
-      status: 'open',
-      category: 'Food',
-      shelter: {
-        id: 1,
-        name: 'Сонячний притулок',
-        phone: '+380501234567',
-        address: 'вул. Львівська, 45, Київ',
-      },
-    },
-    {
-      id: 2,
-      title: 'Медикаменти',
-      description: 'Антибіотики та вітаміни для лікування інфекцій',
-      priority: 'high',
-      status: 'open',
-      category: 'Medical',
-      shelter: {
-        id: 2,
-        name: 'Пушистики',
-        phone: '+380502345678',
-        address: 'вул. Героїв Крут, 12, Київ',
-      },
-    },
-    {
-      id: 3,
-      title: 'Подушки та ліжка',
-      description: 'М\'які подушки для сну та лежаки для котів',
-      priority: 'medium',
-      status: 'open',
-      category: 'Bedding',
-      shelter: {
-        id: 3,
-        name: 'Кошачий дім',
-        phone: '+380503456789',
-        address: 'пр. Миру, 88, Харків',
-      },
-    },
-    {
-      id: 4,
-      title: 'Туалетний папір та підстилка',
-      description: 'Абсорбуюча підстилка для туалетів на 100 літрів',
-      priority: 'medium',
-      status: 'open',
-      category: 'Supplies',
-      shelter: {
-        id: 1,
-        name: 'Сонячний притулок',
-        phone: '+380501234567',
-        address: 'вул. Львівська, 45, Київ',
-      },
-    },
-    {
-      id: 5,
-      title: 'Іграшки та розваги',
-      description: 'М\'ячики, палички, приладдя для гри з котами',
-      priority: 'low',
-      status: 'open',
-      category: 'Toys',
-      shelter: {
-        id: 2,
-        name: 'Пушистики',
-        phone: '+380502345678',
-        address: 'вул. Героїв Крут, 12, Київ',
-      },
-    },
-    {
-      id: 6,
-      title: 'Переноски для котів',
-      description: 'Переноски для транспортування на ветеринара',
-      priority: 'medium',
-      status: 'open',
-      category: 'Equipment',
-      shelter: {
-        id: 3,
-        name: 'Кошачий дім',
-        phone: '+380503456789',
-        address: 'пр. Миру, 88, Харків',
-      },
-    },
-    {
-      id: 7,
-      title: 'Мисочки та посуд',
-      description: 'Металеві мисочки для їжі та питної води',
-      priority: 'low',
-      status: 'open',
-      category: 'Supplies',
-      shelter: {
-        id: 1,
-        name: 'Сонячний притулок',
-        phone: '+380501234567',
-        address: 'вул. Львівська, 45, Київ',
-      },
-    },
-    {
-      id: 8,
-      title: 'Рушники та тканини',
-      description: 'Старі рушники та тканини для прибирання',
-      priority: 'low',
-      status: 'open',
-      category: 'Supplies',
-      shelter: {
-        id: 3,
-        name: 'Кошачий дім',
-        phone: '+380503456789',
-        address: 'пр. Миру, 88, Харків',
-      },
-    },
-  ];
-
   const loadNeeds = useCallback(async () => {
-    // TODO: Replace with real API call when backend is ready
-    // const loadNeeds = async () => {
-    //   try {
-    //     setIsLoading(true);
-    //     setLoadError('');
+    const fetchShelterByUserId = async (userId) => {
+      const parsedUserId = toPositiveInt(userId);
+      if (!parsedUserId) return null;
+      const response = await fetch(`${SHELTER_API_BASE_URL}/profile/${parsedUserId}`);
+      if (!response.ok) return null;
+      const profile = await response.json().catch(() => null);
+      if (!profile) return null;
+      return {
+        id: profile.shelterId || null,
+        name: profile.name || profile.shelterName || '',
+        address: profile.address || '',
+        phone: profile.phone || '',
+      };
+    };
 
-    //     const response = await fetch(API_BASE_URL);
-    //     if (!response.ok) {
-    //       const result = await response.json().catch(() => null);
-    //       throw new Error(result?.message || 'Failed to load shelter needs');
-    //     }
+    const enrichNeedsWithShelter = async (items) => {
+      const cache = new Map();
+      return Promise.all(
+        items.map(async (need) => {
+          if (need?.shelter?.name || need?.shelter?.address) return need;
+          const ownerUserId = toPositiveInt(need?.userId ?? need?.user_id);
+          if (!ownerUserId) return need;
+          if (!cache.has(ownerUserId)) {
+            cache.set(ownerUserId, fetchShelterByUserId(ownerUserId));
+          }
+          const shelter = await cache.get(ownerUserId);
+          return shelter ? { ...need, shelter } : need;
+        })
+      );
+    };
 
-    //     const data = await response.json();
-    //     setNeeds(Array.isArray(data) ? data : []);
-    //   } catch (error) {
-    //     console.error('Failed to load needs:', error);
-    //     setLoadError('Could not load needs. Please try again.');
-    //     setNeeds([]);
-    //   } finally {
-    //     setIsLoading(false);
-    //   }
-    // };
+    try {
+      setIsLoading(true);
+      setLoadError('');
 
-    // Using mock data for now
-    setNeeds(mockNeeds);
+      const response = await fetch(API_BASE_URL);
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.message || 'Failed to load shelter needs');
+      }
+
+      const data = await response.json();
+      const enrichedNeeds = await enrichNeedsWithShelter(Array.isArray(data) ? data : []);
+      setNeeds(enrichedNeeds);
+    } catch (error) {
+      console.error('Failed to load needs:', error);
+      setLoadError('Could not load needs. Please try again.');
+      setNeeds([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -323,7 +262,9 @@ const ShelterNeedsPage = () => {
               </div>
 
               <div className="needs-grid">
-                {filteredNeeds.map((need) => (
+                {filteredNeeds.map((need) => {
+                  const shelterInfo = getNeedShelterInfo(need);
+                  return (
                   <div key={need.id} className="need-card-item">
                     <div className="need-card-header">
                       <h3>{need.title}</h3>
@@ -345,31 +286,31 @@ const ShelterNeedsPage = () => {
                       </p>
                     )}
 
-                    {need.shelter && (
+                    {shelterInfo && (
                       <div className="shelter-info">
                         <div className="shelter-name">
-                          <strong>Shelter:</strong> {need.shelter.name || 'Unknown Shelter'}
+                          <strong>Shelter:</strong> {shelterInfo.name || 'Unknown Shelter'}
                         </div>
 
-                        {need.shelter.address && (
+                        {shelterInfo.address && (
                           <div className="shelter-location">
                             <FiMapPin size={14} />
-                            <span>{need.shelter.address}</span>
+                            <span>{shelterInfo.address}</span>
                           </div>
                         )}
 
-                        {need.shelter.phone && (
+                        {shelterInfo.phone && (
                           <div className="shelter-contact">
                             <FiPhone size={14} />
-                            <a href={`tel:${need.shelter.phone}`}>
-                              {need.shelter.phone}
+                            <a href={`tel:${shelterInfo.phone}`}>
+                              {shelterInfo.phone}
                             </a>
                           </div>
                         )}
                       </div>
                     )}
                   </div>
-                ))}
+                )})}
               </div>
             </>
           )}

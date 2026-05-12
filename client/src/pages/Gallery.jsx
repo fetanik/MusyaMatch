@@ -3,12 +3,34 @@ import { useEffect, useMemo, useState } from 'react';
 import '../styles/Gallery.css';
 import BottomNav from '../components/BottomNav';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const getCurrentUserId = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const fromUserObject = Number(user.userId || user.id);
+    if (Number.isFinite(fromUserObject) && fromUserObject > 0) {
+      return fromUserObject;
+    }
+  } catch {
+    // fallback below
+  }
+
+  const raw =
+    localStorage.getItem('userId') ||
+    localStorage.getItem('basicUserId') ||
+    localStorage.getItem('currentUserId');
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
 
 const isCatVisibleInGallery = (cat) => {
   const source = (cat.source || 'shelter').toLowerCase();
   const listingType = (cat.listingType || '').toLowerCase();
   const listingStatus = (cat.listingStatus || '').toLowerCase();
+
+  if (['adopted', 'placed', 'hidden'].includes(listingStatus)) {
+    return false;
+  }
 
   if (source === 'shelter') {
     return true;
@@ -38,6 +60,41 @@ const getValidImageUrl = (cat) => {
   return url;
 };
 
+const getCatAgeLabel = (cat) => {
+  if (Number.isFinite(cat?.age)) {
+    const numericAge = Number(cat.age);
+    if (numericAge < 1) {
+      const months = Math.max(1, Math.round(numericAge * 12));
+      return `${months} month${months === 1 ? '' : 's'}`;
+    }
+    return `${numericAge} year${numericAge === 1 ? '' : 's'}`;
+  }
+
+  if (!cat?.birthDate) return '';
+  const birth = new Date(cat.birthDate);
+  if (Number.isNaN(birth.getTime())) return '';
+
+  const now = new Date();
+  let years = now.getFullYear() - birth.getFullYear();
+  const monthDiff = now.getMonth() - birth.getMonth();
+  const dayDiff = now.getDate() - birth.getDate();
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    years -= 1;
+  }
+  if (years < 0) return '';
+
+  if (years === 0) {
+    let months = (now.getFullYear() - birth.getFullYear()) * 12 + monthDiff;
+    if (dayDiff < 0) {
+      months -= 1;
+    }
+    months = Math.max(1, months);
+    return `${months} month${months === 1 ? '' : 's'}`;
+  }
+
+  return `${years} year${years === 1 ? '' : 's'}`;
+};
+
 const Gallery = () => {
   const [cats, setCats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +103,9 @@ const Gallery = () => {
   const [fosterSubmitting, setFosterSubmitting] = useState(false);
   const [fosterMessage, setFosterMessage] = useState('');
   const [fosterError, setFosterError] = useState('');
+  const [requestType, setRequestType] = useState('adoption');
+  const [requestComment, setRequestComment] = useState('');
+  const currentUserId = getCurrentUserId();
   const [filters, setFilters] = useState({
     source: 'all',
     sex: '',
@@ -94,6 +154,8 @@ const Gallery = () => {
   useEffect(() => {
     setFosterMessage('');
     setFosterError('');
+    setRequestComment('');
+    setRequestType(selectedCat?.listingType === 'foster' ? 'foster' : 'adoption');
   }, [selectedCat]);
 
   const filteredCats = useMemo(() => {
@@ -128,22 +190,43 @@ const Gallery = () => {
     if (!selectedCat?.id || fosterSubmitting) {
       return;
     }
+    if (!currentUserId) {
+      setFosterError('Please log in first.');
+      return;
+    }
 
     try {
       setFosterSubmitting(true);
       setFosterError('');
       setFosterMessage('');
 
-      const response = await fetch(`${API_BASE_URL}/api/cats/${selectedCat.id}/foster-request`, {
-        method: 'POST',
+      const requestBody = JSON.stringify({
+        userId: currentUserId,
+        type: requestType,
+        comment: requestComment.trim(),
       });
+
+      let response = await fetch(`${API_BASE_URL}/api/cats/${selectedCat.id}/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: requestBody,
+      });
+
+      // Backward compatibility: if server still uses old endpoint.
+      if (response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/api/cats/${selectedCat.id}/foster-request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: requestBody,
+        });
+      }
 
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.message || 'Failed to send foster request');
+        throw new Error(payload.message || 'Failed to send request');
       }
 
-      setFosterMessage(payload.message || 'Request sent');
+      setFosterMessage(payload.message || 'Your request has been sent successfully.');
     } catch (requestError) {
       setFosterError(requestError.message);
     } finally {
@@ -251,13 +334,11 @@ const Gallery = () => {
                         {cat.personality && <span className="ai-tag">✨ {cat.personality}</span>}
                       </div>
 
-                      <p className="specs">{cat.breed || 'Unknown breed'} {Number.isFinite(cat.age) ? `• ${cat.age} years` : ''}</p>
+                      <p className="specs">
+                        {cat.breed || 'Unknown breed'}
+                        {getCatAgeLabel(cat) ? ` • ${getCatAgeLabel(cat)}` : ''}
+                      </p>
 
-                      {cat.source === 'private' && cat.urgency && (
-                        <div className={`urgency-banner ${cat.urgency.toLowerCase()}`}>
-                          Urgency: {cat.urgency}
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -304,7 +385,7 @@ const Gallery = () => {
               <h3>{selectedCat.name}</h3>
               <p className="cat-modal-meta">
                 {selectedCat.breed || 'Unknown breed'}
-                {Number.isFinite(selectedCat.age) ? ` • ${selectedCat.age} years` : ''}
+                {getCatAgeLabel(selectedCat) ? ` • ${getCatAgeLabel(selectedCat)}` : ''}
               </p>
               <p className="cat-modal-description">
                 {selectedCat.description || 'No description added yet.'}
@@ -322,14 +403,39 @@ const Gallery = () => {
                 )}
               </div>
               <div className="cat-modal-actions">
-                <button
-                  type="button"
-                  className="btn-foster-request"
-                  onClick={handleFosterRequest}
-                  disabled={fosterSubmitting}
-                >
-                  {fosterSubmitting ? 'Sending...' : 'Request Foster Care'}
-                </button>
+                <div className="request-form-panel">
+                  <div className="request-form-grid">
+                    <div className="request-form-field request-type-field">
+                      <label htmlFor="request-type">Request type</label>
+                      <select
+                        id="request-type"
+                        value={requestType}
+                        onChange={(event) => setRequestType(event.target.value)}
+                      >
+                        <option value="adoption">Adoption</option>
+                        <option value="foster">Foster Care</option>
+                      </select>
+                    </div>
+                    <div className="request-form-field request-comment-field">
+                      <label htmlFor="request-comment">Message</label>
+                      <textarea
+                        id="request-comment"
+                        rows={3}
+                        placeholder="Add a message for the shelter (optional)"
+                        value={requestComment}
+                        onChange={(event) => setRequestComment(event.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-foster-request"
+                    onClick={handleFosterRequest}
+                    disabled={fosterSubmitting}
+                  >
+                    {fosterSubmitting ? 'Sending...' : 'Send Request'}
+                  </button>
+                </div>
                 {fosterMessage && <p className="foster-success">{fosterMessage}</p>}
                 {fosterError && <p className="form-error">{fosterError}</p>}
               </div>

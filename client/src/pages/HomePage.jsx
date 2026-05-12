@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Sparkles, Calendar, Heart, MapPin, 
@@ -7,124 +7,198 @@ import {
 import Layout from '../components/Layout';
 import '../styles/HomePage.css';
 
+const getNeedsApiBaseUrl = () => {
+  const rawBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  if (!rawBase) return '/api/needs';
+  const normalized = rawBase.replace(/\/+$/, '').replace(/\/api$/i, '');
+  return `${normalized}/api/needs`;
+};
+
+const NEEDS_API_BASE_URL = getNeedsApiBaseUrl();
+
+const toPositiveInt = (value) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+const getCurrentUserContext = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return {
+      userId:
+        toPositiveInt(user.userId) ??
+        toPositiveInt(user.id) ??
+        toPositiveInt(localStorage.getItem('userId')) ??
+        toPositiveInt(localStorage.getItem('basicUserId')) ??
+        toPositiveInt(localStorage.getItem('currentUserId')),
+      shelterId:
+        toPositiveInt(user.shelterId) ??
+        toPositiveInt(user.shelter_id) ??
+        toPositiveInt(localStorage.getItem('shelterId')) ??
+        toPositiveInt(localStorage.getItem('currentShelterId')),
+    };
+  } catch {
+    return {
+      userId:
+        toPositiveInt(localStorage.getItem('userId')) ??
+        toPositiveInt(localStorage.getItem('basicUserId')) ??
+        toPositiveInt(localStorage.getItem('currentUserId')),
+      shelterId:
+        toPositiveInt(localStorage.getItem('shelterId')) ??
+        toPositiveInt(localStorage.getItem('currentShelterId')),
+    };
+  }
+};
+
+const getNeedShelterInfo = (need) => {
+  if (need?.shelter?.name || need?.shelter?.address) {
+    return need.shelter;
+  }
+
+  const nameFromNeed =
+    need?.shelterName ||
+    need?.shelter_name ||
+    need?.organizationName ||
+    need?.organization_name;
+  const addressFromNeed =
+    need?.shelterAddress ||
+    need?.shelter_address ||
+    need?.address ||
+    need?.location;
+  if (nameFromNeed || addressFromNeed) {
+    return {
+      name: nameFromNeed || 'My Shelter',
+      address: addressFromNeed || '',
+    };
+  }
+  return null;
+};
+
 const HomePage = () => {
   const navigate = useNavigate();
   const greyIconStyle = { background: '#f1f2f6', color: '#2d3436' };
   const [needs, setNeeds] = useState([]);
   const [isLoadingNeeds, setIsLoadingNeeds] = useState(false);
   const carouselRef = useRef(null);
+  const [showCarouselLeft, setShowCarouselLeft] = useState(false);
+  const [showCarouselRight, setShowCarouselRight] = useState(false);
 
- 
-  const mockNeeds = [
-    {
-      id: 1,
-      title: 'Корм для котів',
-      description: 'Потрібен сухий корм преміум класу для 50 котів',
-      priority: 'high',
-      status: 'open',
-      category: 'Food',
-      shelter: {
-        id: 1,
-        name: 'Сонячний притулок',
-        phone: '+380501234567',
-        address: 'вул. Львівська, 45, Київ',
-      },
-    },
-    {
-      id: 2,
-      title: 'Медикаменти',
-      description: 'Антибіотики та вітаміни для лікування інфекцій',
-      priority: 'high',
-      status: 'open',
-      category: 'Medical',
-      shelter: {
-        id: 2,
-        name: 'Пушистики',
-        phone: '+380502345678',
-        address: 'вул. Героїв Крут, 12, Київ',
-      },
-    },
-    {
-      id: 3,
-      title: 'Подушки та ліжка',
-      description: 'М\'які подушки для сну та лежаки для котів',
-      priority: 'medium',
-      status: 'open',
-      category: 'Bedding',
-      shelter: {
-        id: 3,
-        name: 'Кошачий дім',
-        phone: '+380503456789',
-        address: 'пр. Миру, 88, Харків',
-      },
-    },
-    {
-      id: 4,
-      title: 'Туалетний папір та підстилка',
-      description: 'Абсорбуюча підстилка для туалетів на 100 літрів',
-      priority: 'medium',
-      status: 'open',
-      category: 'Supplies',
-      shelter: {
-        id: 1,
-        name: 'Сонячний притулок',
-        phone: '+380501234567',
-        address: 'вул. Львівська, 45, Київ',
-      },
-    },
-    {
-      id: 5,
-      title: 'Іграшки та розваги',
-      description: 'М\'ячики, палички, приладдя для гри з котами',
-      priority: 'low',
-      status: 'open',
-      category: 'Toys',
-      shelter: {
-        id: 2,
-        name: 'Пушистики',
-        phone: '+380502345678',
-        address: 'вул. Героїв Крут, 12, Київ',
-      },
-    },
-    {
-      id: 6,
-      title: 'Переноски для котів',
-      description: 'Переноски для транспортування на ветеринара',
-      priority: 'medium',
-      status: 'open',
-      category: 'Equipment',
-      shelter: {
-        id: 3,
-        name: 'Кошачий дім',
-        phone: '+380503456789',
-        address: 'пр. Миру, 88, Харків',
-      },
-    },
-  ];
+  const SCROLL_EDGE_EPS = 3;
+
+  const updateCarouselArrows = useCallback(() => {
+    const el = carouselRef.current;
+    if (!el) {
+      setShowCarouselLeft(false);
+      setShowCarouselRight(false);
+      return;
+    }
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const maxScroll = Math.max(0, scrollWidth - clientWidth);
+    const overflow = maxScroll > SCROLL_EDGE_EPS;
+    if (!overflow) {
+      setShowCarouselLeft(false);
+      setShowCarouselRight(false);
+      return;
+    }
+    setShowCarouselLeft(scrollLeft > SCROLL_EDGE_EPS);
+    setShowCarouselRight(scrollLeft < maxScroll - SCROLL_EDGE_EPS);
+  }, []);
 
   useEffect(() => {
-    // TODO: Replace with real API call when backend is ready
-    // const loadNeeds = async () => {
-    //   try {
-    //     const response = await fetch('/api/needs');
-    //     if (response.ok) {
-    //       const data = await response.json();
-    //       const openNeeds = (Array.isArray(data) ? data : []).filter(
-    //         (need) => need.status === 'open'
-    //       );
-    //       setNeeds(openNeeds.slice(0, 10));
-    //     }
-    //   } catch (error) {
-    //     console.error('Failed to load needs:', error);
-    //   } finally {
-    //     setIsLoadingNeeds(false);
-    //   }
-    // };
-    // loadNeeds();
+    const fetchShelterByUserId = async (userId) => {
+      if (!toPositiveInt(userId)) return null;
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/shelter/profile/${userId}`);
+      if (!response.ok) return null;
+      const profile = await response.json().catch(() => null);
+      if (!profile) return null;
+      return {
+        id: profile.shelterId || null,
+        name: profile.name || profile.shelterName || '',
+        address: profile.address || '',
+        phone: profile.phone || '',
+      };
+    };
 
-    // Using mock data for now
-    setNeeds(mockNeeds.slice(0, 10));
+    const enrichNeedsWithShelter = async (items) => {
+      const cache = new Map();
+      return Promise.all(
+        items.map(async (need) => {
+          if (need?.shelter?.name || need?.shelter?.address) return need;
+          const ownerUserId = toPositiveInt(need?.userId ?? need?.user_id);
+          if (!ownerUserId) return need;
+          if (!cache.has(ownerUserId)) {
+            cache.set(ownerUserId, fetchShelterByUserId(ownerUserId));
+          }
+          const shelter = await cache.get(ownerUserId);
+          return shelter ? { ...need, shelter } : need;
+        })
+      );
+    };
+
+    const loadNeeds = async () => {
+      try {
+        setIsLoadingNeeds(true);
+        const { userId, shelterId } = getCurrentUserContext();
+        const params = new URLSearchParams();
+        if (shelterId) params.set('shelterId', String(shelterId));
+        if (userId) params.set('userId', String(userId));
+        const url = params.toString()
+          ? `${NEEDS_API_BASE_URL}?${params.toString()}`
+          : NEEDS_API_BASE_URL;
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error('Failed to load needs');
+        }
+
+        let data = await response.json();
+        let realNeeds = (Array.isArray(data) ? data : [])
+          .filter((need) => need?.status === 'open')
+          .map((need) => ({ ...need, _carouselKey: `real-${need.id}` }));
+
+        // Fallback: if user/shelter filtering returns nothing, show open DB needs.
+        if (realNeeds.length === 0 && (userId || shelterId)) {
+          const allNeedsResponse = await fetch(NEEDS_API_BASE_URL);
+          if (allNeedsResponse.ok) {
+            data = await allNeedsResponse.json();
+            realNeeds = (Array.isArray(data) ? data : [])
+              .filter((need) => need?.status === 'open')
+              .map((need) => ({ ...need, _carouselKey: `real-${need.id}` }));
+          }
+        }
+        realNeeds = await enrichNeedsWithShelter(realNeeds);
+        setNeeds(realNeeds);
+      } catch (error) {
+        console.error('Failed to load needs:', error);
+        setNeeds([]);
+      } finally {
+        setIsLoadingNeeds(false);
+      }
+    };
+
+    loadNeeds();
   }, []);
+
+  useLayoutEffect(() => {
+    updateCarouselArrows();
+  }, [needs, updateCarouselArrows]);
+
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el) return undefined;
+    updateCarouselArrows();
+    el.addEventListener('scroll', updateCarouselArrows, { passive: true });
+    el.addEventListener('scrollend', updateCarouselArrows);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCarouselArrows) : null;
+    ro?.observe(el);
+    window.addEventListener('resize', updateCarouselArrows);
+    return () => {
+      el.removeEventListener('scroll', updateCarouselArrows);
+      el.removeEventListener('scrollend', updateCarouselArrows);
+      ro?.disconnect();
+      window.removeEventListener('resize', updateCarouselArrows);
+    };
+  }, [needs, updateCarouselArrows]);
 
   const scrollCarousel = (direction) => {
     if (carouselRef.current) {
@@ -245,7 +319,9 @@ const HomePage = () => {
               </Link>
             </div>
 
-            <div className="carousel-container">
+            <div className="carousel-shell">
+              <div className="carousel-container">
+              {showCarouselLeft && (
               <button
                 type="button"
                 className="carousel-btn carousel-btn-left"
@@ -254,10 +330,13 @@ const HomePage = () => {
               >
                 ‹
               </button>
+              )}
 
               <div className="carousel-track" ref={carouselRef}>
-                {needs.map((need) => (
-                  <div key={need.id} className="carousel-card">
+                {needs.map((need) => {
+                  const shelterInfo = getNeedShelterInfo(need);
+                  return (
+                  <div key={need._carouselKey || need.id} className="carousel-card">
                     <div className="card-priority">
                       {need.priority === 'high' && '🔴'}
                       {need.priority === 'medium' && '🟡'}
@@ -267,21 +346,22 @@ const HomePage = () => {
                     {need.description && (
                       <p className="card-description">{need.description}</p>
                     )}
-                    {need.shelter && (
+                    {shelterInfo && (
                       <div className="card-shelter">
-                        <div className="shelter-name">{need.shelter.name}</div>
-                        {need.shelter.address && (
+                        <div className="shelter-name">{shelterInfo.name}</div>
+                        {shelterInfo.address && (
                           <div className="shelter-location">
                             <MapPin size={12} />
-                            {need.shelter.address}
+                            {shelterInfo.address}
                           </div>
                         )}
                       </div>
                     )}
                   </div>
-                ))}
+                )})}
               </div>
 
+              {showCarouselRight && (
               <button
                 type="button"
                 className="carousel-btn carousel-btn-right"
@@ -290,6 +370,8 @@ const HomePage = () => {
               >
                 ›
               </button>
+              )}
+              </div>
             </div>
           </section>
         )}

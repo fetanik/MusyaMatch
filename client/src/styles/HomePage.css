@@ -325,7 +325,17 @@ a.btn-outline {
 /* Shelter Needs Carousel */
 .shelter-needs-carousel-section {
   width: 100%;
+  max-width: 100%;
   margin: 40px 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.carousel-shell {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .carousel-header {
@@ -359,6 +369,10 @@ a.btn-outline {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .carousel-track {
@@ -367,7 +381,8 @@ a.btn-outline {
   overflow-x: auto;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
   scrollbar-width: none;
 }
 
@@ -454,11 +469,11 @@ a.btn-outline {
 }
 
 .carousel-btn-left {
-  left: 0;
+  left: 8px;
 }
 
 .carousel-btn-right {
-  right: 0;
+  right: 8px;
 }
 
 @media (max-width: 768px) {

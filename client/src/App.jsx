@@ -7,6 +7,7 @@ import ProfilePage from './pages/ProfilePage';
 import DashboardPage from './pages/DashboardPage'; 
 import ManagerProfile from './pages/ManagerProfile';
 import ManagerSettingsPage from './pages/ManagerSettingsPage';
+import ManagerRequestsPage from './pages/ManagerRequestsPage';
 import NeedsPage from './pages/NeedsPage';
 import Gallery from './pages/Gallery';
 import PharmaciesPage from './pages/PharmaciesPage';
@@ -41,9 +42,14 @@ function App() {
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/achievements" element={<AchievementsPage />} />
             <Route path="/shelter-needs" element={<ShelterNeedsPage />} />
+            <Route
+              path="/chat"
+              element={isAuthenticated ? <ChatPage /> : <Navigate to="/register" replace />}
+            />
             <Route path="/manager" element={<Navigate to="/manager/profile" replace />} />
             <Route path="/manager/profile" element={<Navigate to="/manager-profile" replace />} />
             <Route path="/manager-profile" element={<ManagerProfile />} />
+            <Route path="/manager/requests" element={<ManagerRequestsPage />} />
             <Route path="/manager/needs" element={<NeedsPage />} />
             <Route path="/manager/settings" element={<ManagerSettingsPage />} />
             <Route path="/manager/cats/:catId/vaccinations" element={<CalendarPage />} />
@@ -57,7 +63,6 @@ function App() {
               element={isAuthenticated ? <DashboardPage /> : <Navigate to="/register" replace />}
             />
             <Route path="/pharmacies" element={<PharmaciesPage />} />
-            <Route path="/chat" element={<ChatPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

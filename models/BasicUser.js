@@ -25,7 +25,7 @@ export const BasicUser = sequelize.define(
       unique: true,
     },
     password: {
-      type: DataTypes.STRING(255),
+      type: DataTypes.TEXT,
       allowNull: false,
       field: 'password_hash',
     },

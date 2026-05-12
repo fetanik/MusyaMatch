@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, User, MapPin, Image, Settings } from 'lucide-react';
+import { Home, User, MapPin, Image, Settings, ClipboardList } from 'lucide-react';
 import '../styles/BottomNav.css';
 
 const getRole = () => {
@@ -24,6 +24,7 @@ const BottomNav = ({ active = '' }) => {
     if (role === 'manager') {
       return [
         { key: 'home', label: 'Home', icon: Home, to: '/manager/profile' },
+        { key: 'requests', label: 'Requests', icon: ClipboardList, to: '/manager/requests' },
         { key: 'gallery', label: 'Cats', icon: Image, to: '/gallery' },
         { key: 'map', label: 'Map', icon: MapPin, to: '/pharmacies' },
         { key: 'profile', label: 'Profile', icon: Settings, to: '/manager/settings' },

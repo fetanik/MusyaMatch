@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/DashboardPage.css';
 
@@ -24,13 +24,17 @@ import { useMessages } from '../components/MessagesContext';
 const CATS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
 const USERS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/users`;
 const ACHIEVEMENTS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/achievements`;
+const NEEDS_API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/needs`;
 
 const emptyForm = {
   name: '',
   breed: '',
   gender: '',
   birthDate: '',
+  personality: '',
   description: '',
+  vaccinationInput: '',
+  vaccinations: [],
   imageFile: null,
   imagePreview: '',
 };
@@ -40,6 +44,7 @@ const emptyFosterForm = {
   endDate: '',
   comment: '',
   location: '',
+  urgency: '',
 };
 
 const normalizeVaccinations = (vaccinations) => {
@@ -77,8 +82,10 @@ const getStatusMeta = (cat) => {
     return { label: 'Fostered', className: 'fostered' };
   }
 
-  if (cat.listingStatus === 'placed' || cat.listingStatus === 'adopted') {
-    return { label: 'Placed', className: 'adopted' };
+  const catOrigin = String(cat.sourceType || cat.source || '').toLowerCase();
+  const isShelterOrigin = catOrigin === 'shelter';
+  if ((cat.listingStatus === 'placed' || cat.listingStatus === 'adopted') && isShelterOrigin) {
+    return { label: 'Adopted', className: 'adopted' };
   }
 
   return { label: 'Private', className: 'available' };
@@ -87,6 +94,76 @@ const getStatusMeta = (cat) => {
 const formatBirthDate = (birthDate) => {
   if (!birthDate) return 'Not specified';
   return birthDate;
+};
+
+const getCatOwnerId = (cat) => {
+  const ownerId = Number(
+    cat?.userId ??
+      cat?.user_id ??
+      cat?.basicUserId ??
+      cat?.basic_user_id ??
+      cat?.ownerId ??
+      null
+  );
+  return Number.isFinite(ownerId) && ownerId > 0 ? ownerId : null;
+};
+
+const toPositiveInt = (value) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+const getCurrentUserContext = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return {
+      userId:
+        toPositiveInt(user.userId) ??
+        toPositiveInt(user.id) ??
+        toPositiveInt(localStorage.getItem('userId')) ??
+        toPositiveInt(localStorage.getItem('basicUserId')) ??
+        toPositiveInt(localStorage.getItem('currentUserId')),
+      shelterId:
+        toPositiveInt(user.shelterId) ??
+        toPositiveInt(user.shelter_id) ??
+        toPositiveInt(localStorage.getItem('shelterId')) ??
+        toPositiveInt(localStorage.getItem('currentShelterId')),
+    };
+  } catch {
+    return {
+      userId:
+        toPositiveInt(localStorage.getItem('userId')) ??
+        toPositiveInt(localStorage.getItem('basicUserId')) ??
+        toPositiveInt(localStorage.getItem('currentUserId')),
+      shelterId:
+        toPositiveInt(localStorage.getItem('shelterId')) ??
+        toPositiveInt(localStorage.getItem('currentShelterId')),
+    };
+  }
+};
+
+const getNeedShelterInfo = (need) => {
+  if (need?.shelter?.name || need?.shelter?.address) {
+    return need.shelter;
+  }
+
+  const nameFromNeed =
+    need?.shelterName ||
+    need?.shelter_name ||
+    need?.organizationName ||
+    need?.organization_name;
+  const addressFromNeed =
+    need?.shelterAddress ||
+    need?.shelter_address ||
+    need?.address ||
+    need?.location;
+  if (nameFromNeed || addressFromNeed) {
+    return {
+      name: nameFromNeed || 'My Shelter',
+      address: addressFromNeed || '',
+    };
+  }
+  return null;
 };
 
 const DashboardPage = () => {
@@ -117,94 +194,29 @@ const DashboardPage = () => {
 
   const [needs, setNeeds] = useState([]);
   const carouselRef = useRef(null);
+  const [showCarouselLeft, setShowCarouselLeft] = useState(false);
+  const [showCarouselRight, setShowCarouselRight] = useState(false);
 
-  // Mock data for needs
-  const mockNeeds = [
-    {
-      id: 1,
-      title: 'Корм для котів',
-      description: 'Потрібен сухий корм преміум класу для 50 котів',
-      priority: 'high',
-      status: 'open',
-      category: 'Food',
-      shelter: {
-        id: 1,
-        name: 'Сонячний притулок',
-        phone: '+380501234567',
-        address: 'вул. Львівська, 45, Київ',
-      },
-    },
-    {
-      id: 2,
-      title: 'Медикаменти',
-      description: 'Антибіотики та вітаміни для лікування інфекцій',
-      priority: 'high',
-      status: 'open',
-      category: 'Medical',
-      shelter: {
-        id: 2,
-        name: 'Пушистики',
-        phone: '+380502345678',
-        address: 'вул. Героїв Крут, 12, Київ',
-      },
-    },
-    {
-      id: 3,
-      title: 'Подушки та ліжка',
-      description: 'М\'які подушки для сну та лежаки для котів',
-      priority: 'medium',
-      status: 'open',
-      category: 'Bedding',
-      shelter: {
-        id: 3,
-        name: 'Кошачий дім',
-        phone: '+380503456789',
-        address: 'пр. Миру, 88, Харків',
-      },
-    },
-    {
-      id: 4,
-      title: 'Туалетний папір та підстилка',
-      description: 'Абсорбуюча підстилка для туалетів на 100 літрів',
-      priority: 'medium',
-      status: 'open',
-      category: 'Supplies',
-      shelter: {
-        id: 1,
-        name: 'Сонячний притулок',
-        phone: '+380501234567',
-        address: 'вул. Львівська, 45, Київ',
-      },
-    },
-    {
-      id: 5,
-      title: 'Іграшки та розваги',
-      description: 'М\'ячики, палички, приладдя для гри з котами',
-      priority: 'low',
-      status: 'open',
-      category: 'Toys',
-      shelter: {
-        id: 2,
-        name: 'Пушистики',
-        phone: '+380502345678',
-        address: 'вул. Героїв Крут, 12, Київ',
-      },
-    },
-    {
-      id: 6,
-      title: 'Переноски для котів',
-      description: 'Переноски для транспортування на ветеринара',
-      priority: 'medium',
-      status: 'open',
-      category: 'Equipment',
-      shelter: {
-        id: 3,
-        name: 'Кошачий дім',
-        phone: '+380503456789',
-        address: 'пр. Миру, 88, Харків',
-      },
-    },
-  ];
+  const SCROLL_EDGE_EPS = 3;
+
+  const updateCarouselArrows = useCallback(() => {
+    const el = carouselRef.current;
+    if (!el) {
+      setShowCarouselLeft(false);
+      setShowCarouselRight(false);
+      return;
+    }
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const maxScroll = Math.max(0, scrollWidth - clientWidth);
+    const overflow = maxScroll > SCROLL_EDGE_EPS;
+    if (!overflow) {
+      setShowCarouselLeft(false);
+      setShowCarouselRight(false);
+      return;
+    }
+    setShowCarouselLeft(scrollLeft > SCROLL_EDGE_EPS);
+    setShowCarouselRight(scrollLeft < maxScroll - SCROLL_EDGE_EPS);
+  }, []);
 
   const fetchCatVaccinations = useCallback(async (catList) => {
     const records = {};
@@ -244,7 +256,7 @@ const DashboardPage = () => {
       const data = await response.json();
       const allCats = Array.isArray(data) ? data : [];
 
-      const myCats = allCats.filter((cat) => Number(cat.userId) === userId);
+      const myCats = allCats.filter((cat) => getCatOwnerId(cat) === userId);
       setCats(myCats);
 
       if (myCats.length > 0) {
@@ -259,15 +271,84 @@ const DashboardPage = () => {
   }, [userId, fetchCatVaccinations]);
 
   useEffect(() => {
+    const fetchShelterByUserId = async (targetUserId) => {
+      const parsedUserId = toPositiveInt(targetUserId);
+      if (!parsedUserId) return null;
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/shelter/profile/${parsedUserId}`);
+      if (!response.ok) return null;
+      const profile = await response.json().catch(() => null);
+      if (!profile) return null;
+      return {
+        id: profile.shelterId || null,
+        name: profile.name || profile.shelterName || '',
+        address: profile.address || '',
+        phone: profile.phone || '',
+      };
+    };
+
+    const enrichNeedsWithShelter = async (items) => {
+      const cache = new Map();
+      return Promise.all(
+        items.map(async (need) => {
+          if (need?.shelter?.name || need?.shelter?.address) return need;
+          const ownerUserId = toPositiveInt(need?.userId ?? need?.user_id);
+          if (!ownerUserId) return need;
+          if (!cache.has(ownerUserId)) {
+            cache.set(ownerUserId, fetchShelterByUserId(ownerUserId));
+          }
+          const shelter = await cache.get(ownerUserId);
+          return shelter ? { ...need, shelter } : need;
+        })
+      );
+    };
+
+    const loadNeedsForCarousel = async () => {
+      try {
+        const { userId: ctxUserId, shelterId } = getCurrentUserContext();
+        const params = new URLSearchParams();
+        if (shelterId) params.set('shelterId', String(shelterId));
+        if (ctxUserId) params.set('userId', String(ctxUserId));
+
+        const url = params.toString()
+          ? `${NEEDS_API_BASE_URL}?${params.toString()}`
+          : NEEDS_API_BASE_URL;
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error('Failed to load shelter needs');
+        }
+
+        let data = await response.json();
+        let realNeeds = (Array.isArray(data) ? data : [])
+          .filter((need) => need?.status === 'open')
+          .map((need) => ({ ...need, _carouselKey: `real-${need.id}` }));
+
+        // Fallback: if owner-scoped query is empty, show open DB needs.
+        if (realNeeds.length === 0 && (ctxUserId || shelterId)) {
+          const allNeedsResponse = await fetch(NEEDS_API_BASE_URL);
+          if (allNeedsResponse.ok) {
+            data = await allNeedsResponse.json();
+            realNeeds = (Array.isArray(data) ? data : [])
+              .filter((need) => need?.status === 'open')
+              .map((need) => ({ ...need, _carouselKey: `real-${need.id}` }));
+          }
+        }
+        realNeeds = await enrichNeedsWithShelter(realNeeds);
+        setNeeds(realNeeds);
+      } catch (error) {
+        console.error('Failed to load needs for carousel:', error);
+        setNeeds([]);
+      }
+    };
+
     if (!userId) {
       setLoading(false);
       setPageError('User ID was not found. Please log in or save your profile first.');
+      loadNeedsForCarousel();
       return;
     }
 
     fetchMyCats();
-    // Load mock needs
-    setNeeds(mockNeeds.slice(0, 10));
+    loadNeedsForCarousel();
   }, [fetchMyCats, userId]);
 
   useEffect(() => {
@@ -316,6 +397,27 @@ const DashboardPage = () => {
     }
   };
 
+  useLayoutEffect(() => {
+    updateCarouselArrows();
+  }, [needs, updateCarouselArrows]);
+
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el) return undefined;
+    updateCarouselArrows();
+    el.addEventListener('scroll', updateCarouselArrows, { passive: true });
+    el.addEventListener('scrollend', updateCarouselArrows);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCarouselArrows) : null;
+    ro?.observe(el);
+    window.addEventListener('resize', updateCarouselArrows);
+    return () => {
+      el.removeEventListener('scroll', updateCarouselArrows);
+      el.removeEventListener('scrollend', updateCarouselArrows);
+      ro?.disconnect();
+      window.removeEventListener('resize', updateCarouselArrows);
+    };
+  }, [needs, updateCarouselArrows]);
+
   const fosterCount = useMemo(
     () =>
       cats.filter(
@@ -359,7 +461,10 @@ const DashboardPage = () => {
       breed: cat.breed || '',
       gender: cat.gender || '',
       birthDate: cat.birthDate || '',
+      personality: cat.personality || '',
       description: cat.description || '',
+      vaccinationInput: '',
+      vaccinations: normalizeVaccinations(cat.vaccinations),
       imageFile: null,
       imagePreview: cat.image_url || '',
     });
@@ -369,7 +474,7 @@ const DashboardPage = () => {
   const closeCatModal = () => {
     setIsCatModalOpen(false);
     setEditingCat(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm });
     setOpenCalendarAfterSave(false);
   };
 
@@ -380,6 +485,7 @@ const DashboardPage = () => {
       endDate: '',
       comment: '',
       location: userProfile?.address || localStorage.getItem('userAddress') || '',
+      urgency: '',
     });
     setIsFosterModalOpen(true);
   };
@@ -392,6 +498,25 @@ const DashboardPage = () => {
 
   const handleFormChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const addVaccination = () => {
+    const name = String(form.vaccinationInput || '').trim();
+    if (!name) return;
+    setForm((prev) => {
+      const list = Array.isArray(prev.vaccinations) ? prev.vaccinations : [];
+      if (list.includes(name)) {
+        return { ...prev, vaccinationInput: '' };
+      }
+      return { ...prev, vaccinationInput: '', vaccinations: [...list, name] };
+    });
+  };
+
+  const removeVaccination = (name) => {
+    setForm((prev) => ({
+      ...prev,
+      vaccinations: (Array.isArray(prev.vaccinations) ? prev.vaccinations : []).filter((v) => v !== name),
+    }));
   };
 
   const handleFosterFormChange = (field, value) => {
@@ -445,8 +570,9 @@ const DashboardPage = () => {
       formData.append('breed', form.breed.trim());
       formData.append('gender', form.gender);
       formData.append('birthDate', form.birthDate || '');
+      formData.append('personality', form.personality || '');
       formData.append('description', form.description.trim());
-      formData.append('vaccinations', JSON.stringify([]));
+      formData.append('vaccinations', JSON.stringify(form.vaccinations || []));
       formData.append('source', 'private');
       formData.append('sourceType', 'private');
       formData.append('listingType', editingCat?.listingType || 'adoption');
@@ -470,11 +596,12 @@ const DashboardPage = () => {
         throw new Error(data?.message || 'Failed to save cat');
       }
 
+      const shouldOpenCalendar = openCalendarAfterSave;
       closeCatModal();
       await fetchMyCats();
 
       const savedCatId = Number(data?.id);
-      if (openCalendarAfterSave && Number.isInteger(savedCatId) && savedCatId > 0) {
+      if (shouldOpenCalendar && Number.isInteger(savedCatId) && savedCatId > 0) {
         navigate(`/cats/${savedCatId}/vaccinations`, { state: { cat: data } });
       }
     } catch (error) {
@@ -531,6 +658,11 @@ const DashboardPage = () => {
       return;
     }
 
+    if (!fosterForm.urgency) {
+      await notify('Please select how urgent foster care is needed.', { type: 'error', title: 'Error' });
+      return;
+    }
+
     try {
       setFosterLoadingId(selectedFosterCat.id);
 
@@ -576,6 +708,7 @@ const DashboardPage = () => {
             'active',
           sourceType: selectedFosterCat.sourceType || 'private',
           source: selectedFosterCat.source || 'private',
+          urgency: fosterForm.urgency,
         }),
       });
 
@@ -590,7 +723,10 @@ const DashboardPage = () => {
       await notify(`${selectedFosterCat.name} was successfully submitted for fostering.`, { type: 'success', title: 'Success' });
     } catch (error) {
       console.error(error);
-      await notify('Failed to submit foster request. Please try again.', { type: 'error', title: 'Error' });
+      await notify(error.message || 'Failed to submit foster request. Please try again.', {
+        type: 'error',
+        title: 'Error',
+      });
     } finally {
       setFosterLoadingId(null);
     }
@@ -620,6 +756,7 @@ const DashboardPage = () => {
           previousListingStatus: null,
           sourceType: cat.sourceType || 'private',
           source: cat.source || 'private',
+          urgency: null,
         }),
       });
 
@@ -708,7 +845,7 @@ const DashboardPage = () => {
             <h3>Chat with Musya AI</h3>
             <p>Get expert advice & find your perfect match</p>
           </div>
-          <button className="ai-action-btn" onClick={() => navigate('/chat')}>
+          <button className="ai-action-btn" type="button" onClick={() => navigate('/chat')}>
             <MessageSquare />
           </button>
         </div>
@@ -950,6 +1087,53 @@ const DashboardPage = () => {
               </div>
 
               <div className="form-group">
+                <label>Personality</label>
+                <input
+                  type="text"
+                  value={form.personality}
+                  onChange={(e) => handleFormChange('personality', e.target.value)}
+                  placeholder="e.g. playful, calm, social"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Add vaccinations</label>
+
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    value={form.vaccinationInput}
+                    onChange={(e) => handleFormChange('vaccinationInput', e.target.value)}
+                    placeholder="Add vaccination"
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={addVaccination}
+                  >
+                    + Add vaccine
+                  </button>
+                </div>
+
+                {form.vaccinations.length > 0 && (
+                  <div className="cat-vaccination-list" style={{ marginTop: '12px' }}>
+                    {form.vaccinations.map((item, index) => (
+                      <button
+                        key={`${item}-${index}`}
+                        type="button"
+                        className="cat-vaccination-chip"
+                        onClick={() => removeVaccination(item)}
+                        title="Remove vaccination"
+                      >
+                        {item} ×
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="form-group">
                 <label>Description</label>
                 <textarea
                   rows="4"
@@ -959,9 +1143,9 @@ const DashboardPage = () => {
                 />
               </div>
 
-              <div className="form-group">
-                <label>Vaccinations</label>
-                {editingCat?.id ? (
+              {editingCat?.id ? (
+                <div className="form-group">
+                  <label>Vaccinations</label>
                   <button
                     type="button"
                     className="secondary-btn"
@@ -975,7 +1159,10 @@ const DashboardPage = () => {
                   >
                     Open vaccination calendar
                   </button>
-                ) : (
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label>Vaccinations</label>
                   <button
                     type="submit"
                     className="secondary-btn"
@@ -985,7 +1172,10 @@ const DashboardPage = () => {
                   >
                     Save & open vaccination calendar
                   </button>
-                )}
+                </div>
+              )}
+
+              <div className="form-group">
                 <label>Photo</label>
                 <input
                   type="file"
@@ -1014,7 +1204,12 @@ const DashboardPage = () => {
                 <button type="button" className="secondary-btn" onClick={closeCatModal}>
                   Cancel
                 </button>
-                <button type="submit" className="primary-btn" disabled={saveLoading}>
+                <button
+                  type="submit"
+                  className="primary-btn"
+                  disabled={saveLoading}
+                  onClick={() => setOpenCalendarAfterSave(false)}
+                >
                   {saveLoading ? 'Saving...' : 'Save Cat'}
                 </button>
               </div>
@@ -1074,6 +1269,19 @@ const DashboardPage = () => {
                 />
               </div>
 
+              <div className="form-group">
+                <label>Urgency</label>
+                <select
+                  value={fosterForm.urgency}
+                  onChange={(e) => handleFosterFormChange('urgency', e.target.value)}
+                >
+                  <option value="">Select urgency</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="immediate">Immediate</option>
+                </select>
+              </div>
+
               <div className="foster-period-grid">
                 <div className="form-group">
                   <label>Start date</label>
@@ -1131,7 +1339,9 @@ const DashboardPage = () => {
             </a>
           </div>
 
-          <div className="carousel-container">
+          <div className="carousel-shell">
+            <div className="carousel-container">
+            {showCarouselLeft && (
             <button
               type="button"
               className="carousel-btn carousel-btn-left"
@@ -1140,10 +1350,13 @@ const DashboardPage = () => {
             >
               ‹
             </button>
+            )}
 
             <div className="carousel-track" ref={carouselRef}>
-              {needs.map((need) => (
-                <div key={need.id} className="carousel-card">
+              {needs.map((need) => {
+                const shelterInfo = getNeedShelterInfo(need);
+                return (
+                <div key={need._carouselKey || need.id} className="carousel-card">
                   <div className="card-priority">
                     {need.priority === 'high' && '🔴'}
                     {need.priority === 'medium' && '🟡'}
@@ -1153,21 +1366,22 @@ const DashboardPage = () => {
                   {need.description && (
                     <p className="card-description">{need.description}</p>
                   )}
-                  {need.shelter && (
+                  {shelterInfo && (
                     <div className="card-shelter">
-                      <div className="shelter-name">{need.shelter.name}</div>
-                      {need.shelter.address && (
+                      <div className="shelter-name">{shelterInfo.name}</div>
+                      {shelterInfo.address && (
                         <div className="shelter-location">
                           <MapPin size={12} />
-                          {need.shelter.address}
+                          {shelterInfo.address}
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-              ))}
+              )})}
             </div>
 
+            {showCarouselRight && (
             <button
               type="button"
               className="carousel-btn carousel-btn-right"
@@ -1176,6 +1390,8 @@ const DashboardPage = () => {
             >
               ›
             </button>
+            )}
+            </div>
           </div>
         </section>
       )}

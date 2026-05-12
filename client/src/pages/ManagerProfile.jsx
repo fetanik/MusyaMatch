@@ -18,6 +18,7 @@ import { useMessages } from '../components/MessagesContext';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
 const EVENTS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/events`;
+const SHELTER_API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/shelter`;
 
 const normalizeVaccinations = (vaccinations) => {
   if (!Array.isArray(vaccinations)) return [];
@@ -68,7 +69,6 @@ const ManagerProfile = () => {
   const [isLoadingCats, setIsLoadingCats] = useState(true);
   const [catImageFile, setCatImageFile] = useState(null);
   const [catImagePreview, setCatImagePreview] = useState('');
-  const [openCalendarAfterSave, setOpenCalendarAfterSave] = useState(false);
 
   const [events, setEvents] = useState([]);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -97,37 +97,13 @@ const ManagerProfile = () => {
     breed: '',
     gender: '',
     birthDate: '',
+    personality: '',
     description: '',
     vaccinationInput: '',
     vaccinations: [],
   });
 
-  const [requests, setRequests] = useState([
-    {
-      id: 1,
-      type: 'Adoption',
-      catName: 'Luna',
-      applicant: 'Maria S.',
-      status: 'pending',
-      time: '2 hrs ago',
-    },
-    {
-      id: 2,
-      type: 'Adoption',
-      catName: 'Milo',
-      applicant: 'Andrii K.',
-      status: 'pending',
-      time: '5 hrs ago',
-    },
-    {
-      id: 3,
-      type: 'Adoption',
-      catName: 'Nala',
-      applicant: 'Oksana P.',
-      status: 'approved',
-      time: '1 day ago',
-    },
-  ]);
+  const [requests, setRequests] = useState([]);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -186,7 +162,29 @@ const ManagerProfile = () => {
       }
     };
 
+    const loadRequests = async () => {
+      try {
+        const { userId: currentUserId } = getCurrentUserIds();
+        if (!currentUserId) {
+          setRequests([]);
+          return;
+        }
+
+        const response = await fetch(`${SHELTER_API_BASE_URL}/requests/${currentUserId}`);
+        if (!response.ok) {
+          throw new Error('Failed to load requests');
+        }
+
+        const data = await response.json();
+        setRequests(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Failed to load shelter requests:', error);
+        setRequests([]);
+      }
+    };
+
     loadCats();
+    loadRequests();
   }, []);
 
   const stats = useMemo(() => {
@@ -199,12 +197,30 @@ const ManagerProfile = () => {
 
   const pendingRequests = requests.filter((request) => request.status === 'pending');
 
-  const handleRequestAction = (requestId, newStatus) => {
-    setRequests((prev) =>
-      prev.map((request) =>
-        request.id === requestId ? { ...request, status: newStatus } : request
-      )
-    );
+  const handleRequestAction = async (requestId, newStatus) => {
+    try {
+      const { userId: currentUserId } = getCurrentUserIds();
+      const response = await fetch(`${SHELTER_API_BASE_URL}/requests/${requestId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus, userId: currentUserId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update request');
+      }
+
+      setRequests((prev) =>
+        prev.map((request) =>
+          request.id === requestId ? { ...request, status: newStatus } : request
+        )
+      );
+    } catch (error) {
+      console.error('Failed to update request:', error);
+      notify('Failed to update request status.', { type: 'error', title: 'Error' });
+    }
   };
 
   const resetCatForm = () => {
@@ -213,6 +229,7 @@ const ManagerProfile = () => {
       breed: '',
       gender: '',
       birthDate: '',
+      personality: '',
       description: '',
       vaccinationInput: '',
       vaccinations: [],
@@ -220,7 +237,6 @@ const ManagerProfile = () => {
     setEditingCatId(null);
     setCatImageFile(null);
     setCatImagePreview('');
-    setOpenCalendarAfterSave(false);
   };
 
   const openAddCatModal = () => {
@@ -235,6 +251,7 @@ const ManagerProfile = () => {
       breed: cat.breed || '',
       gender: cat.gender || '',
       birthDate: cat.birthDate || '',
+      personality: cat.personality || '',
       description: cat.description || '',
       vaccinationInput: '',
       vaccinations: normalizeVaccinations(cat.vaccinations),
@@ -289,6 +306,7 @@ const ManagerProfile = () => {
     formData.append('breed', newCatData.breed.trim());
     formData.append('gender', newCatData.gender || '');
     formData.append('birthDate', newCatData.birthDate || '');
+    formData.append('personality', newCatData.personality || '');
     formData.append('description', newCatData.description.trim());
     formData.append('vaccinations', JSON.stringify(newCatData.vaccinations || []));
     formData.append('sourceType', existingCat?.sourceType || 'shelter');
@@ -330,12 +348,6 @@ const ManagerProfile = () => {
               : cat
           )
         );
-
-        if (openCalendarAfterSave && updatedCat?.id) {
-          closeCatModal();
-          navigate(`/manager/cats/${updatedCat.id}/vaccinations`, { state: { cat: updatedCat } });
-          return;
-        }
       } else {
         const response = await fetch(API_BASE_URL, {
           method: 'POST',
@@ -355,12 +367,6 @@ const ManagerProfile = () => {
           },
           ...prev,
         ]);
-
-        if (openCalendarAfterSave && savedCat?.id) {
-          closeCatModal();
-          navigate(`/manager/cats/${savedCat.id}/vaccinations`, { state: { cat: savedCat } });
-          return;
-        }
       }
 
       closeCatModal();
@@ -733,7 +739,7 @@ const ManagerProfile = () => {
 
                     <div className="request-info">
                       <h3>
-                        {request.type}: {request.catName}
+                        {request.typeLabel || request.type}: {request.catName}
                       </h3>
                       <p>
                         Applicant: {request.applicant} • {request.time}
@@ -1095,6 +1101,18 @@ const ManagerProfile = () => {
               </div>
 
               <div className="form-group">
+                <label>Personality</label>
+                <input
+                  type="text"
+                  value={newCatData.personality}
+                  onChange={(e) =>
+                    setNewCatData((prev) => ({ ...prev, personality: e.target.value }))
+                  }
+                  placeholder="e.g. playful, calm, social"
+                />
+              </div>
+
+              <div className="form-group">
                 <label>Photo</label>
                 <input
                   type="file"
@@ -1172,17 +1190,7 @@ const ManagerProfile = () => {
                   >
                     Open vaccination calendar
                   </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="secondary-btn"
-                    onClick={() => setOpenCalendarAfterSave(true)}
-                    style={{ width: '100%' }}
-                    title="Save cat and open calendar"
-                  >
-                    Save & open vaccination calendar
-                  </button>
-                )}
+                ) : null}
               </div>
 
               <div className="form-group">

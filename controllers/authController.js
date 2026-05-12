@@ -1,5 +1,8 @@
 import { BasicUser } from '../models/BasicUser.js';
 import { Shelter } from '../models/Shelter.js';
+import bcrypt from 'bcryptjs';
+
+const SALT_ROUNDS = 10;
 
 const normalizeRole = (role) => {
   const raw = String(role || '').trim().toLowerCase();
@@ -81,10 +84,12 @@ export async function register(req, res, next) {
       return res.status(409).json({ message: 'A user with this email already exists' });
     }
 
+    const hashedPassword = await bcrypt.hash(normalizedPassword, SALT_ROUNDS);
+
     const user = await BasicUser.create({
       firstName: trimmedName,
       email: normalizedEmail,
-      password: normalizedPassword, // later you can replace this with bcrypt hash
+      password: hashedPassword,
       role,
     });
 
@@ -92,6 +97,7 @@ export async function register(req, res, next) {
       await Shelter.create({
         userId: user.id,
         name: trimmedName,
+        address: '',
       });
     }
 
@@ -102,6 +108,17 @@ export async function register(req, res, next) {
       user: responseUser,
     });
   } catch (err) {
+    if (err?.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({ message: 'A user with this email already exists' });
+    }
+    if (err?.name === 'SequelizeValidationError') {
+      const msg = err.errors?.map((e) => e.message).join('; ') || 'Validation error';
+      return res.status(400).json({ message: msg });
+    }
+    const sqlMsg = err?.parent?.sqlMessage || err?.original?.sqlMessage;
+    if (sqlMsg) {
+      console.error('[auth/register]', sqlMsg);
+    }
     next(err);
   }
 }
@@ -119,18 +136,22 @@ export async function login(req, res, next) {
 
     const user = await BasicUser.findOne({ where: { email: normalizedEmail } });
 
-    const isPasswordMatch =
+    const storedPassword = user?.password || '';
+    const isHashedPasswordMatch = user ? await bcrypt.compare(normalizedPassword, storedPassword) : false;
+    const isLegacyPlainPasswordMatch =
       user &&
-      (user.password === password ||
-        user.password === normalizedPassword ||
-        user.password?.trim() === normalizedPassword);
+      (storedPassword === password ||
+        storedPassword === normalizedPassword ||
+        storedPassword.trim() === normalizedPassword);
+    const isPasswordMatch = isHashedPasswordMatch || isLegacyPlainPasswordMatch;
 
     if (!isPasswordMatch) {
       return res.status(401).json({ message: 'Incorrect email or password' });
     }
 
-    if (user.password !== normalizedPassword) {
-      user.password = normalizedPassword;
+    if (isLegacyPlainPasswordMatch) {
+      // Upgrade legacy plain-text password to a bcrypt hash on successful login.
+      user.password = await bcrypt.hash(normalizedPassword, SALT_ROUNDS);
       await user.save();
     }
 

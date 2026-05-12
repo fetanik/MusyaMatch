@@ -17,6 +17,10 @@ const getNeedsApiBaseUrl = () => {
 };
 
 const API_BASE_URL = getNeedsApiBaseUrl();
+const toPositiveInt = (value) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
 
 const emptyForm = {
   title: '',
@@ -41,15 +45,32 @@ const NeedsPage = () => {
   const getCurrentUser = () => {
     try {
       const parsed = JSON.parse(localStorage.getItem('user') || '{}');
-      const userId = Number(parsed.userId || parsed.id);
-      const shelterId = Number(parsed.shelterId);
+      const userId =
+        toPositiveInt(parsed.userId) ??
+        toPositiveInt(parsed.id) ??
+        toPositiveInt(localStorage.getItem('userId')) ??
+        toPositiveInt(localStorage.getItem('basicUserId')) ??
+        toPositiveInt(localStorage.getItem('currentUserId'));
+      const shelterId =
+        toPositiveInt(parsed.shelterId) ??
+        toPositiveInt(parsed.shelter_id) ??
+        toPositiveInt(localStorage.getItem('shelterId')) ??
+        toPositiveInt(localStorage.getItem('currentShelterId'));
 
       return {
-        userId: Number.isInteger(userId) && userId > 0 ? userId : null,
-        shelterId: Number.isInteger(shelterId) && shelterId > 0 ? shelterId : null,
+        userId,
+        shelterId,
       };
     } catch {
-      return { userId: null, shelterId: null };
+      return {
+        userId:
+          toPositiveInt(localStorage.getItem('userId')) ??
+          toPositiveInt(localStorage.getItem('basicUserId')) ??
+          toPositiveInt(localStorage.getItem('currentUserId')),
+        shelterId:
+          toPositiveInt(localStorage.getItem('shelterId')) ??
+          toPositiveInt(localStorage.getItem('currentShelterId')),
+      };
     }
   };
 
@@ -153,6 +174,14 @@ const NeedsPage = () => {
     }
 
     const { userId, shelterId } = getCurrentUser();
+    if (!userId && !shelterId) {
+      setFormError('Please log in again before creating needs.');
+      await notify('Could not detect your profile. Please re-login and try again.', {
+        type: 'error',
+        title: 'Profile required',
+      });
+      return;
+    }
     const payload = {
       title: trimmedTitle,
       description: formData.description.trim(),

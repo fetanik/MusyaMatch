@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/RegistrationPage.css';
-import { Sparkles, AlertCircle, Home, Cat } from 'lucide-react';
+import { Sparkles, AlertCircle, Home, Cat, Eye, EyeOff } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/auth`;
@@ -17,6 +17,8 @@ const RegistrationPage = () => {
   const [error, setError] = useState('');
   const [role, setRole] = useState('user');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const resetFormState = () => {
     setName('');
@@ -31,6 +33,8 @@ const RegistrationPage = () => {
     setError('');
     setPassword('');
     setConfirmPassword('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
 
     if (!mode) {
       setRole('user');
@@ -269,12 +273,21 @@ const RegistrationPage = () => {
             <label>Password</label>
             <div className="input-with-icon">
               <input
-                type="password"
+                className="has-right-icon"
+                type={showPassword ? 'text' : 'password'}
                 placeholder="Enter your password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+              <button
+                type="button"
+                className="password-toggle-btn"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 
@@ -283,12 +296,21 @@ const RegistrationPage = () => {
               <label>Confirm Password</label>
               <div className="input-with-icon">
                 <input
-                  type="password"
+                  className="has-right-icon"
+                  type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="Confirm your password"
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
+                <button
+                  type="button"
+                  className="password-toggle-btn"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
           )}
