@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Sparkles, Calendar, Heart, MapPin, 
@@ -10,11 +10,135 @@ import '../styles/HomePage.css';
 const HomePage = () => {
   const navigate = useNavigate();
   const greyIconStyle = { background: '#f1f2f6', color: '#2d3436' };
+  const [needs, setNeeds] = useState([]);
+  const [isLoadingNeeds, setIsLoadingNeeds] = useState(false);
+  const carouselRef = useRef(null);
+
+ 
+  const mockNeeds = [
+    {
+      id: 1,
+      title: 'Корм для котів',
+      description: 'Потрібен сухий корм преміум класу для 50 котів',
+      priority: 'high',
+      status: 'open',
+      category: 'Food',
+      shelter: {
+        id: 1,
+        name: 'Сонячний притулок',
+        phone: '+380501234567',
+        address: 'вул. Львівська, 45, Київ',
+      },
+    },
+    {
+      id: 2,
+      title: 'Медикаменти',
+      description: 'Антибіотики та вітаміни для лікування інфекцій',
+      priority: 'high',
+      status: 'open',
+      category: 'Medical',
+      shelter: {
+        id: 2,
+        name: 'Пушистики',
+        phone: '+380502345678',
+        address: 'вул. Героїв Крут, 12, Київ',
+      },
+    },
+    {
+      id: 3,
+      title: 'Подушки та ліжка',
+      description: 'М\'які подушки для сну та лежаки для котів',
+      priority: 'medium',
+      status: 'open',
+      category: 'Bedding',
+      shelter: {
+        id: 3,
+        name: 'Кошачий дім',
+        phone: '+380503456789',
+        address: 'пр. Миру, 88, Харків',
+      },
+    },
+    {
+      id: 4,
+      title: 'Туалетний папір та підстилка',
+      description: 'Абсорбуюча підстилка для туалетів на 100 літрів',
+      priority: 'medium',
+      status: 'open',
+      category: 'Supplies',
+      shelter: {
+        id: 1,
+        name: 'Сонячний притулок',
+        phone: '+380501234567',
+        address: 'вул. Львівська, 45, Київ',
+      },
+    },
+    {
+      id: 5,
+      title: 'Іграшки та розваги',
+      description: 'М\'ячики, палички, приладдя для гри з котами',
+      priority: 'low',
+      status: 'open',
+      category: 'Toys',
+      shelter: {
+        id: 2,
+        name: 'Пушистики',
+        phone: '+380502345678',
+        address: 'вул. Героїв Крут, 12, Київ',
+      },
+    },
+    {
+      id: 6,
+      title: 'Переноски для котів',
+      description: 'Переноски для транспортування на ветеринара',
+      priority: 'medium',
+      status: 'open',
+      category: 'Equipment',
+      shelter: {
+        id: 3,
+        name: 'Кошачий дім',
+        phone: '+380503456789',
+        address: 'пр. Миру, 88, Харків',
+      },
+    },
+  ];
+
+  useEffect(() => {
+    // TODO: Replace with real API call when backend is ready
+    // const loadNeeds = async () => {
+    //   try {
+    //     const response = await fetch('/api/needs');
+    //     if (response.ok) {
+    //       const data = await response.json();
+    //       const openNeeds = (Array.isArray(data) ? data : []).filter(
+    //         (need) => need.status === 'open'
+    //       );
+    //       setNeeds(openNeeds.slice(0, 10));
+    //     }
+    //   } catch (error) {
+    //     console.error('Failed to load needs:', error);
+    //   } finally {
+    //     setIsLoadingNeeds(false);
+    //   }
+    // };
+    // loadNeeds();
+
+    // Using mock data for now
+    setNeeds(mockNeeds.slice(0, 10));
+  }, []);
+
+  const scrollCarousel = (direction) => {
+    if (carouselRef.current) {
+      const scrollAmount = 300;
+      carouselRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  };
 
   return (
     <Layout>
-      {/* У шапку профілю реєстрація/вхід зазвичай прокидається через компонент Layout, 
-          але ми залишили кнопку Get Started як основний вхід */}
+     
       <div className="content-container">
         
         <section className="hero">
@@ -25,7 +149,7 @@ const HomePage = () => {
           </p>
         </section>
 
-        {/* Інформаційні картки (раніше були кнопками) */}
+
         <section className="grid-cards">
           <button className="action-card-btn" onClick={() => navigate('/chat')}>
             <div className="icon-box"><Sparkles size={24} /></div>
@@ -110,6 +234,65 @@ const HomePage = () => {
             </div>
           </button>
         </section>
+
+        {/* Shelter Needs Carousel */}
+        {needs.length > 0 && (
+          <section className="shelter-needs-carousel-section">
+            <div className="carousel-header">
+              <h3>Help Shelters in Need</h3>
+              <Link to="/shelter-needs" className="view-all-link">
+                View all →
+              </Link>
+            </div>
+
+            <div className="carousel-container">
+              <button
+                type="button"
+                className="carousel-btn carousel-btn-left"
+                onClick={() => scrollCarousel('left')}
+                aria-label="Scroll left"
+              >
+                ‹
+              </button>
+
+              <div className="carousel-track" ref={carouselRef}>
+                {needs.map((need) => (
+                  <div key={need.id} className="carousel-card">
+                    <div className="card-priority">
+                      {need.priority === 'high' && '🔴'}
+                      {need.priority === 'medium' && '🟡'}
+                      {need.priority === 'low' && '🟢'}
+                    </div>
+                    <h4>{need.title}</h4>
+                    {need.description && (
+                      <p className="card-description">{need.description}</p>
+                    )}
+                    {need.shelter && (
+                      <div className="card-shelter">
+                        <div className="shelter-name">{need.shelter.name}</div>
+                        {need.shelter.address && (
+                          <div className="shelter-location">
+                            <MapPin size={12} />
+                            {need.shelter.address}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                className="carousel-btn carousel-btn-right"
+                onClick={() => scrollCarousel('right')}
+                aria-label="Scroll right"
+              >
+                ›
+              </button>
+            </div>
+          </section>
+        )}
 
         <footer className="footer-text">
           Join thousands of happy cat parents! 🐱
