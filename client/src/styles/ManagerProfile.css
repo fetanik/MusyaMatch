@@ -160,6 +160,7 @@
 
 .requests-list,
 .cats-grid,
+.events-grid,
 .action-grid {
   display: grid;
   gap: 14px;
@@ -167,6 +168,7 @@
 
 .request-card,
 .cat-card,
+.event-card,
 .empty-card,
 .action-card {
   background: #ffffff;
@@ -294,11 +296,13 @@
   line-height: 1.45;
 }
 
-.cat-card {
+.cat-card,
+.event-card {
   padding: 18px;
 }
 
-.clickable-cat-card {
+.clickable-cat-card,
+.clickable-event-card {
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -312,7 +316,8 @@
   border: 1px solid #ffd7a8;
 }
 
-.cat-card-head {
+.cat-card-head,
+.event-card-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -362,7 +367,8 @@
   color: #1d4ed8;
 }
 
-.cat-meta {
+.cat-meta,
+.event-meta {
   margin-top: 12px;
   display: flex;
   flex-wrap: wrap;
@@ -371,7 +377,8 @@
   font-size: 0.9rem;
 }
 
-.cat-expanded-content {
+.cat-expanded-content,
+.event-expanded-content {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid #f3e0c8;
@@ -656,7 +663,8 @@
     box-shadow: 0 0 30px rgba(15, 23, 42, 0.04);
   }
 
-  .cats-grid {
+  .cats-grid,
+  .events-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -712,4 +720,75 @@
   .vaccination-add-btn {
     min-height: 48px;
   }
+}
+
+/* Event-specific styles */
+.event-card {
+  position: relative;
+}
+
+.event-card.expanded-event-card {
+  border: 1px solid #ffd7a8;
+}
+
+.clickable-event-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(255, 138, 0, 0.1);
+}
+
+.event-card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  background: #f7f8fa;
+  border-radius: 12px;
+  margin-top: 12px;
+}
+
+.event-description {
+  margin: 14px 0 0;
+  color: #374151;
+  line-height: 1.5;
+  font-size: 0.94rem;
+}
+
+.event-card-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.event-form {
+  display: grid;
+  gap: 14px;
+}
+
+.status-select {
+  border: 1px solid #f3d3ae;
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  background: #fffaf5;
+  outline: none;
+  cursor: pointer;
+}
+
+.status-select:focus {
+  border-color: #ff8a00;
+}
+
+.status-badge.inactive {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.status-badge.cancelled {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.status-badge.completed {
+  background: #ecfdf5;
+  color: #059669;
 }

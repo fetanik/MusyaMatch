@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/ManagerProfile.css';
 
@@ -17,6 +17,7 @@ import BottomNav from '../components/BottomNav';
 import { useMessages } from '../components/MessagesContext';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
+const EVENTS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/events`;
 
 const normalizeVaccinations = (vaccinations) => {
   if (!Array.isArray(vaccinations)) return [];
@@ -68,6 +69,20 @@ const ManagerProfile = () => {
   const [catImageFile, setCatImageFile] = useState(null);
   const [catImagePreview, setCatImagePreview] = useState('');
   const [openCalendarAfterSave, setOpenCalendarAfterSave] = useState(false);
+
+  const [events, setEvents] = useState([]);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [eventForm, setEventForm] = useState({
+    title: '',
+    description: '',
+    imageFile: null,
+    imagePreview: '',
+    date: '',
+    location: '',
+    cost: '',
+    status: 'active'
+  });
 
   useEffect(() => {
     return () => {
@@ -263,7 +278,6 @@ const ManagerProfile = () => {
     }));
   };
 
-
   const handleSaveCat = async (e) => {
     e.preventDefault();
 
@@ -422,6 +436,218 @@ const ManagerProfile = () => {
     notify(`${label} will be added later`, { type: 'info', title: 'Info' });
   };
 
+  const resetEventForm = () => {
+    setEventForm({
+      title: '',
+      description: '',
+      imageFile: null,
+      imagePreview: '',
+      date: '',
+      location: '',
+      cost: '',
+      status: 'active'
+    });
+    setEditingEvent(null);
+  };
+
+  const fetchEvents = useCallback(async () => {
+    try {
+      const response = await fetch(EVENTS_API);
+      if (!response.ok) {
+        throw new Error('Failed to load events');
+      }
+      const data = await response.json();
+      setEvents(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to load events:', error);
+      setEvents([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  const openAddEventModal = () => {
+    resetEventForm();
+    setIsEventModalOpen(true);
+  };
+
+  const openEditEventModal = (event) => {
+    setEditingEvent(event);
+    setEventForm({
+      title: event.title || '',
+      description: event.description || '',
+      imageFile: null,
+      imagePreview: event.image_url || '',
+      date: event.date || '',
+      location: event.location || '',
+      cost: event.cost || '',
+      status: event.status || 'active'
+    });
+    setIsEventModalOpen(true);
+  };
+
+  const closeEventModal = () => {
+    resetEventForm();
+    setIsEventModalOpen(false);
+  };
+
+  const handleEventFormChange = (field, value) => {
+    setEventForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleEventImageChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    if (!file) {
+      setEventForm(prev => ({
+        ...prev,
+        imageFile: null,
+        imagePreview: ''
+      }));
+      return;
+    }
+    setEventForm(prev => ({
+      ...prev,
+      imageFile: file,
+      imagePreview: URL.createObjectURL(file)
+    }));
+  };
+
+  const handleSaveEvent = async (e) => {
+    e.preventDefault();
+    
+    if (!eventForm.title.trim()) {
+      await notify('Event title is required.', { type: 'error', title: 'Error' });
+      return;
+    }
+
+    const { userId: currentUserId, shelterId: currentShelterId } = getCurrentUserIds();
+
+    const formData = new FormData();
+    formData.append('title', eventForm.title.trim());
+    formData.append('description', eventForm.description.trim());
+    formData.append('date', eventForm.date || '');
+    formData.append('location', eventForm.location.trim());
+    formData.append('cost', eventForm.cost.trim());
+    formData.append('status', eventForm.status);
+    
+    if (currentShelterId) {
+      formData.append('shelterId', String(currentShelterId));
+    }
+    if (currentUserId) {
+      formData.append('userId', String(currentUserId));
+    }
+
+    if (eventForm.imageFile) {
+      formData.append('image', eventForm.imageFile);
+    } else if (eventForm.imagePreview) {
+      formData.append('image_url', eventForm.imagePreview);
+    }
+
+    try {
+      let response;
+      let savedEvent;
+
+      if (editingEvent) {
+        response = await fetch(`${EVENTS_API}/${editingEvent.id}`, {
+          method: 'PUT',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update event');
+        }
+
+        savedEvent = await response.json();
+        console.log('🖼️ Frontend received saved event:', savedEvent);
+        setEvents(prev => prev.map(event => 
+          event.id === editingEvent.id ? savedEvent : event
+        ));
+        await notify('Event updated successfully!', { type: 'success', title: 'Success' });
+      } else {
+        response = await fetch(EVENTS_API, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create event');
+        }
+
+        savedEvent = await response.json();
+        setEvents(prev => [savedEvent, ...prev]);
+        await notify('Event added successfully!', { type: 'success', title: 'Success' });
+      }
+
+      closeEventModal();
+    } catch (error) {
+      console.error('Failed to save event:', error);
+      await notify('Failed to save event. Please check the backend connection.', { 
+        type: 'error', 
+        title: 'Error' 
+      });
+    }
+  };
+
+  const handleUpdateEventStatus = async (eventId, newStatus) => {
+    try {
+      const response = await fetch(`${EVENTS_API}/${eventId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update event status');
+      }
+
+      const updatedEvent = await response.json();
+      setEvents(prev => prev.map(event => 
+        event.id === eventId ? updatedEvent : event
+      ));
+      await notify(`Event status updated to ${newStatus}`, { type: 'success', title: 'Success' });
+    } catch (error) {
+      console.error('Failed to update event status:', error);
+      await notify('Failed to update event status. Please check the backend connection.', { 
+        type: 'error', 
+        title: 'Error' 
+      });
+    }
+  };
+
+  const handleDeleteEvent = async (eventId) => {
+    const confirmed = await confirm('Are you sure you want to delete this event? This action cannot be undone.', {
+      type: 'confirm',
+      title: 'Delete event',
+      confirmText: 'Yes, delete',
+      cancelText: 'Cancel'
+    });
+    
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`${EVENTS_API}/${eventId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete event');
+      }
+
+      setEvents(prev => prev.filter(event => event.id !== eventId));
+      await notify('Event deleted successfully!', { type: 'success', title: 'Success' });
+    } catch (error) {
+      console.error('Failed to delete event:', error);
+      await notify('Failed to delete event. Please check the backend connection.', { 
+        type: 'error', 
+        title: 'Error' 
+      });
+    }
+  };
+
   return (
     <div className="manager-dashboard" ref={topRef}>
       <header className="manager-hero">
@@ -576,13 +802,13 @@ const ManagerProfile = () => {
             <button
               className="action-card"
               type="button"
-              onClick={() => showPlaceholder('Events')}
+              onClick={openAddEventModal}
             >
               <div className="action-icon">
                 <FiCalendar size={22} />
               </div>
               <h3>Add Events</h3>
-              <p>Planned shelter activities</p>
+              <p>Create a new event</p>
             </button>
 
             <button
@@ -717,6 +943,85 @@ const ManagerProfile = () => {
                   </article>
                 );
               })}
+            </div>
+          )}
+        </section>
+
+        <section className="manager-section">
+          <div className="section-head">
+            <div>
+              <h2>Events</h2>
+              <p>Manage shelter events and activities</p>
+            </div>
+            <span className="section-count">{events.length}</span>
+          </div>
+
+          {events.length === 0 ? (
+            <div className="empty-card">
+              <p>No events yet. Create your first event.</p>
+            </div>
+          ) : (
+            <div className="events-grid">
+              {events.map((event) => (
+                <article key={event.id} className="event-card expanded-event-card">
+                  {event.image_url && (
+                    <img
+                      src={event.image_url}
+                      alt={event.title}
+                    />
+                  )}
+                  
+                  <div className="event-card-head">
+                    <div>
+                      <h3>{event.title}</h3>
+                      <p>{event.location}</p>
+                    </div>
+                    <span className={`status-badge ${event.status}`}>
+                      {event.status}
+                    </span>
+                  </div>
+
+                  <div className="event-meta">
+                    <span><strong>Date:</strong> {event.date || 'Not set'}</span>
+                    <span><strong>Cost:</strong> {event.cost || 'Free'}</span>
+                  </div>
+
+                  <div className="event-expanded-content">
+                    <p className="event-description">
+                      {event.description || 'No description yet.'}
+                    </p>
+
+                    <div className="event-card-actions">
+                      <button
+                        type="button"
+                        className="cat-edit-btn"
+                        onClick={() => openEditEventModal(event)}
+                      >
+                        Edit
+                      </button>
+                      
+                      <select
+                        value={event.status}
+                        onChange={(e) => handleUpdateEventStatus(event.id, e.target.value)}
+                        className="status-select"
+                      >
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="completed">Completed</option>
+                      </select>
+
+                      <button
+                        type="button"
+                        className="cat-delete-btn"
+                        onClick={() => handleDeleteEvent(event.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
             </div>
           )}
         </section>
@@ -906,6 +1211,125 @@ const ManagerProfile = () => {
                 </button>
                 <button type="submit" className="primary-btn">
                   {editingCatId ? 'Save changes' : 'Save Cat'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isEventModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <div className="modal-head">
+              <h3>{editingEvent ? 'Edit Event' : 'Add New Event'}</h3>
+              <button
+                className="modal-close"
+                type="button"
+                onClick={closeEventModal}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEvent} className="event-form">
+              <div className="form-group">
+                <label>Event Title</label>
+                <input
+                  type="text"
+                  value={eventForm.title}
+                  onChange={(e) => handleEventFormChange('title', e.target.value)}
+                  placeholder="Event title"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  value={eventForm.description}
+                  onChange={(e) => handleEventFormChange('description', e.target.value)}
+                  placeholder="Event description"
+                  rows="4"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Photo/Poster</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleEventImageChange}
+                />
+                {eventForm.imagePreview && (
+                  <img
+                    src={eventForm.imagePreview}
+                    alt="Event preview"
+                    style={{
+                      width: '100%',
+                      maxHeight: '180px',
+                      objectFit: 'cover',
+                      borderRadius: '12px',
+                      marginTop: '8px'
+                    }}
+                  />
+                )}
+              </div>
+
+              <div className="form-group">
+                <label>Date</label>
+                <input
+                  type="date"
+                  value={eventForm.date}
+                  onChange={(e) => handleEventFormChange('date', e.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Location</label>
+                <input
+                  type="text"
+                  value={eventForm.location}
+                  onChange={(e) => handleEventFormChange('location', e.target.value)}
+                  placeholder="Event location"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Cost</label>
+                <input
+                  type="text"
+                  value={eventForm.cost}
+                  onChange={(e) => handleEventFormChange('cost', e.target.value)}
+                  placeholder="e.g., Free, 50 UAH, 100-200 UAH"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Status</label>
+                <select
+                  value={eventForm.status}
+                  onChange={(e) => handleEventFormChange('status', e.target.value)}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={closeEventModal}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="primary-btn">
+                  {editingEvent ? 'Save Changes' : 'Add Event'}
                 </button>
               </div>
             </form>
