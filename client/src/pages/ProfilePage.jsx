@@ -143,117 +143,112 @@ const ProfilePage = () => {
   };
 
   const handleSave = async (e) => {
-    e.preventDefault();
-    setError('');
-    setMessage('');
+  e.preventDefault();
+  setError('');
+  setMessage('');
 
-    if (!userId) {
-      setError('User ID was not found.');
-      return;
+  if (!userId) {
+    setError('User ID was not found.');
+    return;
+  }
+
+  if (!formData.fullName.trim()) {
+    setError('Please enter your full name');
+    return;
+  }
+
+  if (!formData.email.trim()) {
+    setError('Please enter email');
+    return;
+  }
+
+  if (formData.password && formData.password.length < 6) {
+    setError('New password must be at least 6 characters long');
+    return;
+  }
+
+  if (formData.password !== formData.confirmPassword) {
+    setError('Passwords do not match');
+    return;
+  }
+
+  try {
+    const payload = {
+      firstName: formData.fullName.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone.trim(),
+      address: formData.address.trim(),
+      instagram: formData.instagram.trim(),
+      facebook: formData.facebook.trim(),
+      telegram: formData.telegram.trim(),
+      photo: formData.photo,
+      password: formData.password.trim(),
+    };
+
+    const response = await fetch(`${API_BASE_URL}/profile/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(result?.message || `HTTP ${response.status}`);
     }
 
-    if (!formData.fullName.trim()) {
-      setError('Please enter your full name');
-      return;
-    if (newPassword || confirmPassword) {
-      if (newPassword !== confirmPassword) {
-        await notify("Passwords don't match!", { type: 'error', title: 'Error' });
-        return;
-      }
-    }
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
-    if (!formData.email.trim()) {
-      setError('Please enter email');
-      return;
-    }
+    localStorage.setItem('userId', String(result?.id || userId));
+    localStorage.setItem('userName', result?.firstName || '');
+    localStorage.setItem('userEmail', result?.email || '');
+    localStorage.setItem('userPhone', result?.phone || '');
+    localStorage.setItem('userAddress', result?.address || '');
+    localStorage.setItem('userInstagram', result?.instagram || '');
+    localStorage.setItem('userFacebook', result?.facebook || '');
+    localStorage.setItem('userTelegram', result?.telegram || '');
+    localStorage.setItem('userPhoto', result?.photo || '');
 
-    if (formData.password && formData.password.length < 6) {
-      setError('New password must be at least 6 characters long');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    try {
-      const payload = {
-        firstName: formData.fullName.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        address: formData.address.trim(),
-        instagram: formData.instagram.trim(),
-        facebook: formData.facebook.trim(),
-        telegram: formData.telegram.trim(),
-        photo: formData.photo,
-        password: formData.password.trim(),
-      };
-
-      const response = await fetch(`${API_BASE_URL}/profile/${userId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(result?.message || `HTTP ${response.status}`);
-      }
-
-      const currentUser = JSON.parse(localStorage.getItem('user')) || {};
-
-      localStorage.setItem('userId', String(result?.id || userId));
-      localStorage.setItem('userName', result?.firstName || '');
-      localStorage.setItem('userEmail', result?.email || '');
-      localStorage.setItem('userPhone', result?.phone || '');
-      localStorage.setItem('userAddress', result?.address || '');
-      localStorage.setItem('userInstagram', result?.instagram || '');
-      localStorage.setItem('userFacebook', result?.facebook || '');
-      localStorage.setItem('userTelegram', result?.telegram || '');
-      localStorage.setItem('userPhoto', result?.photo || '');
-
-      localStorage.setItem(
-        'user',
-        JSON.stringify({
-          ...currentUser,
-          id: result?.id || userId,
-          userId: result?.id || userId,
-          role: result?.role || currentUser.role || localStorage.getItem('userRole') || 'user',
-          name: result?.firstName || '',
-          email: result?.email || '',
-          phone: result?.phone || '',
-          address: result?.address || '',
-          instagram: result?.instagram || '',
-          facebook: result?.facebook || '',
-          telegram: result?.telegram || '',
-          photo: result?.photo || '',
-        })
-      );
-
-      setFormData((prev) => ({
-        ...prev,
-        fullName: result?.firstName || '',
+    localStorage.setItem(
+      'user',
+      JSON.stringify({
+        ...currentUser,
+        id: result?.id || userId,
+        userId: result?.id || userId,
+        role: result?.role || currentUser.role || localStorage.getItem('userRole') || 'user',
+        name: result?.firstName || '',
         email: result?.email || '',
         phone: result?.phone || '',
+        address: result?.address || '',
         instagram: result?.instagram || '',
         facebook: result?.facebook || '',
         telegram: result?.telegram || '',
-        address: result?.address || '',
         photo: result?.photo || '',
-        password: '',
-        confirmPassword: '',
-      }));
+      })
+    );
 
-      setMessage('Profile saved successfully');
-    } catch (e) {
-      console.error(e);
-      setError(e.message || 'Failed to save profile');
-    }
-  };
+    setFormData((prev) => ({
+      ...prev,
+      fullName: result?.firstName || '',
+      email: result?.email || '',
+      phone: result?.phone || '',
+      instagram: result?.instagram || '',
+      facebook: result?.facebook || '',
+      telegram: result?.telegram || '',
+      address: result?.address || '',
+      photo: result?.photo || '',
+      password: '',
+      confirmPassword: '',
+    }));
+
+    setMessage('Profile saved successfully');
+  } catch (e) {
+    console.error(e);
+    setError(e.message || 'Failed to save profile');
+  }
+};
 
   return (
     <div className="manager-settings-page">

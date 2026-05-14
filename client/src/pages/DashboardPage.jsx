@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/DashboardPage.css';
 
@@ -21,7 +21,9 @@ import {
 import BottomNav from '../components/BottomNav';
 import { useMessages } from '../components/MessagesContext';
 
-const CATS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
+const CATS_API = `${API_BASE_URL}/api/cats`;
+const USERS_API = `${API_BASE_URL}/api/users`;
 
 const emptyForm = {
   name: '',
@@ -89,6 +91,34 @@ const formatBirthDate = (birthDate) => {
   return birthDate;
 };
 
+const formatShortDate = (value) => {
+  if (!value) return '—';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString('uk-UA', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+};
+
+const formatRequestDateTime = (value) => {
+  if (!value) return 'Not specified';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString('uk-UA', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { notify, confirm } = useMessages();
@@ -114,6 +144,9 @@ const DashboardPage = () => {
   const [isFosterModalOpen, setIsFosterModalOpen] = useState(false);
   const [selectedFosterCat, setSelectedFosterCat] = useState(null);
   const [fosterForm, setFosterForm] = useState(emptyFosterForm);
+  const [receivedRequests, setReceivedRequests] = useState([]);
+const [receivedRequestsLoading, setReceivedRequestsLoading] = useState(false);
+const [requestActionLoadingId, setRequestActionLoadingId] = useState(null);
 
   const fetchMyCats = async () => {
     try {
@@ -136,7 +169,33 @@ const DashboardPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  };
+
+  const fetchReceivedRequests = async () => {
+  if (!userId) return;
+
+  try {
+    setReceivedRequestsLoading(true);
+
+    const response = await fetch(`${CATS_API}/foster-requests/received/${userId}`);
+    const data = await response.json().catch(() => []);
+
+    if (!response.ok) {
+      throw new Error(data?.message || 'Failed to load foster requests');
+    }
+
+    setReceivedRequests(Array.isArray(data) ? data : []);
+  } catch (error) {
+    console.error('Failed to load foster requests:', error);
+  } finally {
+    setReceivedRequestsLoading(false);
+  }
+};
+
+useEffect(() => {
+  if (!userId) return;
+  fetchReceivedRequests();
+}, [userId]);
 
   useEffect(() => {
     if (!userId) {
@@ -146,7 +205,7 @@ const DashboardPage = () => {
     }
 
     fetchMyCats();
-  }, [fetchMyCats, userId]);
+  }, [userId]);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -180,6 +239,7 @@ const DashboardPage = () => {
   const openAddCatModal = () => {
     setEditingCat(null);
     setForm({ ...emptyForm });
+    setOpenCalendarAfterSave(false);
     setIsCatModalOpen(true);
   };
 
@@ -196,27 +256,31 @@ const DashboardPage = () => {
       imageFile: null,
       imagePreview: cat.image_url || '',
     });
+    setOpenCalendarAfterSave(false);
     setIsCatModalOpen(true);
   };
 
   const closeCatModal = () => {
     setIsCatModalOpen(false);
     setEditingCat(null);
-    setForm(emptyForm);
     setOpenCalendarAfterSave(false);
     setForm({ ...emptyForm });
   };
 
-  const openFosterModal = (cat) => {
-    setSelectedFosterCat(cat);
-    setFosterForm({
-      startDate: '',
-      endDate: '',
-      comment: '',
-      location: userProfile?.address || localStorage.getItem('userAddress') || '',
-    });
-    setIsFosterModalOpen(true);
-  };
+ const openFosterModal = (cat) => {
+  setSelectedFosterCat(cat);
+  setFosterForm({
+    startDate: cat.fosterStartDate || '',
+    endDate: cat.fosterEndDate || '',
+    comment: cat.fosterComment || '',
+    location:
+      cat.fosterCity ||
+      userProfile?.address ||
+      localStorage.getItem('userAddress') ||
+      '',
+  });
+  setIsFosterModalOpen(true);
+};
 
   const closeFosterModal = () => {
     setIsFosterModalOpen(false);
@@ -278,32 +342,24 @@ const DashboardPage = () => {
     e.preventDefault();
 
     if (!userId) {
-      await notify('User ID is missing. Please log in first.', { type: 'error', title: 'Error' });
+      await notify('User ID is missing. Please log in first.', {
+        type: 'error',
+        title: 'Error',
+      });
       return;
     }
 
     if (!form.name.trim()) {
-      await notify('Cat name is required.', { type: 'error', title: 'Error' });
+      await notify('Cat name is required.', {
+        type: 'error',
+        title: 'Error',
+      });
       return;
     }
 
-    const payload = {
-      userId,
-      shelterId: null,
-      name: form.name.trim(),
-      breed: form.breed.trim() || null,
-      age: form.age ? Number(form.age) : null,
-      gender: form.gender || null,
-      description: form.description.trim() || null,
-      vaccinations: editingCat?.vaccinations || [],
-      source: 'private',
-      sourceType: 'private',
-      listingType: editingCat?.listingType || 'none',
-      listingStatus: editingCat?.listingStatus || 'active',
-    };
-
     try {
       setSaveLoading(true);
+      const shouldOpenCalendar = openCalendarAfterSave;
 
       const formData = new FormData();
       formData.append('userId', String(userId));
@@ -341,11 +397,12 @@ const DashboardPage = () => {
         throw new Error(data?.message || 'Failed to save cat');
       }
 
+      const savedCatId = Number(data?.id || editingCat?.id || null);
+
       closeCatModal();
       await fetchMyCats();
 
-      const savedCatId = Number(data?.id);
-      if (openCalendarAfterSave && Number.isInteger(savedCatId) && savedCatId > 0) {
+      if (shouldOpenCalendar && Number.isInteger(savedCatId) && savedCatId > 0) {
         navigate(`/cats/${savedCatId}/vaccinations`, { state: { cat: data } });
       }
     } catch (error) {
@@ -387,85 +444,65 @@ const DashboardPage = () => {
     }
   };
 
-  const handleFosterCat = async (e) => {
-    e.preventDefault();
+ const handleFosterCat = async (e) => {
+  e.preventDefault();
 
-    if (!selectedFosterCat) return;
+  if (!selectedFosterCat) return;
 
-    if (!fosterForm.startDate || !fosterForm.endDate) {
-      alert('Please select foster period.');
-      return;
+  if (!fosterForm.startDate || !fosterForm.endDate) {
+    alert('Please select foster period.');
+    return;
+  }
+
+  if (fosterForm.endDate < fosterForm.startDate) {
+    alert('End date cannot be earlier than start date.');
+    return;
+  }
+
+  try {
+    setFosterLoadingId(selectedFosterCat.id);
+
+    const updateResponse = await fetch(`${CATS_API}/${selectedFosterCat.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+  listingType: 'foster',
+  listingStatus: 'pending',
+  previousListingType:
+    selectedFosterCat.previousListingType ||
+    selectedFosterCat.listingType ||
+    'adoption',
+  previousListingStatus:
+    selectedFosterCat.previousListingStatus ||
+    selectedFosterCat.listingStatus ||
+    'active',
+  sourceType: 'private',
+  source: 'private',
+  fosterStartDate: fosterForm.startDate,
+  fosterEndDate: fosterForm.endDate,
+  fosterCity: fosterForm.location,
+  fosterComment: fosterForm.comment,
+}),
+    });
+
+    const updateData = await updateResponse.json().catch(() => ({}));
+
+    if (!updateResponse.ok) {
+      throw new Error(updateData?.message || 'Failed to update foster status');
     }
 
-    if (fosterForm.endDate < fosterForm.startDate) {
-      alert('End date cannot be earlier than start date.');
-      return;
-    }
-
-    try {
-      setFosterLoadingId(selectedFosterCat.id);
-
-      const fosterResponse = await fetch(
-        `${CATS_API}/${selectedFosterCat.id}/foster-request`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            user_id: userId,
-            cat_id: selectedFosterCat.id,
-            start_date: fosterForm.startDate,
-            end_date: fosterForm.endDate,
-            comment: fosterForm.comment,
-            location: fosterForm.location,
-          }),
-        }
-      );
-
-      const fosterData = await fosterResponse.json().catch(() => ({}));
-
-      if (!fosterResponse.ok) {
-        throw new Error(fosterData?.message || 'Failed to send foster request');
-      }
-
-      const updateResponse = await fetch(`${CATS_API}/${selectedFosterCat.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          listingType: 'foster',
-          listingStatus: 'pending',
-          previousListingType:
-            selectedFosterCat.previousListingType ||
-            selectedFosterCat.listingType ||
-            'adoption',
-          previousListingStatus:
-            selectedFosterCat.previousListingStatus ||
-            selectedFosterCat.listingStatus ||
-            'active',
-          sourceType: selectedFosterCat.sourceType || 'private',
-          source: selectedFosterCat.source || 'private',
-        }),
-      });
-
-      const updateData = await updateResponse.json().catch(() => ({}));
-
-      if (!updateResponse.ok) {
-        throw new Error(updateData?.message || 'Failed to update foster status');
-      }
-
-      await fetchMyCats();
-      closeFosterModal();
-      alert(`${selectedFosterCat.name} was successfully submitted for foster.`);
-    } catch (error) {
-      console.error(error);
-      alert(error.message || 'Failed to send foster request.');
-    } finally {
-      setFosterLoadingId(null);
-    }
-  };
+    await fetchMyCats();
+    closeFosterModal();
+    alert(`${selectedFosterCat.name} was successfully put on foster.`);
+  } catch (error) {
+    console.error(error);
+    alert(error.message || 'Failed to send foster request.');
+  } finally {
+    setFosterLoadingId(null);
+  }
+};
 
   const handleWithdrawFoster = async (cat) => {
     const confirmed = window.confirm(`Withdraw foster request for ${cat.name}?`);
@@ -480,13 +517,17 @@ const DashboardPage = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          listingType: cat.previousListingType || 'adoption',
-          listingStatus: cat.previousListingStatus || 'active',
-          previousListingType: null,
-          previousListingStatus: null,
-          sourceType: cat.sourceType || 'private',
-          source: cat.source || 'private',
-        }),
+  listingType: cat.previousListingType || 'adoption',
+  listingStatus: cat.previousListingStatus || 'active',
+  previousListingType: null,
+  previousListingStatus: null,
+  sourceType: cat.sourceType || 'private',
+  source: cat.source || 'private',
+  fosterStartDate: null,
+  fosterEndDate: null,
+  fosterCity: null,
+  fosterComment: null,
+}),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -504,6 +545,34 @@ const DashboardPage = () => {
       setFosterLoadingId(null);
     }
   };
+
+  const handleRequestDecision = async (requestId, status) => {
+  try {
+    setRequestActionLoadingId(requestId);
+
+    const response = await fetch(`${CATS_API}/foster-requests/${requestId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data?.message || `Failed to ${status} request`);
+    }
+
+    await fetchReceivedRequests();
+    await fetchMyCats();
+  } catch (error) {
+    console.error(error);
+    alert(error.message || `Failed to ${status} request.`);
+  } finally {
+    setRequestActionLoadingId(null);
+  }
+};
 
   return (
     <div className="profile-page">
@@ -567,6 +636,7 @@ const DashboardPage = () => {
 
       <div className="profile-content">
         <div className="ai-banner">
+          
           <div className="ai-icon-wrapper">
             <Cpu />
           </div>
@@ -578,6 +648,80 @@ const DashboardPage = () => {
             <MessageSquare />
           </button>
         </div>
+
+        <div className="my-cats-header" style={{ marginTop: '28px' }}>
+  <div>
+    <h2>Requests for my cats</h2>
+    <p>Users who want to take your cats for foster care</p>
+  </div>
+</div>
+
+{receivedRequestsLoading ? (
+  <div className="empty-card">
+    <p>Loading requests...</p>
+  </div>
+) : receivedRequests.length === 0 ? (
+  <div className="empty-card">
+    <p>No foster requests yet.</p>
+  </div>
+) : (
+  <div className="requests-list">
+    {receivedRequests.map((request) => (
+      <article key={request.id} className="request-card">
+        <div className="request-card-top">
+          {request.cat?.image_url ? (
+            <img
+              src={request.cat.image_url}
+              alt={request.cat?.name || 'Cat'}
+              className="request-card-image"
+            />
+          ) : (
+            <div className="request-card-image request-card-image-placeholder" />
+          )}
+
+          <div className="request-card-main">
+            <h3>{request.cat?.name || 'Cat'}</h3>
+            <p className="request-card-type">Foster</p>
+          </div>
+        </div>
+
+        <div className="request-card-details">
+          <p><strong>Applicant:</strong> {request.requester?.firstName || 'Unknown user'}</p>
+          <p><strong>Email:</strong> {request.requester?.email || 'Not specified'}</p>
+          <p><strong>Phone:</strong> {request.requester?.phone || 'Not specified'}</p>
+          <p><strong>Status:</strong> {request.status || 'pending'}</p>
+          <p><strong>Experience:</strong> {request.experienceLevel || 'Not specified'}</p>
+          <p><strong>Period:</strong> {formatShortDate(request.startDate)} - {formatShortDate(request.endDate)}.</p>
+          <p><strong>Created:</strong> {formatRequestDateTime(request.createdAt)}</p>
+          {request.comment ? (
+            <p><strong>Comment:</strong> {request.comment}</p>
+          ) : null}
+          {request.status === 'pending' && (
+  <div className="request-card-actions">
+    <button
+      type="button"
+      className="request-approve-btn"
+      onClick={() => handleRequestDecision(request.id, 'approved')}
+      disabled={requestActionLoadingId === request.id}
+    >
+      {requestActionLoadingId === request.id ? 'Updating...' : '✓ Approve'}
+    </button>
+
+    <button
+      type="button"
+      className="request-reject-btn"
+      onClick={() => handleRequestDecision(request.id, 'rejected')}
+      disabled={requestActionLoadingId === request.id}
+    >
+      {requestActionLoadingId === request.id ? 'Updating...' : '✕ Reject'}
+    </button>
+  </div>
+)}
+        </div>
+      </article>
+    ))}
+  </div>
+)}
 
         <div className="section-header">
           <h2>Quick Actions</h2>
@@ -626,6 +770,8 @@ const DashboardPage = () => {
             <span>Add Cat</span>
           </button>
         </div>
+
+
 
         {loading ? (
           <div className="empty-card">
@@ -724,22 +870,22 @@ const DashboardPage = () => {
                         {deleteLoadingId === cat.id ? 'Deleting...' : 'Delete'}
                       </button>
 
-                     <button
+                      <button
                         type="button"
                         className={isOnFoster ? 'cat-withdraw-btn' : 'cat-foster-btn'}
                         onClick={() => {
-                        if (isOnFoster) {
-                        handleWithdrawFoster(cat);
-                        } else {
-                        openFosterModal(cat);
-                        }
+                          if (isOnFoster) {
+                            handleWithdrawFoster(cat);
+                          } else {
+                            openFosterModal(cat);
+                          }
                         }}
                         disabled={fosterLoadingId === cat.id}
->
-                       {fosterLoadingId === cat.id
-                       ? (isOnFoster ? 'Updating...' : 'Sending...')
-                       : (isOnFoster ? 'Withdraw foster' : 'Put on foster')}
-                     </button>
+                      >
+                        {fosterLoadingId === cat.id
+                          ? (isOnFoster ? 'Updating...' : 'Sending...')
+                          : (isOnFoster ? 'Withdraw foster' : 'Put on foster')}
+                      </button>
                     </div>
                   </div>
                 </article>
@@ -874,6 +1020,10 @@ const DashboardPage = () => {
                   >
                     Save & open vaccination calendar
                   </button>
+                )}
+              </div>
+
+              <div className="form-group">
                 <label>Photo</label>
                 <input
                   type="file"
@@ -902,7 +1052,12 @@ const DashboardPage = () => {
                 <button type="button" className="secondary-btn" onClick={closeCatModal}>
                   Cancel
                 </button>
-                <button type="submit" className="primary-btn" disabled={saveLoading}>
+                <button
+                  type="submit"
+                  className="primary-btn"
+                  onClick={() => setOpenCalendarAfterSave(false)}
+                  disabled={saveLoading}
+                >
                   {saveLoading ? 'Saving...' : 'Save Cat'}
                 </button>
               </div>

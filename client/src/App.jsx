@@ -28,6 +28,15 @@ function App() {
   const isAuthenticated = Boolean(currentUser);
   const isManager = currentUser?.role === 'manager';
 
+  const storedUser =
+  JSON.parse(localStorage.getItem('user') || '{}');
+
+const isRegistered = Boolean(
+  storedUser?.id ||
+  storedUser?.userId ||
+  localStorage.getItem('userId')
+);
+
   return (
     <MessagesProvider>
       <BrowserRouter>

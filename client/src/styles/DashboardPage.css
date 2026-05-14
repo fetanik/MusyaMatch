@@ -675,3 +675,90 @@
   cursor: not-allowed;
 }
 
+.requests-list {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.request-card {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 22px;
+  box-shadow: 0 8px 24px rgba(31, 41, 55, 0.06);
+  border: 1px solid #f3eadf;
+}
+
+.request-card-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.request-card-image {
+  width: 104px;
+  height: 104px;
+  border-radius: 20px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.request-card-image-placeholder {
+  background: #f3f4f6;
+}
+
+.request-card-main h3 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+  color: #111827;
+}
+
+.request-card-type {
+  margin: 0;
+  color: #8b6f47;
+  font-size: 0.98rem;
+  font-weight: 500;
+}
+
+.request-card-details {
+  display: grid;
+  gap: 8px;
+}
+
+.request-card-details p {
+  margin: 0;
+  font-size: 1rem;
+  color: #374151;
+}
+
+.request-card-details strong {
+  color: #111827;
+}
+
+.request-card-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.request-approve-btn,
+.request-reject-btn {
+  border: none;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.98rem;
+}
+
+.request-approve-btn {
+  background: #dff3dc;
+  color: #2f7d32;
+}
+
+.request-reject-btn {
+  background: #f7dede;
+  color: #b04646;
+}

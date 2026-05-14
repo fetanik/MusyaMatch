@@ -3,6 +3,10 @@ import { cloudinary } from '../config/cloudinary.js';
 import { ACHIEVEMENT_TYPES, awardPoints } from '../services/achievements.js';
 import { AchievementEvent } from '../models/AchievementEvent.js';
 import { Shelter } from '../models/Shelter.js';
+import { AdoptionRequest } from '../models/AdoptionRequest.js';
+import { BasicUser } from '../models/BasicUser.js';
+import { Op } from 'sequelize';
+
 
 function uploadBufferToCloudinary(fileBuffer, folder = 'musyamatch/cats') {
   return new Promise((resolve, reject) => {
@@ -245,6 +249,10 @@ export async function updateCat(req, res, next) {
   urgency,
   personality,
   sex,
+  fosterStartDate,
+  fosterEndDate,
+  fosterCity,
+  fosterComment,
 } = req.body;
 
     const cat = await Cat.findByPk(id);
@@ -253,8 +261,7 @@ export async function updateCat(req, res, next) {
       return res.status(404).json({ message: 'Cat not found' });
     }
 
-    const normalizedUserId = toOptionalPositiveInt(userId);
-    const normalizedShelterId = toOptionalPositiveInt(shelterId);
+
 
     let imageUrl = cat.image_url;
 
@@ -313,6 +320,16 @@ export async function updateCat(req, res, next) {
   previousListingType !== undefined ? previousListingType : cat.previousListingType,
 previousListingStatus:
   previousListingStatus !== undefined ? previousListingStatus : cat.previousListingStatus,
+
+  fosterStartDate:
+  fosterStartDate !== undefined ? (fosterStartDate || null) : cat.fosterStartDate,
+fosterEndDate:
+  fosterEndDate !== undefined ? (fosterEndDate || null) : cat.fosterEndDate,
+fosterCity:
+  fosterCity !== undefined ? (fosterCity?.trim() || null) : cat.fosterCity,
+fosterComment:
+  fosterComment !== undefined ? (fosterComment?.trim() || null) : cat.fosterComment,
+
     });
 
     if (cat.userId && isCatProfileComplete(cat)) {
@@ -345,9 +362,28 @@ previousListingStatus:
 export async function createFosterRequest(req, res, next) {
   try {
     const catId = Number(req.params.id);
+    const { userId, experienceLevel, startDate, endDate, comment } = req.body;
 
     if (!Number.isInteger(catId) || catId <= 0) {
       return res.status(400).json({ message: 'Invalid cat id' });
+    }
+
+    const normalizedUserId = toOptionalPositiveInt(userId);
+
+    if (!normalizedUserId) {
+      return res.status(400).json({ message: 'User is required' });
+    }
+
+    if (!experienceLevel) {
+      return res.status(400).json({ message: 'Experience level is required' });
+    }
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: 'Foster period is required' });
+    }
+
+    if (new Date(endDate) < new Date(startDate)) {
+      return res.status(400).json({ message: 'End date cannot be earlier than start date' });
     }
 
     const cat = await Cat.findByPk(catId);
@@ -355,9 +391,42 @@ export async function createFosterRequest(req, res, next) {
       return res.status(404).json({ message: 'Cat not found' });
     }
 
-    return res.status(202).json({
-      message: 'Foster request accepted (stub). We will contact you soon.',
-      catId: cat.id,
+    const user = await BasicUser.findByPk(normalizedUserId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (cat.userId && Number(cat.userId) === normalizedUserId) {
+      return res.status(400).json({ message: 'You cannot submit a foster request for your own cat' });
+    }
+
+    const existingPendingRequest = await AdoptionRequest.findOne({
+      where: {
+        userId: normalizedUserId,
+        catId,
+        type: 'foster',
+        status: 'pending',
+      },
+    });
+
+    if (existingPendingRequest) {
+      return res.status(409).json({ message: 'You already have a pending foster request for this cat' });
+    }
+
+    const fosterRequest = await AdoptionRequest.create({
+      userId: normalizedUserId,
+      catId,
+      type: 'foster',
+      experienceLevel,
+      startDate,
+      endDate,
+      comment: comment?.trim() || null,
+      status: 'pending',
+    });
+
+    return res.status(201).json({
+      message: 'Foster request sent successfully',
+      request: fosterRequest,
     });
   } catch (err) {
     next(err);
@@ -377,6 +446,152 @@ export async function deleteCat(req, res, next) {
     await cat.destroy();
 
     res.json({ message: 'Cat deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getReceivedFosterRequests(req, res, next) {
+  try {
+    const ownerUserId = toOptionalPositiveInt(req.params.userId);
+
+    if (!ownerUserId) {
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
+
+    const ownerCats = await Cat.findAll({
+      where: { userId: ownerUserId },
+      attributes: [
+        'id',
+        'name',
+        'breed',
+        'image_url',
+        'fosterStartDate',
+        'fosterEndDate',
+        'fosterCity',
+      ],
+      order: [['id', 'DESC']],
+    });
+
+    if (!ownerCats.length) {
+      return res.json([]);
+    }
+
+    const catIds = ownerCats.map((cat) => cat.id);
+
+    const requests = await AdoptionRequest.findAll({
+      where: {
+        catId: { [Op.in]: catIds },
+        type: 'foster',
+      },
+      order: [['createdAt', 'DESC']],
+    });
+
+    if (!requests.length) {
+      return res.json([]);
+    }
+
+    const requesterIds = [...new Set(requests.map((item) => item.userId).filter(Boolean))];
+
+    const requestUsers = requesterIds.length
+      ? await BasicUser.findAll({
+          where: { id: { [Op.in]: requesterIds } },
+          attributes: ['id', 'firstName', 'email', 'phone'],
+        })
+      : [];
+
+    const catsMap = new Map(ownerCats.map((cat) => [cat.id, cat]));
+    const usersMap = new Map(requestUsers.map((user) => [user.id, user]));
+
+    const result = requests.map((request) => {
+      const cat = catsMap.get(request.catId);
+      const user = usersMap.get(request.userId);
+
+      return {
+        id: request.id,
+        type: request.type,
+        status: request.status,
+        experienceLevel: request.experienceLevel,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        comment: request.comment,
+        createdAt: request.createdAt,
+        cat: cat
+          ? {
+              id: cat.id,
+              name: cat.name,
+              breed: cat.breed,
+              image_url: cat.image_url,
+              fosterStartDate: cat.fosterStartDate,
+              fosterEndDate: cat.fosterEndDate,
+              fosterCity: cat.fosterCity,
+            }
+          : null,
+        requester: user
+          ? {
+              id: user.id,
+              firstName: user.firstName,
+              email: user.email,
+              phone: user.phone,
+            }
+          : null,
+      };
+    });
+
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateFosterRequestStatus(req, res, next) {
+  try {
+    const requestId = Number(req.params.requestId);
+    const { status } = req.body;
+
+    if (!Number.isInteger(requestId) || requestId <= 0) {
+      return res.status(400).json({ message: 'Invalid request id' });
+    }
+
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    const request = await AdoptionRequest.findByPk(requestId);
+
+    if (!request || request.type !== 'foster') {
+      return res.status(404).json({ message: 'Foster request not found' });
+    }
+
+    await request.update({ status });
+
+    if (status === 'approved') {
+      await AdoptionRequest.update(
+        { status: 'rejected' },
+        {
+          where: {
+            catId: request.catId,
+            type: 'foster',
+            status: 'pending',
+            id: { [Op.ne]: request.id },
+          },
+        }
+      );
+
+      const cat = await Cat.findByPk(request.catId);
+
+      if (cat) {
+        await cat.update({
+          listingType: 'none',
+          listingStatus: 'placed',
+        });
+      }
+    }
+
+    return res.json({
+      message: `Request ${status} successfully`,
+      request,
+    });
   } catch (err) {
     next(err);
   }

@@ -32,6 +32,42 @@ const getGalleryBadgeLabel = (cat) => {
   return (cat.source || 'shelter').toLowerCase();
 };
 
+const getCurrentUserId = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const fromUserObject = Number(user.userId || user.id);
+    if (Number.isFinite(fromUserObject) && fromUserObject > 0) {
+      return fromUserObject;
+    }
+  } catch {
+    // ignore
+  }
+
+  const raw =
+    localStorage.getItem('userId') ||
+    localStorage.getItem('basicUserId') ||
+    localStorage.getItem('currentUserId');
+
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+const getCurrentUserName = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return user?.name || localStorage.getItem('userName') || 'Current user';
+  } catch {
+    return localStorage.getItem('userName') || 'Current user';
+  }
+};
+
+const emptyFosterForm = {
+  experienceLevel: 'beginner',
+  startDate: '',
+  endDate: '',
+  comment: '',
+};
+
 const Gallery = () => {
   const [cats, setCats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,12 +76,16 @@ const Gallery = () => {
   const [fosterSubmitting, setFosterSubmitting] = useState(false);
   const [fosterMessage, setFosterMessage] = useState('');
   const [fosterError, setFosterError] = useState('');
+  const [fosterForm, setFosterForm] = useState(emptyFosterForm);
   const [filters, setFilters] = useState({
     source: 'all',
     sex: '',
     urgency: '',
     breed: '',
   });
+
+  const currentUserId = getCurrentUserId();
+  const currentUserName = getCurrentUserName();
 
   const fetchCats = async () => {
     try {
@@ -85,41 +125,65 @@ const Gallery = () => {
     };
   }, [selectedCat]);
 
-  useEffect(() => {
-    setFosterMessage('');
-    setFosterError('');
-  }, [selectedCat]);
+ useEffect(() => {
+  setFosterMessage('');
+  setFosterError('');
+  setFosterForm((prev) => ({
+    ...prev,
+    startDate: selectedCat?.fosterStartDate || '',
+    endDate: selectedCat?.fosterEndDate || '',
+  }));
+}, [selectedCat]);
 
   const filteredCats = useMemo(() => {
-  return cats.filter((cat) => {
-    const source = (cat.source || 'shelter').toLowerCase();
-    const listingType = (cat.listingType || '').toLowerCase();
-    const listingStatus = (cat.listingStatus || '').toLowerCase();
+    return cats.filter((cat) => {
+      const source = (cat.source || 'shelter').toLowerCase();
+      const listingType = (cat.listingType || '').toLowerCase();
+      const listingStatus = (cat.listingStatus || '').toLowerCase();
 
-    const visibleInGallery = isCatVisibleInGallery(cat);
+      const visibleInGallery = isCatVisibleInGallery(cat);
 
-    const sourceMatch =
-      filters.source === 'all'
-        ? true
-        : filters.source === 'private'
-          ? source === 'private' && (listingType === 'foster' || listingStatus === 'pending')
-          : source === filters.source;
+      const sourceMatch =
+        filters.source === 'all'
+          ? true
+          : filters.source === 'private'
+            ? source === 'private' && (listingType === 'foster' || listingStatus === 'pending')
+            : source === filters.source;
 
-    const sexMatch = !filters.sex || (cat.sex || '') === filters.sex;
-    const urgencyMatch = !filters.urgency || (cat.urgency || '') === filters.urgency;
-    const breedMatch =
-      !filters.breed || (cat.breed || '').toLowerCase().includes(filters.breed.toLowerCase());
+      const sexMatch = !filters.sex || (cat.sex || '') === filters.sex;
+      const urgencyMatch = !filters.urgency || (cat.urgency || '') === filters.urgency;
+      const breedMatch =
+        !filters.breed || (cat.breed || '').toLowerCase().includes(filters.breed.toLowerCase());
 
-    return visibleInGallery && sourceMatch && sexMatch && urgencyMatch && breedMatch;
-  });
-}, [cats, filters]);
+      return visibleInGallery && sourceMatch && sexMatch && urgencyMatch && breedMatch;
+    });
+  }, [cats, filters]);
 
   const onFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
+  const onFosterFormChange = (key, value) => {
+    setFosterForm((prev) => ({ ...prev, [key]: value }));
+  };
+
   const handleFosterRequest = async () => {
     if (!selectedCat?.id || fosterSubmitting) {
+      return;
+    }
+
+    if (!currentUserId) {
+      setFosterError('Please log in first.');
+      return;
+    }
+
+    if (!fosterForm.startDate || !fosterForm.endDate) {
+      setFosterError('Please select the foster period.');
+      return;
+    }
+
+    if (fosterForm.endDate < fosterForm.startDate) {
+      setFosterError('End date cannot be earlier than start date.');
       return;
     }
 
@@ -130,6 +194,16 @@ const Gallery = () => {
 
       const response = await fetch(`${API_BASE_URL}/api/cats/${selectedCat.id}/foster-request`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: currentUserId,
+          experienceLevel: fosterForm.experienceLevel,
+          startDate: fosterForm.startDate,
+          endDate: fosterForm.endDate,
+          comment: fosterForm.comment,
+        }),
       });
 
       const payload = await response.json().catch(() => ({}));
@@ -229,7 +303,7 @@ const Gallery = () => {
                     <div className="image-wrapper">
                       <img src={cat.image_url} alt={cat.name} />
                       <span className={`badge ${getGalleryBadgeLabel(cat)}`}>
-                       {getGalleryBadgeLabel(cat)}
+                        {getGalleryBadgeLabel(cat)}
                       </span>
                     </div>
 
@@ -239,7 +313,10 @@ const Gallery = () => {
                         {cat.personality && <span className="ai-tag">✨ {cat.personality}</span>}
                       </div>
 
-                      <p className="specs">{cat.breed || 'Unknown breed'} {Number.isFinite(cat.age) ? `• ${cat.age} years` : ''}</p>
+                      <p className="specs">
+                        {cat.breed || 'Unknown breed'}{' '}
+                        {Number.isFinite(cat.age) ? `• ${cat.age} years` : ''}
+                      </p>
 
                       {cat.source === 'private' && cat.urgency && (
                         <div className={`urgency-banner ${cat.urgency.toLowerCase()}`}>
@@ -254,6 +331,7 @@ const Gallery = () => {
           </main>
         </div>
       </div>
+
       {selectedCat && (
         <div
           className="cat-modal-backdrop"
@@ -288,9 +366,11 @@ const Gallery = () => {
                 {selectedCat.breed || 'Unknown breed'}
                 {Number.isFinite(selectedCat.age) ? ` • ${selectedCat.age} years` : ''}
               </p>
+
               <p className="cat-modal-description">
                 {selectedCat.description || 'No description added yet.'}
               </p>
+
               <div className="cat-modal-chips">
                 {selectedCat.source && (
                   <span className="cat-chip">Status: {getGalleryBadgeLabel(selectedCat)}</span>
@@ -303,6 +383,58 @@ const Gallery = () => {
                   <span className="cat-chip">Personality: {selectedCat.personality}</span>
                 )}
               </div>
+
+              <div style={{ marginTop: '18px', display: 'grid', gap: '12px' }}>
+                <div className="filter-group">
+                  <label>User</label>
+                  <input type="text" value={currentUserName} readOnly />
+                </div>
+
+                <div className="filter-group">
+                  <label>Experience level</label>
+                  <select
+                    value={fosterForm.experienceLevel}
+                    onChange={(event) =>
+                      onFosterFormChange('experienceLevel', event.target.value)
+                    }
+                  >
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="experienced">Experienced</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="filter-group">
+                    <label>Start date</label>
+                    <input
+                      type="date"
+                      value={fosterForm.startDate}
+                      onChange={(event) => onFosterFormChange('startDate', event.target.value)}
+                    />
+                  </div>
+
+                  <div className="filter-group">
+                    <label>End date</label>
+                    <input
+                      type="date"
+                      value={fosterForm.endDate}
+                      onChange={(event) => onFosterFormChange('endDate', event.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="filter-group">
+                  <label>Comment</label>
+                  <textarea
+                    rows="3"
+                    placeholder="Add a short comment"
+                    value={fosterForm.comment}
+                    onChange={(event) => onFosterFormChange('comment', event.target.value)}
+                  />
+                </div>
+              </div>
+
               <div className="cat-modal-actions">
                 <button
                   type="button"
@@ -316,11 +448,18 @@ const Gallery = () => {
                 {fosterError && <p className="form-error">{fosterError}</p>}
               </div>
             </div>
+            {selectedCat.fosterStartDate && selectedCat.fosterEndDate && (
+  <p className="cat-modal-description">
+    <strong>Available foster period:</strong> {selectedCat.fosterStartDate} — {selectedCat.fosterEndDate}
+  </p>
+)}
           </article>
         </div>
       )}
+
       <BottomNav active="gallery" />
     </Layout>
   );
 };
+
 export default Gallery;
