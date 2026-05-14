@@ -616,7 +616,7 @@ const DashboardPage = () => {
             <p>Create your cat profile</p>
           </div>
 
-          <div className="action-card">
+          <div className="action-card" onClick={() => navigate('/events')}>
             <div className="action-icon">
               <Users />
             </div>

@@ -13,6 +13,7 @@ import PharmaciesPage from './pages/PharmaciesPage';
 import ChatPage from './pages/ChatPage';
 import AchievementsPage from './pages/AchievementsPage';
 import MessagesProvider from './components/MessagesProvider';
+import EventsPage from './pages/EventsPage';
 
 const getCurrentUser = () => {
   try {
@@ -57,6 +58,7 @@ function App() {
             <Route path="/pharmacies" element={<PharmaciesPage />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/events" element={<EventsPage/>} />
           </Routes>
         </div>
       </BrowserRouter>
