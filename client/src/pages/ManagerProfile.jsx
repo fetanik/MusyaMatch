@@ -54,6 +54,26 @@ const getCurrentUserIds = () => {
   }
 };
 
+// Форматування для відображення на картці (YYYY-MM-DD HH:mm)
+const formatEventDateDisplay = (dateString) => {
+  if (!dateString) return 'Not set';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return dateString;
+  
+  const pad = (n) => n.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+// Форматування для підстановки в <input type="datetime-local"> (YYYY-MM-DDTHH:mm)
+const formatEventDateForInput = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return dateString;
+  
+  const pad = (n) => n.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
 const ManagerProfile = () => {
   const navigate = useNavigate();
   const { notify, confirm } = useMessages();
@@ -480,7 +500,7 @@ const ManagerProfile = () => {
       description: event.description || '',
       imageFile: null,
       imagePreview: event.image_url || '',
-      date: event.date || '',
+      date: formatEventDateForInput(event.date),
       location: event.location || '',
       cost: event.cost || '',
       status: event.status || 'active'
@@ -982,7 +1002,7 @@ const ManagerProfile = () => {
                   </div>
 
                   <div className="event-meta">
-                    <span><strong>Date:</strong> {event.date || 'Not set'}</span>
+                    <span><strong>Date:</strong> {formatEventDateDisplay(event.date)}</span>
                     <span><strong>Cost:</strong> {event.cost || 'Free'}</span>
                   </div>
 
@@ -1278,9 +1298,9 @@ const ManagerProfile = () => {
               </div>
 
               <div className="form-group">
-                <label>Date</label>
+                <label>Date & Time</label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={eventForm.date}
                   onChange={(e) => handleEventFormChange('date', e.target.value)}
                 />
