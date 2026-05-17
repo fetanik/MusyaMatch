@@ -1,8 +1,31 @@
+import { Op } from 'sequelize';
+import { sequelize } from '../config/database.js';
 import { Need } from '../models/Need.js';
 import { Shelter } from '../models/Shelter.js';
 
 const PRIORITIES = new Set(['low', 'medium', 'high']);
 const STATUSES = new Set(['open', 'fulfilled']);
+
+const todayLocalYmd = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const parseYmd = (raw) => {
+  if (raw === undefined || raw === null) return null;
+  const s = String(raw).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  return s;
+};
+
+/** Open needs past due_date are inactive and excluded from listings. */
+const activeNeedVisibilitySql = () =>
+  sequelize.literal(
+    "(`Need`.`status` <> 'open' OR `Need`.`due_date` IS NULL OR `Need`.`due_date` >= CURDATE())"
+  );
 
 const toOptionalPositiveInt = (value) => {
   if (value === undefined || value === null) return null;
@@ -65,8 +88,14 @@ export async function getNeeds(req, res, next) {
       where.userId = userId;
     }
 
+    const scopeParts = [];
+    if (Object.keys(where).length) {
+      scopeParts.push(where);
+    }
+    scopeParts.push(activeNeedVisibilitySql());
+
     const needs = await Need.findAll({
-      where,
+      where: { [Op.and]: scopeParts },
       order: [['createdAt', 'DESC']],
     });
 
@@ -85,9 +114,19 @@ export async function createNeed(req, res, next) {
     const category = req.body.category?.trim() || 'General';
     const priority = req.body.priority?.trim()?.toLowerCase() || 'medium';
     const status = req.body.status?.trim()?.toLowerCase() || 'open';
+    const dueDateRaw = req.body.dueDate ?? req.body.due_date;
+    const dueDate = parseYmd(dueDateRaw);
 
     if (!title) {
       return res.status(400).json({ message: 'Title is required' });
+    }
+
+    if (!dueDate) {
+      return res.status(400).json({ message: 'Due date is required (YYYY-MM-DD)' });
+    }
+
+    if (status === 'open' && dueDate < todayLocalYmd()) {
+      return res.status(400).json({ message: 'Due date cannot be in the past for an open need' });
     }
 
     if (!PRIORITIES.has(priority)) {
@@ -106,6 +145,7 @@ export async function createNeed(req, res, next) {
       category,
       priority,
       status,
+      dueDate,
     });
 
     const serialized = await serializeNeed(need);
@@ -131,6 +171,24 @@ export async function updateNeed(req, res, next) {
     const priority = req.body.priority?.trim()?.toLowerCase() || need.priority;
     const status = req.body.status?.trim()?.toLowerCase() || need.status;
 
+    let dueDate = need.dueDate;
+    const hasDueInput = req.body.dueDate !== undefined || req.body.due_date !== undefined;
+    if (hasDueInput) {
+      const raw = req.body.dueDate ?? req.body.due_date;
+      if (raw === null || String(raw).trim() === '') {
+        if (status === 'open') {
+          return res.status(400).json({ message: 'Due date is required for open needs' });
+        }
+        dueDate = null;
+      } else {
+        const parsed = parseYmd(String(raw));
+        if (!parsed) {
+          return res.status(400).json({ message: 'Due date must be YYYY-MM-DD' });
+        }
+        dueDate = parsed;
+      }
+    }
+
     if (!title) {
       return res.status(400).json({ message: 'Title is required' });
     }
@@ -143,12 +201,17 @@ export async function updateNeed(req, res, next) {
       return res.status(400).json({ message: 'Status must be open or fulfilled' });
     }
 
+    if (status === 'open' && dueDate && dueDate < todayLocalYmd()) {
+      return res.status(400).json({ message: 'Due date cannot be in the past for an open need' });
+    }
+
     await need.update({
       title,
       description,
       category,
       priority,
       status,
+      dueDate,
     });
 
     const serialized = await serializeNeed(need);

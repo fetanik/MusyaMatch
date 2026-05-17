@@ -42,6 +42,11 @@ export const Need = sequelize.define(
       allowNull: false,
       defaultValue: 'open',
     },
+    dueDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      field: 'due_date',
+    },
     createdAt: {
       type: DataTypes.DATE,
       allowNull: false,

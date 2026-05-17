@@ -70,7 +70,7 @@ export async function updateShelterProfile(req, res, next) {
     }
 
     if (password !== undefined && password.trim() !== '') {
-      // Якщо пізніше додасте bcrypt, хешування треба робити тут
+      // If you add bcrypt later, hash the password here
       user.password = password.trim();
     }
 
