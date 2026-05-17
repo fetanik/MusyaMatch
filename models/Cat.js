@@ -164,6 +164,26 @@ export const Cat = sequelize.define(
       allowNull: true,
       field: 'previous_listing_status',
     },
+    fosterStartDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      field: 'foster_start_date',
+    },
+    fosterEndDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      field: 'foster_end_date',
+    },
+    fosterCity: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: 'foster_city',
+    },
+    fosterComment: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'foster_comment',
+    },
   },
   {
     tableName: 'cat',

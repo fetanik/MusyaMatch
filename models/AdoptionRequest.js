@@ -24,6 +24,21 @@ export const AdoptionRequest = sequelize.define(
       allowNull: false,
       defaultValue: 'adoption',
     },
+    experienceLevel: {
+      type: DataTypes.STRING(32),
+      allowNull: true,
+      field: 'experience_level',
+    },
+    startDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      field: 'start_date',
+    },
+    endDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      field: 'end_date',
+    },
     status: {
       type: DataTypes.ENUM('pending', 'approved', 'rejected'),
       allowNull: false,

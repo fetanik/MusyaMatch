@@ -6,6 +6,10 @@ import {
   updateCat,
   deleteCat,
   createFosterRequest,
+  getReceivedFosterRequests,
+  getSentFosterRequests,
+  updateFosterRequestStatus,
+  deleteSentFosterRequest,
 } from '../controllers/catController.js';
 import { upload } from '../middleware/upload.js';
 import catVaccinationsRouter from './catVaccinations.js';
@@ -13,6 +17,10 @@ import catVaccinationsRouter from './catVaccinations.js';
 const router = Router();
 
 router.get('/', getCats);
+router.get('/foster-requests/received/:userId', getReceivedFosterRequests);
+router.get('/foster-requests/sent/:userId', getSentFosterRequests);
+router.patch('/foster-requests/:requestId/status', updateFosterRequestStatus);
+router.delete('/foster-requests/:requestId', deleteSentFosterRequest);
 router.get('/:id', getCatById);
 router.put('/:id', upload.single('image'), updateCat);
 router.delete('/:id', deleteCat);
