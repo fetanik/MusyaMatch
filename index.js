@@ -1,19 +1,30 @@
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import express from 'express';
 
-// Load environment variables
-dotenv.config({ path: '.env' });
+const __rootDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__rootDir, '.env') });
 
-// Debug: Check Ollama status
-console.log('🦙 Ollama: Using local AI (no API keys needed)');
 console.log('Current working directory:', process.cwd());
 import cors from 'cors';
 import { sequelize, connectDatabase } from './config/database.js';
-import { ensureAuthSchemaMysql } from './config/ensureAuthSchema.js';
+import {
+  ensureAuthSchemaMysql,
+  ensureAchievementEventTableMysql,
+  ensureEventRegistrationTableMysql,
+  ensureEventsExtraColumnsMysql,
+  ensureCatFosterColumnsMysql,
+  ensureAdoptionRequestFosterColumnsMysql,
+  ensureShelterNeedSchemaMysql,
+} from './config/ensureAuthSchema.js';
+import { ensureDemoShelterNeeds } from './config/ensureDemoShelterNeeds.js';
 import catsRouter from './routes/cats.js';
 import shelterRouter from './routes/shelter.js';
 import authRouter from './routes/auth.js';
 import achievementsRouter from './routes/achievements.js';
+import { redeemMarketplaceDiscount } from './controllers/achievementsController.js';
+import { deleteSentFosterRequest } from './controllers/catController.js';
 import needsRouter from './routes/needs.js';
 import eventsRouter from './routes/events.js';
 
@@ -24,9 +35,11 @@ import './models/Vaccination.js';
 import './models/AchievementEvent.js';
 import './models/Need.js';
 import './models/Event.js';
+import './models/EventRegistration.js';
 import './models/AdoptionRequest.js';
 
 import usersRouter from './routes/users.js';
+import { logAiStartupHints, queryMusya } from './services/aiChat.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -42,56 +55,17 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/auth', authRouter);
+/** Remove sent application (explicit route for stale server processes / proxies). */
+app.delete('/api/cats/foster-requests/:requestId', deleteSentFosterRequest);
 app.use('/api/cats', catsRouter);
 app.use('/api/shelter', shelterRouter);
 app.use('/api/achievements', achievementsRouter);
+/** Discounts page: explicit POST so redeem works even if nested `/api/achievements/:id/redeem` is missing (stale process / proxy). */
+app.post('/api/marketplace/redeem', redeemMarketplaceDiscount);
 app.use('/api/needs', needsRouter);
 app.use('/api/events', eventsRouter);
 
-// Ollama API helper function for chat
-async function queryOllama(prompt, system = '') {
-  console.log('🦙 Querying Ollama with model: llama3.2');
-  console.log('📝 Prompt length:', prompt.length);
-  
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 180000);
-    
-    const response = await fetch('http://localhost:11434/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'llama3.2',
-        prompt: system ? `${system}\n\n${prompt}` : prompt,
-        stream: false
-      }),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      throw new Error(`Ollama error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('✅ Ollama response received, length:', data.response?.length);
-    return data.response;
-  } catch (error) {
-    console.error('❌ Ollama query failed:', error.message);
-    if (error.name === 'AbortError') {
-      throw new Error('Ollama request timeout (3min). Your computer may be too slow for AI processing.');
-    }
-    throw error;
-  }
-}
-
-// Chat endpoint using Ollama
-app.post('/api/chat', async (req, res) => {
-  const { message } = req.body;
-
-  try {
-    const systemPrompt = `You are Musya, a warm and friendly AI cat expert who genuinely loves cats! 🐱 You're here to have natural conversations about feline friends and give helpful advice.
+const MUSYA_SYSTEM_PROMPT = `You are Musya, a warm and friendly AI cat expert who genuinely loves cats! 🐱 You're here to have natural conversations about feline friends and give helpful advice.
 
 Your personality:
 - Passionate about cats and their wellbeing
@@ -110,18 +84,32 @@ Keep responses:
 
 Remember: Be natural, caring, and adapt to each conversation! ✨`;
 
-    const prompt = `User: ${message}\n\nMusya:`;
-    
-    const reply = await queryOllama(prompt, systemPrompt);
+app.post('/api/chat', async (req, res) => {
+  const message = String(req.body?.message || '').trim();
+  if (!message) {
+    return res.status(400).json({ reply: 'Message is required.' });
+  }
 
+  try {
+    const reply = await queryMusya(message, MUSYA_SYSTEM_PROMPT);
     res.json({ reply });
-
   } catch (err) {
-    console.error('Ollama error details:', err.message);
-    console.error('Full error:', err);
-    res.status(500).json({ reply: "⚠️ Sorry, I'm having trouble responding. Make sure Ollama is running! 🐱" });
+    console.error('AI chat error:', err.message);
+    const hint =
+      err.message ||
+      "⚠️ AI is not configured. Set OPENAI_API_KEY in .env, or install Ollama (https://ollama.com). 🐱";
+    res.status(503).json({ reply: hint });
   }
 });
+
+const toPublicImageUrl = (imageUrl, req) => {
+  if (!imageUrl) return null;
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
+  if (imageUrl.startsWith('/')) {
+    return `${req.protocol}://${req.get('host')}${imageUrl}`;
+  }
+  return imageUrl;
+};
 
 // Simple rule-based cat matching (no AI - instant response)
 app.post('/api/match', async (req, res) => {
@@ -233,6 +221,8 @@ app.post('/api/match', async (req, res) => {
       // Cap at 100
       score = Math.min(score, 100);
 
+      const publicImage = toPublicImageUrl(catData.imageUrl || catData.image_url, req);
+
       return {
         cat_id: cat.id,
         cat_name: cat.name,
@@ -245,7 +235,8 @@ app.post('/api/match', async (req, res) => {
           description: catData.description || null,
           age: catData.age ?? null,
           gender: catData.gender || null,
-          imageUrl: catData.imageUrl || null,
+          imageUrl: publicImage,
+          image_url: publicImage,
           experienceLevel: catData.experienceLevel || null,
           energyLevel: catData.energyLevel || null,
           ageCategory: catData.ageCategory || null,
@@ -283,18 +274,25 @@ app.use('/api/users', usersRouter);
 
 async function start() {
   try {
-    console.log('Connecting to MySQL…');
+    const dbHost = process.env.DB_HOST || 'localhost';
+    const dbPort = Number(process.env.DB_PORT) || 3306;
+    const dbName = (process.env.DB_NAME || '').trim();
+    console.log(`Trying MySQL at ${dbHost}:${dbPort} / ${dbName || '(no DB_NAME)'} …`);
     await connectDatabase();
-    console.log('MySQL connection OK.');
-    const shouldAlterSchema =
-      process.env.DB_SYNC_ALTER !== undefined
-        ? process.env.DB_SYNC_ALTER === 'true'
-        : process.env.NODE_ENV !== 'production';
+    console.log(`MySQL connection OK (${dbHost}:${dbPort} / ${dbName}).`);
+    /** alter=true repeatedly adds duplicate UNIQUE indexes on basic_user (MySQL max 64 keys). */
+    const shouldAlterSchema = process.env.DB_SYNC_ALTER === 'true';
     console.log(`Sequelize sync (alter=${shouldAlterSchema})…`);
     await sequelize.sync({ alter: shouldAlterSchema });
     await ensureAuthSchemaMysql();
-    console.log('🦙 Ollama: Make sure Ollama is running on http://localhost:11434');
-    console.log('   Run: ollama serve');
+    await ensureAchievementEventTableMysql();
+    await ensureEventRegistrationTableMysql();
+    await ensureEventsExtraColumnsMysql();
+    await ensureCatFosterColumnsMysql();
+    await ensureAdoptionRequestFosterColumnsMysql();
+    await ensureShelterNeedSchemaMysql();
+    await ensureDemoShelterNeeds();
+    logAiStartupHints();
     const server = app.listen(PORT, () => {
       console.log(`MusyaMatch API listening on http://localhost:${PORT}`);
     });
@@ -321,8 +319,17 @@ async function start() {
       err?.parent?.code === 'ER_ACCESS_DENIED_ERROR' ||
       err?.original?.code === 'ER_ACCESS_DENIED_ERROR';
     if (refused) {
+      const triedHost = process.env.DB_HOST || 'localhost';
+      const triedPort = Number(process.env.DB_PORT) || 3306;
+      const triedDb = (process.env.DB_NAME || '').trim();
       console.error(
-        'Cannot connect to MySQL (connection refused). Start the MySQL server (Windows: Services / XAMPP), then check DB_HOST, DB_PORT, DB_USER, and DB_PASSWORD in the .env file in the project root.'
+        `Cannot connect to MySQL (connection refused) at ${triedHost}:${triedPort} / ${triedDb || '?'}.`,
+      );
+      console.error(
+        '1) Start the MySQL80 Windows service (services.msc). 2) Match DB_PORT to Workbench (often 3306 or 3307).',
+      );
+      console.error(
+        '3) On Windows use DB_HOST=127.0.0.1 instead of localhost if you still see ECONNREFUSED.',
       );
     } else if (accessDenied) {
       console.error(

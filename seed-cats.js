@@ -3,10 +3,11 @@ import { Cat } from './models/Cat.js';
 
 const sampleCats = [
   {
-    name: 'Мурчик',
-    breed: 'Британський короткошерстий',
+    name: 'Murchik',
+    breed: 'British Shorthair',
     age: 2,
-    description: 'Спокійний та ласкавий кіт, ідеальний для квартири. Любить спати та гратися з м\'яччиком.',
+    description:
+      'Calm and affectionate cat, great for apartment life. Loves naps and playing with a ball.',
     experience_level: 'first_time',
     good_with_kids: true,
     good_with_pets: false,
@@ -16,13 +17,13 @@ const sampleCats = [
     special_needs: false,
     care_requirements: 'low',
     image_url: 'https://example.com/murchik.jpg',
-    status: 'available'
+    status: 'available',
   },
   {
-    name: 'Луна',
-    breed: 'Мейн-кун',
+    name: 'Luna',
+    breed: 'Maine Coon',
     age: 1,
-    description: 'Енергійна та грайлива кошеня. Любить досліджувати все навколо. Потребує багато уваги.',
+    description: 'Energetic, playful kitten. Loves exploring everything and needs plenty of attention.',
     experience_level: 'experienced',
     good_with_kids: false,
     good_with_pets: true,
@@ -32,13 +33,13 @@ const sampleCats = [
     special_needs: false,
     care_requirements: 'medium',
     image_url: 'https://example.com/luna.jpg',
-    status: 'available'
+    status: 'available',
   },
   {
-    name: 'Тигр',
-    breed: 'Сибірська кішка',
+    name: 'Tiger',
+    breed: 'Siberian',
     age: 4,
-    description: 'Дуже добра та терпляча кішка. Чудово ладнає з дітьми та іншими тваринами.',
+    description: 'Very kind and patient cat. Gets along well with children and other animals.',
     experience_level: 'first_time',
     good_with_kids: true,
     good_with_pets: true,
@@ -48,13 +49,14 @@ const sampleCats = [
     special_needs: false,
     care_requirements: 'low',
     image_url: 'https://example.com/tigr.jpg',
-    status: 'available'
+    status: 'available',
   },
   {
-    name: 'Персик',
-    breed: 'Персидська',
+    name: 'Peach',
+    breed: 'Persian',
     age: 6,
-    description: 'Спокійний дорослий кіт, потребує регулярного догляду за шерстю. Ідеальний компаньйон для перегляду фільмів.',
+    description:
+      'Calm adult cat who needs regular coat care. A perfect companion for quiet evenings and movies.',
     experience_level: 'first_time',
     good_with_kids: false,
     good_with_pets: false,
@@ -64,13 +66,13 @@ const sampleCats = [
     special_needs: true,
     care_requirements: 'high',
     image_url: 'https://example.com/persik.jpg',
-    status: 'available'
+    status: 'available',
   },
   {
-    name: 'Буся',
-    breed: 'Сфінкс',
+    name: 'Busya',
+    breed: 'Sphynx',
     age: 3,
-    description: 'Дружелюбна та соціальна кішка без шерсті. Потребує особливого догляду за шкірою.',
+    description: 'Friendly, social hairless cat who needs special skin care.',
     experience_level: 'experienced',
     good_with_kids: true,
     good_with_pets: false,
@@ -80,25 +82,24 @@ const sampleCats = [
     special_needs: true,
     care_requirements: 'high',
     image_url: 'https://example.com/busya.jpg',
-    status: 'available'
-  }
+    status: 'available',
+  },
 ];
 
 async function seedCats() {
   try {
     await sequelize.sync({ force: true });
-    
-    console.log('Додавання тестових котиків...');
-    
+
+    console.log('Seeding sample cats...');
+
     for (const catData of sampleCats) {
       await Cat.create(catData);
-      console.log(`✅ Додано котика: ${catData.name}`);
+      console.log(`Added cat: ${catData.name}`);
     }
-    
-    console.log('🎉 Усі тестові котики додані до бази даних!');
-    
+
+    console.log('All sample cats were added to the database.');
   } catch (error) {
-    console.error('❌ Помилка при додаванні котиків:', error);
+    console.error('Error while seeding cats:', error);
   } finally {
     await sequelize.close();
   }

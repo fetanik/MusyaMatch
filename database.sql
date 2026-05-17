@@ -98,6 +98,7 @@ CREATE TABLE shelter_need (
     category VARCHAR(64) NOT NULL DEFAULT 'General',
     priority ENUM('low', 'medium', 'high') NOT NULL DEFAULT 'medium',
     status ENUM('open', 'fulfilled') NOT NULL DEFAULT 'open',
+    due_date DATE NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_need_shelter
