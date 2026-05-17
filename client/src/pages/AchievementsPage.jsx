@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, CheckCircle2, Circle } from 'lucide-react';
 import '../styles/AchievementsPage.css';
 import BottomNav from '../components/BottomNav';
-import { useMessages } from '../components/MessagesContext';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -19,7 +18,6 @@ const getCurrentUserId = () => {
 
 const AchievementsPage = () => {
   const navigate = useNavigate();
-  const { notify } = useMessages();
   const userId = getCurrentUserId();
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
@@ -80,9 +78,11 @@ const AchievementsPage = () => {
     return () => clearTimeout(t);
   }, [now]);
 
+  const completedByType = summary?.completedByType || {};
+  const totalPoints = summary?.points ?? 0;
+  const statusByType = summary?.statusByType || {};
+
   const items = useMemo(() => {
-    const completedByType = summary?.completedByType || {};
-    const statusByType = summary?.statusByType || {};
     const defs = Array.isArray(summary?.definitions) ? summary.definitions : [];
     return defs.map((d) => ({
       ...d,
@@ -91,9 +91,8 @@ const AchievementsPage = () => {
       isDoneNow: Boolean(statusByType?.[d.type]?.isDone),
       eligibleNow: Boolean(statusByType?.[d.type]?.eligibleNow),
     }));
-  }, [summary]);
+  }, [summary, completedByType, statusByType]);
 
-  const totalPoints = summary?.points ?? 0;
   const firstCatId = cats?.[0]?.id || null;
 
   const claim = async (type) => {
@@ -122,8 +121,7 @@ const AchievementsPage = () => {
       const summaryData = await summaryRes.json().catch(() => null);
       if (summaryRes.ok) setSummary(summaryData);
     } catch (e) {
-      console.error(e);
-      await notify('Failed to claim achievement. Please try again.', { type: 'error', title: 'Error' });
+      alert(e?.message || 'Failed to claim achievement');
     } finally {
       setClaiming('');
     }
