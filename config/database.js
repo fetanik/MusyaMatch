@@ -1,8 +1,11 @@
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { Sequelize } from 'sequelize';
 
-// Load environment variables
-dotenv.config({ path: '.env' });
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Always load `.env` from project root (next to `package.json`), not from `process.cwd()`.
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 function assertDbEnv() {
   const dbName = process.env.DB_NAME?.trim();
