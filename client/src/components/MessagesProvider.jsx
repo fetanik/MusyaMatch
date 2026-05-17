@@ -6,6 +6,7 @@ import '../styles/MessageModal.css';
 function MessagesProvider({ children }) {
   const resolverRef = useRef(null);
   const messageResolverRef = useRef(null);
+  const onOkRef = useRef(null);
   const timerRef = useRef(null);
 
   const [state, setState] = useState({
@@ -35,6 +36,8 @@ function MessagesProvider({ children }) {
       messageResolverRef.current();
       messageResolverRef.current = null;
     }
+
+    onOkRef.current = null;
 
     setState((prev) => ({
       ...prev,
@@ -71,11 +74,21 @@ function MessagesProvider({ children }) {
     });
   }, []);
 
+  const acknowledge = useCallback(() => {
+    const onOk = onOkRef.current;
+    onOkRef.current = null;
+    if (typeof onOk === 'function') {
+      onOk();
+    }
+    close();
+  }, [close]);
+
   const notify = useCallback((text, options = {}) => {
     const {
       type = 'info',
       title = '',
       autoCloseMs = null,
+      onOk = null,
     } = options;
 
     if (resolverRef.current) {
@@ -88,6 +101,8 @@ function MessagesProvider({ children }) {
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+
+    onOkRef.current = typeof onOk === 'function' ? onOk : null;
 
     setState({
       open: true,
@@ -143,7 +158,7 @@ function MessagesProvider({ children }) {
   return (
     <MessagesContext.Provider value={value}>
       {children}
-      <MessageModal state={state} onClose={close} onConfirm={onConfirm} />
+      <MessageModal state={state} onClose={close} onAcknowledge={acknowledge} onConfirm={onConfirm} />
     </MessagesContext.Provider>
   );
 }

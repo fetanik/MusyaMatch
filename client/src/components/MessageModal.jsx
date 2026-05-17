@@ -1,19 +1,30 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, XCircle, Info, HelpCircle } from 'lucide-react';
+import { useI18n } from '../i18n/I18nContext';
 
-const typeToUi = {
-  success: { icon: CheckCircle2, title: 'Успіх' },
-  error: { icon: XCircle, title: 'Помилка' },
-  info: { icon: Info, title: 'Інформація' },
-  confirm: { icon: HelpCircle, title: 'Підтвердження' },
+const ICONS = {
+  success: CheckCircle2,
+  error: XCircle,
+  info: Info,
+  confirm: HelpCircle,
 };
 
-function MessageModal({ state, onClose, onConfirm }) {
+function MessageModal({ state, onClose, onAcknowledge, onConfirm }) {
+  const { t } = useI18n();
   const { type, mode, title, text, confirmText, cancelText } = state;
-  const ui = typeToUi[type] || typeToUi.info;
-  const Icon = ui.icon;
+  const Icon = ICONS[type] || ICONS.info;
 
-  const effectiveTitle = title || ui.title;
+  const defaultTitle =
+    type === 'success'
+      ? t('msg.successTitle')
+      : type === 'error'
+        ? t('msg.errorTitle')
+        : type === 'confirm'
+          ? t('msg.confirmTitle')
+          : t('msg.infoTitle');
+
+  const effectiveTitle = title || defaultTitle;
   const overlayRef = useRef(null);
 
   const onBackdropClick = (e) => {
@@ -37,7 +48,9 @@ function MessageModal({ state, onClose, onConfirm }) {
 
   if (!state.open) return null;
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div
       className="mm-overlay"
       role="presentation"
@@ -61,12 +74,12 @@ function MessageModal({ state, onClose, onConfirm }) {
                 {effectiveTitle}
               </h3>
               {mode === 'message' ? null : (
-                <p className="mm-subtitle">Підтвердіть дію</p>
+                <p className="mm-subtitle">{t('msg.confirmSubtitle')}</p>
               )}
             </div>
           </div>
 
-          <button type="button" className="mm-close-btn" onClick={onClose} aria-label="Close">
+          <button type="button" className="mm-close-btn" onClick={onClose} aria-label={t('msg.close')}>
             ×
           </button>
         </div>
@@ -79,30 +92,30 @@ function MessageModal({ state, onClose, onConfirm }) {
           {mode === 'confirm' ? (
             <>
               <button type="button" className="mm-btn mm-btn--secondary" onClick={() => onConfirm(false)}>
-                {cancelText || 'Cancel'}
+                {cancelText || t('msg.cancel')}
               </button>
               <button
                 type="button"
                 className={`mm-btn mm-btn--primary mm-btn--${type}`}
                 onClick={() => onConfirm(true)}
               >
-                {confirmText || 'OK'}
+                {confirmText || t('msg.ok')}
               </button>
             </>
           ) : (
             <button
               type="button"
               className={`mm-btn mm-btn--primary mm-btn--${type}`}
-              onClick={onClose}
+              onClick={onAcknowledge}
             >
-              OK
+              {t('msg.ok')}
             </button>
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 export default MessageModal;
-

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, User, MapPin, Image, Settings, ClipboardList } from 'lucide-react';
+import { Home, User, MapPin, Image, Settings, ClipboardList, Gift } from 'lucide-react';
+import { useI18n } from '../i18n/I18nContext';
 import '../styles/BottomNav.css';
 
 const getRole = () => {
@@ -18,26 +19,28 @@ const getRole = () => {
 
 const BottomNav = ({ active = '' }) => {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const role = getRole();
 
   const items = useMemo(() => {
     if (role === 'manager') {
       return [
-        { key: 'home', label: 'Home', icon: Home, to: '/manager/profile' },
-        { key: 'requests', label: 'Requests', icon: ClipboardList, to: '/manager/requests' },
-        { key: 'gallery', label: 'Cats', icon: Image, to: '/gallery' },
-        { key: 'map', label: 'Map', icon: MapPin, to: '/pharmacies' },
-        { key: 'profile', label: 'Profile', icon: Settings, to: '/manager/settings' },
+        { key: 'home', label: t('nav.home'), icon: Home, to: '/manager/profile' },
+        { key: 'requests', label: t('nav.requests'), icon: ClipboardList, to: '/manager/requests' },
+        { key: 'gallery', label: t('nav.cats'), icon: Image, to: '/gallery' },
+        { key: 'map', label: t('nav.map'), icon: MapPin, to: '/pharmacies' },
+        { key: 'profile', label: t('nav.profile'), icon: Settings, to: '/manager/settings' },
       ];
     }
 
     return [
-      { key: 'home', label: 'Home', icon: Home, to: '/dashboard' },
-      { key: 'gallery', label: 'Cats', icon: Image, to: '/gallery' },
-      { key: 'map', label: 'Map', icon: MapPin, to: '/pharmacies' },
-      { key: 'profile', label: 'Profile', icon: User, to: '/profile' },
+      { key: 'home', label: t('nav.home'), icon: Home, to: '/dashboard' },
+      { key: 'gallery', label: t('nav.cats'), icon: Image, to: '/gallery' },
+      { key: 'discounts', label: t('nav.deals'), icon: Gift, to: '/marketplace' },
+      { key: 'map', label: t('nav.map'), icon: MapPin, to: '/pharmacies' },
+      { key: 'profile', label: t('nav.profile'), icon: User, to: '/profile' },
     ];
-  }, [role]);
+  }, [role, t]);
 
   return (
     <nav className="bottom-nav">
