@@ -2,8 +2,16 @@ import Layout from '../components/Layout';
 import { useEffect, useMemo, useState } from 'react';
 import '../styles/Gallery.css';
 import BottomNav from '../components/BottomNav';
+import { useI18n } from '../i18n/I18nContext';
+import { useMessages } from '../components/MessagesContext';
+import { resolveUploadedImageUrl } from '../utils/mediaUrl';
+import { apiUrl } from '../utils/apiUrl';
+import {
+  formatFosterDisplayDate,
+  getCatFosterPeriod,
+  isFosterPeriodWithinOwnerRange,
+} from '../utils/fosterDates';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const getCurrentUserId = () => {
   try {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -21,6 +29,40 @@ const getCurrentUserId = () => {
     localStorage.getItem('currentUserId');
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+const getCurrentUserName = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return (user?.name || '').trim() || localStorage.getItem('userName') || '';
+  } catch {
+    return localStorage.getItem('userName') || '';
+  }
+};
+
+const getStoredUserPhone = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return (user?.phone || '').trim();
+  } catch {
+    return '';
+  }
+};
+
+const emptyFosterForm = {
+  experienceLevel: 'beginner',
+  startDate: '',
+  endDate: '',
+  comment: '',
+  phone: '',
+};
+
+const isPrivateFosterListing = (cat) => {
+  if (!cat) return false;
+  const source = (cat.source || '').toLowerCase();
+  const listingType = (cat.listingType || '').toLowerCase();
+  const listingStatus = (cat.listingStatus || '').toLowerCase();
+  return source === 'private' && (listingType === 'foster' || listingStatus === 'pending');
 };
 
 const isCatVisibleInGallery = (cat) => {
@@ -57,7 +99,16 @@ const getGalleryBadgeLabel = (cat) => {
 const getValidImageUrl = (cat) => {
   const url = (cat?.image_url || '').trim();
   if (!url || url === 'null' || url === 'undefined') return '';
-  return url;
+  return resolveUploadedImageUrl(url);
+};
+
+/** API / DB use `gender` (enum); some flows also set `sex` — gallery filters must use both. */
+const getCatSexValue = (cat) => {
+  const raw = (cat?.sex ?? cat?.gender ?? '').toString().trim().toLowerCase();
+  if (raw === 'm' || raw === 'boy') return 'male';
+  if (raw === 'f' || raw === 'girl') return 'female';
+  if (raw === 'male' || raw === 'female') return raw;
+  return raw;
 };
 
 const getCatAgeLabel = (cat) => {
@@ -95,16 +146,26 @@ const getCatAgeLabel = (cat) => {
   return `${years} year${years === 1 ? '' : 's'}`;
 };
 
+const badgeLabelKey = (slug) => {
+  const s = String(slug || '').toLowerCase();
+  if (s === 'fostered') return 'gal.badgeFostered';
+  if (s === 'shelter') return 'gal.badgeShelter';
+  if (s === 'private') return 'gal.badgePrivate';
+  return null;
+};
+
 const Gallery = () => {
+  const { t, locale } = useI18n();
+  const { notify } = useMessages();
+  const dateLocale = locale === 'uk' ? 'uk-UA' : 'en-US';
   const [cats, setCats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedCat, setSelectedCat] = useState(null);
   const [fosterSubmitting, setFosterSubmitting] = useState(false);
-  const [fosterMessage, setFosterMessage] = useState('');
   const [fosterError, setFosterError] = useState('');
   const [requestType, setRequestType] = useState('adoption');
-  const [requestComment, setRequestComment] = useState('');
+  const [fosterForm, setFosterForm] = useState(() => ({ ...emptyFosterForm }));
   const currentUserId = getCurrentUserId();
   const [filters, setFilters] = useState({
     source: 'all',
@@ -113,26 +174,43 @@ const Gallery = () => {
     breed: '',
   });
 
-  const fetchCats = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const response = await fetch(`${API_BASE_URL}/api/cats`);
-      if (!response.ok) {
-        throw new Error('Failed to load cats');
-      }
-      const data = await response.json();
-      setCats(Array.isArray(data) ? data : []);
-    } catch (fetchError) {
-      setError(fetchError.message);
-    } finally {
-      setLoading(false);
-    }
+  const translateBadge = (slug) => {
+    const key = badgeLabelKey(slug);
+    return key ? t(key) : String(slug || '');
+  };
+
+  const translateUrgency = (u) => {
+    const k = String(u || '').toLowerCase();
+    if (k === 'low' || k === 'medium' || k === 'immediate') return t(`gal.${k}`);
+    return u || '';
+  };
+
+  const translateSex = (s) => {
+    const k = String(s || '').toLowerCase();
+    if (k === 'male') return t('gal.male');
+    if (k === 'female') return t('gal.female');
+    return s || '';
   };
 
   useEffect(() => {
-    fetchCats();
-  }, []);
+    const run = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const response = await fetch(apiUrl('/api/cats'));
+        if (!response.ok) {
+          throw new Error(t('gal.failLoad'));
+        }
+        const data = await response.json();
+        setCats(Array.isArray(data) ? data : []);
+      } catch (fetchError) {
+        setError(fetchError.message || t('gal.failLoad'));
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, [t]);
 
   useEffect(() => {
     if (!selectedCat) {
@@ -152,38 +230,85 @@ const Gallery = () => {
   }, [selectedCat]);
 
   useEffect(() => {
-    setFosterMessage('');
     setFosterError('');
-    setRequestComment('');
-    setRequestType(selectedCat?.listingType === 'foster' ? 'foster' : 'adoption');
-  }, [selectedCat]);
 
-  const filteredCats = useMemo(() => {
-  return cats.filter((cat) => {
-    const source = (cat.source || 'shelter').toLowerCase();
-    const listingType = (cat.listingType || '').toLowerCase();
-    const listingStatus = (cat.listingStatus || '').toLowerCase();
+    if (!selectedCat) {
+      return undefined;
+    }
 
-    const visibleInGallery = isCatVisibleInGallery(cat);
+    const privateFoster = isPrivateFosterListing(selectedCat);
+    setRequestType(
+      privateFoster || String(selectedCat?.listingType || '').toLowerCase() === 'foster'
+        ? 'foster'
+        : 'adoption',
+    );
 
-    const sourceMatch =
-      filters.source === 'all'
-        ? true
-        : filters.source === 'private'
-          ? source === 'private' && (listingType === 'foster' || listingStatus === 'pending')
-          : source === filters.source;
+    const ownerPeriod = getCatFosterPeriod(selectedCat);
+    setFosterForm({
+      ...emptyFosterForm,
+      startDate: ownerPeriod.startDate,
+      endDate: ownerPeriod.endDate,
+      phone: getStoredUserPhone(),
+    });
 
-    const sexMatch = !filters.sex || (cat.sex || '') === filters.sex;
-    const urgencyMatch = !filters.urgency || (cat.urgency || '') === filters.urgency;
-    const breedMatch =
-      !filters.breed || (cat.breed || '').toLowerCase().includes(filters.breed.toLowerCase());
+    let cancelled = false;
+    if (!currentUserId) {
+      return () => {
+        cancelled = true;
+      };
+    }
 
-    return visibleInGallery && sourceMatch && sexMatch && urgencyMatch && breedMatch;
-  });
-}, [cats, filters]);
+    (async () => {
+      try {
+        const response = await fetch(apiUrl(`/api/users/profile/${currentUserId}`));
+        if (!response.ok || cancelled) return;
+        const data = await response.json();
+        const fromApi = (data?.phone || '').trim();
+        if (!cancelled && fromApi) {
+          setFosterForm((prev) => ({ ...prev, phone: fromApi }));
+        }
+      } catch {
+        /* profile optional */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCat, currentUserId]);
+
+  const filteredCats = useMemo(
+    () =>
+      cats.filter((cat) => {
+        const source = (cat.source || 'shelter').toLowerCase();
+        const listingType = (cat.listingType || '').toLowerCase();
+        const listingStatus = (cat.listingStatus || '').toLowerCase();
+
+        const visibleInGallery = isCatVisibleInGallery(cat);
+
+        const sourceMatch =
+          filters.source === 'all'
+            ? true
+            : filters.source === 'private'
+              ? source === 'private' && (listingType === 'foster' || listingStatus === 'pending')
+              : source === filters.source;
+
+        const sexMatch = !filters.sex || getCatSexValue(cat) === filters.sex;
+        const urgencyMatch = !filters.urgency || (cat.urgency || '') === filters.urgency;
+        const breedMatch =
+          !filters.breed || (cat.breed || '').toLowerCase().includes(filters.breed.toLowerCase());
+
+        return visibleInGallery && sourceMatch && sexMatch && urgencyMatch && breedMatch;
+      }),
+    [cats, filters],
+  );
 
   const onFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const onFosterFormChange = (key, value) => {
+    setFosterForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleFosterRequest = async () => {
@@ -191,42 +316,143 @@ const Gallery = () => {
       return;
     }
     if (!currentUserId) {
-      setFosterError('Please log in first.');
+      setFosterError(t('gal.loginFirst'));
       return;
+    }
+
+    const fosterMode = isPrivateFosterListing(selectedCat) || requestType === 'foster';
+
+    const phoneTrim = fosterForm.phone.trim();
+    if (phoneTrim.length < 5 || phoneTrim.length > 50) {
+      setFosterError(t('gal.fosterPhoneInvalid'));
+      return;
+    }
+
+    if (fosterMode) {
+      const ownerPeriod = getCatFosterPeriod(selectedCat);
+      const startDate = fosterForm.startDate;
+      const endDate = fosterForm.endDate;
+
+      if (!startDate || !endDate) {
+        setFosterError(
+          ownerPeriod.startDate && ownerPeriod.endDate
+            ? t('gal.fosterPeriodRequired')
+            : t('gal.fosterPeriodOwnerMissing'),
+        );
+        return;
+      }
+      if (endDate < startDate) {
+        setFosterError(t('gal.fosterEndBeforeStart'));
+        return;
+      }
+      if (
+        ownerPeriod.startDate &&
+        ownerPeriod.endDate &&
+        !isFosterPeriodWithinOwnerRange(
+          startDate,
+          endDate,
+          ownerPeriod.startDate,
+          ownerPeriod.endDate,
+        )
+      ) {
+        setFosterError(t('gal.fosterPeriodOutsideOwner'));
+        return;
+      }
     }
 
     try {
       setFosterSubmitting(true);
       setFosterError('');
-      setFosterMessage('');
 
-      const requestBody = JSON.stringify({
-        userId: currentUserId,
-        type: requestType,
-        comment: requestComment.trim(),
-      });
+      if (fosterMode) {
+        const body = JSON.stringify({
+          userId: currentUserId,
+          type: 'foster',
+          experienceLevel: fosterForm.experienceLevel,
+          startDate: fosterForm.startDate,
+          endDate: fosterForm.endDate,
+          comment: fosterForm.comment.trim(),
+          phone: phoneTrim,
+        });
 
-      let response = await fetch(`${API_BASE_URL}/api/cats/${selectedCat.id}/request`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: requestBody,
-      });
+        let response = await fetch(apiUrl(`/api/cats/${selectedCat.id}/foster-request`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        });
 
-      // Backward compatibility: if server still uses old endpoint.
-      if (response.status === 404) {
-        response = await fetch(`${API_BASE_URL}/api/cats/${selectedCat.id}/foster-request`, {
+        if (response.status === 404) {
+          response = await fetch(apiUrl(`/api/cats/${selectedCat.id}/request`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+          });
+        }
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.message || t('gal.failSend'));
+        }
+
+        void notify(payload.message || t('gal.reqSent'), {
+          type: 'success',
+          title: t('msg.successTitle'),
+        });
+
+        try {
+          const raw = localStorage.getItem('user');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            parsed.phone = phoneTrim;
+            localStorage.setItem('user', JSON.stringify(parsed));
+          }
+        } catch {
+          /* ignore */
+        }
+      } else {
+        const requestBody = JSON.stringify({
+          userId: currentUserId,
+          type: 'adoption',
+          experienceLevel: fosterForm.experienceLevel,
+          comment: fosterForm.comment.trim(),
+          phone: phoneTrim,
+        });
+
+        let response = await fetch(apiUrl(`/api/cats/${selectedCat.id}/request`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: requestBody,
         });
-      }
 
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.message || 'Failed to send request');
-      }
+        if (response.status === 404) {
+          response = await fetch(apiUrl(`/api/cats/${selectedCat.id}/foster-request`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: requestBody,
+          });
+        }
 
-      setFosterMessage(payload.message || 'Your request has been sent successfully.');
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.message || t('gal.failSend'));
+        }
+
+        void notify(payload.message || t('gal.reqSent'), {
+          type: 'success',
+          title: t('msg.successTitle'),
+        });
+
+        try {
+          const raw = localStorage.getItem('user');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            parsed.phone = phoneTrim;
+            localStorage.setItem('user', JSON.stringify(parsed));
+          }
+        } catch {
+          /* ignore */
+        }
+      }
     } catch (requestError) {
       setFosterError(requestError.message);
     } finally {
@@ -238,66 +464,66 @@ const Gallery = () => {
     <Layout>
       <div className="gallery-page">
         <div className="gallery-intro">
-          <h2 className="gallery-title">Browse cats</h2>
+          <h2 className="gallery-title">{t('gal.title')}</h2>
         </div>
         <div className="gallery-body">
-          <aside className="filters-panel" aria-label="Search filters">
-            <h3 className="filters-panel-title">Search Filters</h3>
+          <aside className="filters-panel" aria-label={t('gal.filtersAria')}>
+            <h3 className="filters-panel-title">{t('gal.filtersTitle')}</h3>
 
             <div className="filter-group">
-              <label htmlFor="filter-source">Category</label>
+              <label htmlFor="filter-source">{t('gal.category')}</label>
               <select
                 id="filter-source"
                 value={filters.source}
                 onChange={(event) => onFilterChange('source', event.target.value)}
               >
-                <option value="all">All Cats</option>
-                <option value="shelter">Shelter Only</option>
-                <option value="private">Private / Foster</option>
+                <option value="all">{t('gal.allCats')}</option>
+                <option value="shelter">{t('gal.shelterOnly')}</option>
+                <option value="private">{t('gal.privateFoster')}</option>
               </select>
             </div>
 
             <div className="filter-group">
-              <label htmlFor="filter-sex">Sex</label>
+              <label htmlFor="filter-sex">{t('gal.sex')}</label>
               <select
                 id="filter-sex"
                 value={filters.sex}
                 onChange={(event) => onFilterChange('sex', event.target.value)}
               >
-                <option value="">Any</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
+                <option value="">{t('gal.any')}</option>
+                <option value="male">{t('gal.male')}</option>
+                <option value="female">{t('gal.female')}</option>
               </select>
             </div>
 
             <div className="filter-group">
-              <label htmlFor="filter-urgency">Urgency Level</label>
+              <label htmlFor="filter-urgency">{t('gal.urgency')}</label>
               <select
                 id="filter-urgency"
                 value={filters.urgency}
                 onChange={(event) => onFilterChange('urgency', event.target.value)}
               >
-                <option value="">Any</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="immediate">Immediate</option>
+                <option value="">{t('gal.any')}</option>
+                <option value="low">{t('gal.low')}</option>
+                <option value="medium">{t('gal.medium')}</option>
+                <option value="immediate">{t('gal.immediate')}</option>
               </select>
             </div>
 
             <div className="filter-group">
-              <label htmlFor="filter-breed">Breed</label>
+              <label htmlFor="filter-breed">{t('gal.breed')}</label>
               <input
                 id="filter-breed"
                 type="text"
-                placeholder="e.g. Maine Coon"
+                placeholder={t('gal.phBreed')}
                 value={filters.breed}
                 onChange={(event) => onFilterChange('breed', event.target.value)}
               />
             </div>
           </aside>
 
-          <main className="gallery-main" aria-label="Cat listings">
-            {loading && <p className="status-message">Loading cats...</p>}
+          <main className="gallery-main" aria-label={t('gal.listAria')}>
+            {loading && <p className="status-message">{t('gal.loading')}</p>}
             {error && <p className="form-error">{error}</p>}
             {!loading && !error && (
               <div className="cat-grid">
@@ -320,11 +546,11 @@ const Gallery = () => {
                         <img src={getValidImageUrl(cat)} alt={cat.name} />
                       ) : (
                         <div className="cat-modal-image" style={{ display: 'grid', placeItems: 'center', color: '#9aa3b2' }}>
-                          No photo
+                          {t('gal.noPhoto')}
                         </div>
                       )}
                       <span className={`badge ${getGalleryBadgeLabel(cat)}`}>
-                       {getGalleryBadgeLabel(cat)}
+                       {translateBadge(getGalleryBadgeLabel(cat))}
                       </span>
                     </div>
 
@@ -335,7 +561,7 @@ const Gallery = () => {
                       </div>
 
                       <p className="specs">
-                        {cat.breed || 'Unknown breed'}
+                        {cat.breed || t('gal.unknownBreed')}
                         {getCatAgeLabel(cat) ? ` • ${getCatAgeLabel(cat)}` : ''}
                       </p>
 
@@ -357,14 +583,14 @@ const Gallery = () => {
             className="cat-modal"
             role="dialog"
             aria-modal="true"
-            aria-label={`${selectedCat.name} details`}
+            aria-label={t('gal.modalAria', { name: selectedCat.name })}
             onClick={(event) => event.stopPropagation()}
           >
             <button
               type="button"
               className="cat-modal-close"
               onClick={() => setSelectedCat(null)}
-              aria-label="Close modal"
+              aria-label={t('gal.closeModal')}
             >
               x
             </button>
@@ -377,67 +603,219 @@ const Gallery = () => {
               />
             ) : (
               <div className="cat-modal-image" style={{ display: 'grid', placeItems: 'center', color: '#9aa3b2' }}>
-                No photo
+                {t('gal.noPhoto')}
               </div>
             )}
 
             <div className="cat-modal-content">
               <h3>{selectedCat.name}</h3>
               <p className="cat-modal-meta">
-                {selectedCat.breed || 'Unknown breed'}
+                {selectedCat.breed || t('gal.unknownBreed')}
                 {getCatAgeLabel(selectedCat) ? ` • ${getCatAgeLabel(selectedCat)}` : ''}
               </p>
               <p className="cat-modal-description">
-                {selectedCat.description || 'No description added yet.'}
+                {selectedCat.description || t('gal.noDescription')}
               </p>
               <div className="cat-modal-chips">
                 {selectedCat.source && (
-                  <span className="cat-chip">Status: {getGalleryBadgeLabel(selectedCat)}</span>
+                  <span className="cat-chip">
+                    {t('gal.lblStatus')}: {translateBadge(getGalleryBadgeLabel(selectedCat))}
+                  </span>
                 )}
-                {selectedCat.sex && <span className="cat-chip">Sex: {selectedCat.sex}</span>}
+                {(selectedCat.sex || selectedCat.gender) && (
+                  <span className="cat-chip">
+                    {t('gal.lblSex')}: {translateSex(selectedCat.sex || selectedCat.gender)}
+                  </span>
+                )}
                 {selectedCat.urgency && (
-                  <span className="cat-chip">Urgency: {selectedCat.urgency}</span>
+                  <span className="cat-chip">
+                    {t('gal.lblUrgency')}: {translateUrgency(selectedCat.urgency)}
+                  </span>
                 )}
                 {selectedCat.personality && (
-                  <span className="cat-chip">Personality: {selectedCat.personality}</span>
+                  <span className="cat-chip">
+                    {t('gal.lblPersonality')}: {selectedCat.personality}
+                  </span>
                 )}
               </div>
+              {(() => {
+                const ownerPeriod = getCatFosterPeriod(selectedCat);
+                const showOwnerPeriod =
+                  (isPrivateFosterListing(selectedCat) || requestType === 'foster') &&
+                  ownerPeriod.startDate &&
+                  ownerPeriod.endDate;
+                if (!showOwnerPeriod) return null;
+                return (
+                  <p className="cat-modal-foster-period">
+                    {t('gal.availableFosterPeriod', {
+                      start: formatFosterDisplayDate(ownerPeriod.startDate, dateLocale),
+                      end: formatFosterDisplayDate(ownerPeriod.endDate, dateLocale),
+                    })}
+                  </p>
+                );
+              })()}
+              {(() => {
+                const ownerPeriod = getCatFosterPeriod(selectedCat);
+                if (!ownerPeriod.city && !ownerPeriod.comment) return null;
+                return (
+                  <div className="cat-modal-foster-notes">
+                    {ownerPeriod.city ? (
+                      <p className="cat-modal-description">
+                        <strong>{t('gal.fosterOwnerCity')}:</strong> {ownerPeriod.city}
+                      </p>
+                    ) : null}
+                    {ownerPeriod.comment ? (
+                      <p className="cat-modal-description">
+                        <strong>{t('gal.fosterOwnerNote')}:</strong> {ownerPeriod.comment}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })()}
               <div className="cat-modal-actions">
                 <div className="request-form-panel">
-                  <div className="request-form-grid">
-                    <div className="request-form-field request-type-field">
-                      <label htmlFor="request-type">Request type</label>
+                  {!isPrivateFosterListing(selectedCat) && (
+                    <div className="request-form-field">
+                      <label htmlFor="request-type">{t('gal.reqType')}</label>
                       <select
                         id="request-type"
                         value={requestType}
                         onChange={(event) => setRequestType(event.target.value)}
                       >
-                        <option value="adoption">Adoption</option>
-                        <option value="foster">Foster Care</option>
+                        <option value="adoption">{t('gal.optAdoption')}</option>
+                        <option value="foster">{t('gal.optFoster')}</option>
                       </select>
                     </div>
-                    <div className="request-form-field request-comment-field">
-                      <label htmlFor="request-comment">Message</label>
+                  )}
+
+                  {(isPrivateFosterListing(selectedCat) ||
+                    requestType === 'foster' ||
+                    requestType === 'adoption') && (
+                    <>
+                      <div className="request-form-field">
+                        <label htmlFor="foster-user-readonly">{t('gal.fosterUser')}</label>
+                        <input
+                          id="foster-user-readonly"
+                          type="text"
+                          readOnly
+                          value={getCurrentUserName() || t('gal.fosterUserPlaceholder')}
+                        />
+                      </div>
+                      <div className="request-form-field">
+                        <label htmlFor="foster-phone">{t('gal.fosterPhone')}</label>
+                        <input
+                          id="foster-phone"
+                          type="tel"
+                          autoComplete="tel"
+                          placeholder={t('gal.fosterPhonePh')}
+                          value={fosterForm.phone}
+                          onChange={(event) => onFosterFormChange('phone', event.target.value)}
+                        />
+                      </div>
+                      <div className="request-form-field">
+                        <label htmlFor="foster-experience">{t('gal.fosterExperience')}</label>
+                        <select
+                          id="foster-experience"
+                          value={fosterForm.experienceLevel}
+                          onChange={(event) =>
+                            onFosterFormChange('experienceLevel', event.target.value)
+                          }
+                        >
+                          <option value="beginner">{t('gal.expBeginner')}</option>
+                          <option value="intermediate">{t('gal.expIntermediate')}</option>
+                          <option value="experienced">{t('gal.expExperienced')}</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+
+                  {(isPrivateFosterListing(selectedCat) || requestType === 'foster') &&
+                    (() => {
+                      const ownerPeriod = getCatFosterPeriod(selectedCat);
+                      const hasOwnerPeriod = Boolean(
+                        ownerPeriod.startDate && ownerPeriod.endDate,
+                      );
+
+                      return (
+                        <div className="foster-form-dates">
+                          <p className="foster-period-owner-label">
+                            {hasOwnerPeriod
+                              ? t('gal.fosterPeriodAdjustHint')
+                              : t('gal.fosterPeriodPickHint')}
+                          </p>
+                          <div className="foster-period-readonly-grid">
+                            <div className="request-form-field">
+                              <label htmlFor="foster-start">{t('gal.fosterStart')}</label>
+                              <input
+                                id="foster-start"
+                                type="date"
+                                min={hasOwnerPeriod ? ownerPeriod.startDate : undefined}
+                                max={
+                                  hasOwnerPeriod
+                                    ? fosterForm.endDate || ownerPeriod.endDate
+                                    : undefined
+                                }
+                                value={fosterForm.startDate}
+                                onChange={(event) =>
+                                  onFosterFormChange('startDate', event.target.value)
+                                }
+                              />
+                            </div>
+                            <div className="request-form-field">
+                              <label htmlFor="foster-end">{t('gal.fosterEnd')}</label>
+                              <input
+                                id="foster-end"
+                                type="date"
+                                min={
+                                  hasOwnerPeriod
+                                    ? fosterForm.startDate || ownerPeriod.startDate
+                                    : undefined
+                                }
+                                max={hasOwnerPeriod ? ownerPeriod.endDate : undefined}
+                                value={fosterForm.endDate}
+                                onChange={(event) =>
+                                  onFosterFormChange('endDate', event.target.value)
+                                }
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                  {(isPrivateFosterListing(selectedCat) ||
+                    requestType === 'foster' ||
+                    requestType === 'adoption') && (
+                    <div className="request-form-field">
+                      <label htmlFor="request-comment-shared">{t('gal.fosterComment')}</label>
                       <textarea
-                        id="request-comment"
+                        id="request-comment-shared"
                         rows={3}
-                        placeholder="Add a message for the shelter (optional)"
-                        value={requestComment}
-                        onChange={(event) => setRequestComment(event.target.value)}
+                        placeholder={
+                          requestType === 'adoption' && !isPrivateFosterListing(selectedCat)
+                            ? t('gal.adoptCommentPh')
+                            : t('gal.fosterCommentPh')
+                        }
+                        value={fosterForm.comment}
+                        onChange={(event) => onFosterFormChange('comment', event.target.value)}
                       />
                     </div>
-                  </div>
+                  )}
+
                   <button
                     type="button"
                     className="btn-foster-request"
                     onClick={handleFosterRequest}
                     disabled={fosterSubmitting}
                   >
-                    {fosterSubmitting ? 'Sending...' : 'Send Request'}
+                    {fosterSubmitting
+                      ? t('gal.sending')
+                      : isPrivateFosterListing(selectedCat) || requestType === 'foster'
+                        ? t('gal.requestFosterCare')
+                        : t('gal.requestAdoption')}
                   </button>
+                  {fosterError && <p className="form-error">{fosterError}</p>}
                 </div>
-                {fosterMessage && <p className="foster-success">{fosterMessage}</p>}
-                {fosterError && <p className="form-error">{fosterError}</p>}
               </div>
             </div>
           </article>
