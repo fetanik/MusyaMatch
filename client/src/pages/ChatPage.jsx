@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/ChatPage.css';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+import { resolveUploadedImageUrl } from '../utils/mediaUrl';
+import { apiUrl } from '../utils/apiUrl';
+import { useI18n } from '../i18n/I18nContext';
 
 export default function ChatPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const [mode, setMode] = useState('initial');
   const [messages, setMessages] = useState([]);
@@ -19,64 +21,70 @@ export default function ChatPage() {
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [chatLoading, setChatLoading] = useState(false);
 
-  const questions = [
-    {
-      id: 'experience',
-      text: 'Will this be your first cat, or are you already an experienced cat owner?',
-      options: [
-        { value: 'first_time', label: 'First time, a bit nervous' },
-        { value: 'experienced', label: 'Experienced owner' },
-        { value: 'returning', label: 'Had cats before, returning to it' },
-      ],
-    },
-    {
-      id: 'household',
-      text: 'Who else will live with the fluffy friend? Do you have small children or other pets (especially dogs)?',
-      options: [
-        { value: 'alone', label: 'I live alone' },
-        { value: 'kids', label: 'I have small children' },
-        { value: 'pets', label: 'I have other pets' },
-        { value: 'kids_pets', label: 'I have both children and pets' },
-      ],
-    },
-    {
-      id: 'space',
-      text: "Do you live in a spacious house where there's room to play, or in a cozy small apartment?",
-      options: [
-        { value: 'apartment_small', label: 'Small apartment' },
-        { value: 'apartment_large', label: 'Spacious apartment' },
-        { value: 'house', label: 'House with yard' },
-      ],
-    },
-    {
-      id: 'preference',
-      text: 'Who are you looking for: a playful kitten that will turn the house upside down, or an adult and calm cat that you can just watch movies with?',
-      options: [
-        { value: 'kitten_playful', label: 'Playful kitten' },
-        { value: 'kitten_calm', label: 'Calm kitten' },
-        { value: 'adult_playful', label: 'Playful adult cat' },
-        { value: 'adult_calm', label: 'Calm adult cat' },
-      ],
-    },
-    {
-      id: 'special_needs',
-      text: 'Sometimes shelters have cats that need a little more care - for example, special food or regular vet visits. Are you considering such tail-friends?',
-      options: [
-        { value: 'yes', label: "Yes, I'm ready to help" },
-        { value: 'no', label: 'No, looking for no special needs' },
-        { value: 'maybe', label: 'Maybe, depends on the situation' },
-      ],
-    },
-  ];
+  const questions = useMemo(
+    () => [
+      {
+        id: 'experience',
+        text: t('chat.q1'),
+        options: [
+          { value: 'first_time', label: t('chat.q1o1') },
+          { value: 'experienced', label: t('chat.q1o2') },
+          { value: 'returning', label: t('chat.q1o3') },
+        ],
+      },
+      {
+        id: 'household',
+        text: t('chat.q2'),
+        options: [
+          { value: 'alone', label: t('chat.q2o1') },
+          { value: 'kids', label: t('chat.q2o2') },
+          { value: 'pets', label: t('chat.q2o3') },
+          { value: 'kids_pets', label: t('chat.q2o4') },
+        ],
+      },
+      {
+        id: 'space',
+        text: t('chat.q3'),
+        options: [
+          { value: 'apartment_small', label: t('chat.q3o1') },
+          { value: 'apartment_large', label: t('chat.q3o2') },
+          { value: 'house', label: t('chat.q3o3') },
+        ],
+      },
+      {
+        id: 'preference',
+        text: t('chat.q4'),
+        options: [
+          { value: 'kitten_playful', label: t('chat.q4o1') },
+          { value: 'kitten_calm', label: t('chat.q4o2') },
+          { value: 'adult_playful', label: t('chat.q4o3') },
+          { value: 'adult_calm', label: t('chat.q4o4') },
+        ],
+      },
+      {
+        id: 'special_needs',
+        text: t('chat.q5'),
+        options: [
+          { value: 'yes', label: t('chat.q5o1') },
+          { value: 'no', label: t('chat.q5o2') },
+          { value: 'maybe', label: t('chat.q5o3') },
+        ],
+      },
+    ],
+    [t],
+  );
 
-  const quickReplies = [
-    'Kitten nutrition',
-    'Cat communication',
-    'Playtime ideas 🧶',
-    'Cat comfort zones 🛏️',
-    'Feline behavior 😻',
-    'Cat health secrets 🌟',
-  ];
+  const quickReplies = useMemo(
+    () => [
+      t('chat.quick1'),
+      t('chat.quick2'),
+      t('chat.quick3'),
+      t('chat.quick4'),
+      t('chat.quick5'),
+      t('chat.quick6'),
+    ],
+    [t],
+  );
 
   const handleAnswer = (option) => {
     const newAnswers = { ...answers, [questions[currentQuestion].id]: option.value };
@@ -107,7 +115,7 @@ export default function ChatPage() {
   const findMatches = async (userAnswers) => {
     setMatchingLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/match`, {
+      const response = await fetch(apiUrl('/api/match'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answers: userAnswers }),
@@ -128,7 +136,7 @@ export default function ChatPage() {
       setMessages([
         {
           role: 'ai',
-          text: "Great! Let me help you find your perfect cat companion. I'll ask you a few questions to understand your preferences and lifestyle.",
+          text: t('chat.matchIntro'),
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -137,12 +145,12 @@ export default function ChatPage() {
       setMessages([
         {
           role: 'ai',
-          text: " Oh hello there, fellow cat lover! I'm Musya, your purr-fect AI cat companion!  I absolutely adore everything about our feline friends - from their tiny toe beans to their majestic whiskers!",
+          text: t('chat.careIntro1'),
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
         {
           role: 'ai',
-          text: " Whether you need kitten care wisdom, cat behavior insights, or just want to talk about how amazing cats are, I'm here for you! What's on your mind today?",
+          text: t('chat.careIntro2'),
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -166,7 +174,7 @@ export default function ChatPage() {
     setChatLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/chat`, {
+      const res = await fetch(apiUrl('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg }),
@@ -184,8 +192,11 @@ export default function ChatPage() {
           formatted: formatMessage(data.reply),
         },
       ]);
-    } catch {
-      const fallback = "⚠️ Sorry, I'm having trouble responding. Please try again! 🐱";
+    } catch (err) {
+      const fallback =
+        err?.message && err.message !== 'Failed to get AI reply'
+          ? err.message
+          : t('chat.fallbackReply');
       setMessages((prev) => [
         ...prev,
         {
@@ -204,6 +215,13 @@ export default function ChatPage() {
     setInput(reply);
   };
 
+  const headerTitle =
+    mode === 'matching' ? t('chat.titleMatch') : t('chat.titleExpert');
+  const headerStatus =
+    mode === 'matching'
+      ? t('chat.questionProgress', { n: currentQuestion + 1, total: questions.length })
+      : t('chat.online');
+
   return (
     <div className="musya-wrapper">
       <header className="musya-header">
@@ -213,20 +231,10 @@ export default function ChatPage() {
           </button>
           <div className="musya-header-avatar">🤖</div>
           <div className="musya-header-text">
-            <h1 className="musya-header-title">
-              {mode === 'initial'
-                ? 'Talk to Musya (AI Expert)'
-                : mode === 'matching'
-                  ? 'Find Your Perfect Cat Match'
-                  : 'Talk to Musya (AI Expert)'}
-            </h1>
+            <h1 className="musya-header-title">{headerTitle}</h1>
             <div className="musya-header-status">
               <span className="musya-status-dot">●</span>
-              {mode === 'initial'
-                ? 'Online'
-                : mode === 'matching'
-                  ? `Question ${currentQuestion + 1} of ${questions.length}`
-                  : 'Online'}
+              {headerStatus}
             </div>
           </div>
         </div>
@@ -237,23 +245,23 @@ export default function ChatPage() {
         <main className="initial-choice-area">
           <div className="choice-card">
             <div className="choice-avatar">🐱</div>
-            <h2 className="choice-title">Welcome to MusyaMatch!</h2>
-            <p className="choice-description">How can I help you today?</p>
+            <h2 className="choice-title">{t('chat.welcomeTitle')}</h2>
+            <p className="choice-description">{t('chat.welcomeSub')}</p>
 
             <div className="choice-buttons">
               <button className="choice-btn primary" onClick={() => handleInitialChoice('matching')}>
                 <div className="choice-icon">🔍</div>
                 <div className="choice-text">
-                  <h3>Find a Cat</h3>
-                  <p>Get matched with your perfect feline companion</p>
+                  <h3>{t('chat.findCatTitle')}</h3>
+                  <p>{t('chat.findCatDesc')}</p>
                 </div>
               </button>
 
               <button className="choice-btn secondary" onClick={() => handleInitialChoice('care')}>
                 <div className="choice-icon">💡</div>
                 <div className="choice-text">
-                  <h3>Care Advice</h3>
-                  <p>Get tips and help with cat care</p>
+                  <h3>{t('chat.careTitle')}</h3>
+                  <p>{t('chat.careDesc')}</p>
                 </div>
               </button>
             </div>
@@ -294,7 +302,7 @@ export default function ChatPage() {
                       type="text"
                       value={customAnswer}
                       onChange={(e) => setCustomAnswer(e.target.value)}
-                      placeholder="Type your own answer..."
+                      placeholder={t('chat.phCustom')}
                       className="custom-answer-input"
                     />
                     <button
@@ -302,7 +310,7 @@ export default function ChatPage() {
                       onClick={handleCustomAnswer}
                       disabled={!customAnswer.trim()}
                     >
-                      Send
+                      {t('chat.send')}
                     </button>
                   </div>
                 </div>
@@ -347,7 +355,7 @@ export default function ChatPage() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                placeholder="Ask Musya anything..."
+                placeholder={t('chat.phInput')}
                 className="musya-input"
               />
               <button onClick={sendMessage} className="musya-send-btn">
@@ -361,8 +369,8 @@ export default function ChatPage() {
       {mode === 'matching' && showResults && (
         <main className="results-area">
           <div className="results-header">
-            <h2>🎉 Your Perfect Cats!</h2>
-            <p>Based on your answers, we found the best companions for you</p>
+            <h2>{t('chat.resultsTitle')}</h2>
+            <p>{t('chat.resultsSub')}</p>
           </div>
 
           <div className="matches-grid">
@@ -375,7 +383,7 @@ export default function ChatPage() {
                       <h3>{match.cat_name}</h3>
                       <div className="compatibility-score">
                         <span className="score-value">{match.compatibility_score}%</span>
-                        <span className="score-label">Compatibility</span>
+                        <span className="score-label">{t('chat.compatibility')}</span>
                       </div>
                     </div>
                   </div>
@@ -383,19 +391,15 @@ export default function ChatPage() {
                     <p>{match.reason}</p>
                   </div>
                   <button className="view-cat-btn" onClick={() => setSelectedMatch(match)}>
-                    View Profile
+                    {t('chat.viewProfile')}
                   </button>
                 </div>
               ))
             ) : (
               <div className="no-matches">
                 <div className="no-matches-icon">🔍</div>
-                <h3>{matchingLoading ? 'Finding perfect cats...' : 'No matches found yet'}</h3>
-                <p>
-                  {matchingLoading
-                    ? 'Analyzing your answers and database'
-                    : 'Try restarting the quiz or adding more available cats'}
-                </p>
+                <h3>{matchingLoading ? t('chat.finding') : t('chat.noMatches')}</h3>
+                <p>{matchingLoading ? t('chat.findingSub') : t('chat.noMatchesSub')}</p>
               </div>
             )}
           </div>
@@ -409,38 +413,55 @@ export default function ChatPage() {
               type="button"
               className="cat-modal-close"
               onClick={() => setSelectedMatch(null)}
-              aria-label="Close details"
+              aria-label={t('chat.closeDetails')}
             >
               x
             </button>
             {selectedMatch.cat.imageUrl ? (
-              <img className="cat-modal-image" src={selectedMatch.cat.imageUrl} alt={selectedMatch.cat.name} />
+              <img
+                className="cat-modal-image"
+                src={resolveUploadedImageUrl(selectedMatch.cat.imageUrl || selectedMatch.cat.image_url)}
+                alt={selectedMatch.cat.name}
+              />
             ) : null}
             <div className="cat-modal-content">
               <h3>{selectedMatch.cat.name}</h3>
               <p className="cat-modal-meta">
-                {selectedMatch.cat.breed || 'Unknown breed'}
-                {Number.isFinite(selectedMatch.cat.age) ? ` • ${selectedMatch.cat.age} years` : ''}
+                {selectedMatch.cat.breed || t('chat.unknownBreed')}
+                {Number.isFinite(selectedMatch.cat.age)
+                  ? ` • ${t('chat.years', { n: selectedMatch.cat.age })}`
+                  : ''}
               </p>
               <p className="cat-modal-description">
-                {selectedMatch.cat.description || 'No description available.'}
+                {selectedMatch.cat.description || t('chat.noDescription')}
               </p>
               <div className="cat-modal-chips">
-                {selectedMatch.cat.gender && <span className="cat-chip">Gender: {selectedMatch.cat.gender}</span>}
+                {selectedMatch.cat.gender && (
+                  <span className="cat-chip">
+                    {t('chat.gender')}: {selectedMatch.cat.gender}
+                  </span>
+                )}
                 {selectedMatch.cat.energyLevel && (
-                  <span className="cat-chip">Energy: {selectedMatch.cat.energyLevel}</span>
+                  <span className="cat-chip">
+                    {t('chat.energy')}: {selectedMatch.cat.energyLevel}
+                  </span>
                 )}
                 {selectedMatch.cat.experienceLevel && (
-                  <span className="cat-chip">Experience level: {selectedMatch.cat.experienceLevel}</span>
+                  <span className="cat-chip">
+                    {t('chat.experienceLevel')}: {selectedMatch.cat.experienceLevel}
+                  </span>
                 )}
                 <span className="cat-chip">
-                  Good with kids: {selectedMatch.cat.goodWithKids ? 'Yes' : 'No'}
+                  {t('chat.goodKids')}:{' '}
+                  {selectedMatch.cat.goodWithKids ? t('common.yes') : t('common.no')}
                 </span>
                 <span className="cat-chip">
-                  Good with pets: {selectedMatch.cat.goodWithPets ? 'Yes' : 'No'}
+                  {t('chat.goodPets')}:{' '}
+                  {selectedMatch.cat.goodWithPets ? t('common.yes') : t('common.no')}
                 </span>
                 <span className="cat-chip">
-                  Special needs: {selectedMatch.cat.specialNeeds ? 'Yes' : 'No'}
+                  {t('chat.specialNeeds')}:{' '}
+                  {selectedMatch.cat.specialNeeds ? t('common.yes') : t('common.no')}
                 </span>
               </div>
             </div>
