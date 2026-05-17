@@ -1,22 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiCheck } from 'react-icons/fi';
-import { Gift, AlertCircle, Zap } from 'lucide-react';
+import { AlertCircle, Zap } from 'lucide-react';
 import Layout from '../components/Layout';
 import '../styles/MarketplacePage.css';
+import { apiUrl } from '../utils/apiUrl';
+import { useI18n } from '../i18n/I18nContext';
 
-const getApiBaseUrl = () => {
-  const rawBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
-  if (!rawBase) {
-    return '/api';
-  }
-  return rawBase.replace(/\/+$/, '').replace(/\/api$/i, '') + '/api';
+const getNumericUserId = (user) => {
+  const raw = user?.id ?? user?.userId;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
 };
-
-const API_BASE_URL = getApiBaseUrl();
 
 const MarketplacePage = () => {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [userPoints, setUserPoints] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -25,43 +24,22 @@ const MarketplacePage = () => {
   const [shelterNeeds, setShelterNeeds] = useState([]);
   const [isLoadingShelterNeeds, setIsLoadingShelterNeeds] = useState(false);
 
-  const discounts = [
-    {
-      id: 1,
-      partner: 'MasterZoo',
-      description: '15% off food and accessories',
-      points: 500,
-      icon: '🎁',
-    },
-    {
-      id: 2,
-      partner: 'Vet Clinic "Healthy Cat"',
-      description: 'Free consultation visit',
-      points: 1000,
-      icon: '🏥',
-    },
-    {
-      id: 3,
-      partner: 'PetShop "Murkosha"',
-      description: '20% off all products',
-      points: 800,
-      icon: '🛍️',
-    },
-    {
-      id: 4,
-      partner: 'Cat Hotel "Magic Home"',
-      description: '30% off boarding service',
-      points: 1200,
-      icon: '🏠',
-    },
-    {
-      id: 5,
-      partner: 'Photo Studio "Fluffy"',
-      description: '25% off a cat photoshoot',
-      points: 600,
-      icon: '📸',
-    },
-  ];
+  const discounts = useMemo(
+    () => [
+      { id: 1, partner: 'MasterZoo', descriptionKey: 'market.d1desc', points: 500, icon: '🎁' },
+      {
+        id: 2,
+        partner: 'Vet Clinic "Healthy Cat"',
+        descriptionKey: 'market.d2desc',
+        points: 1000,
+        icon: '🏥',
+      },
+      { id: 3, partner: 'PetShop "Murkosha"', descriptionKey: 'market.d3desc', points: 800, icon: '🛍️' },
+      { id: 4, partner: 'Cat Hotel "Magic Home"', descriptionKey: 'market.d4desc', points: 1200, icon: '🏠' },
+      { id: 5, partner: 'Photo Studio "Fluffy"', descriptionKey: 'market.d5desc', points: 600, icon: '📸' },
+    ],
+    [],
+  );
 
   // Get current user
   const getCurrentUser = () => {
@@ -74,32 +52,38 @@ const MarketplacePage = () => {
   };
 
   // Load user points
-  useEffect(() => {
-    const loadUserPoints = async () => {
-      try {
-        const user = getCurrentUser();
-        if (!user?.id) {
-          setError('You are not logged in');
-          setLoading(false);
-          return;
-        }
+  const fetchPointsBalance = async ({ showPageLoading = false } = {}) => {
+    try {
+      if (showPageLoading) {
+        setLoading(true);
+      }
+      const user = getCurrentUser();
+      const uid = getNumericUserId(user);
+      if (!uid) {
+        setError(t('market.errLogin'));
+        return;
+      }
 
-        const response = await fetch(`${API_BASE_URL}/achievements/${user.id}/summary`);
-        if (response.ok) {
-          const data = await response.json();
-          setUserPoints(data.points || 0);
-        } else {
-          setError('Failed to load points balance');
-        }
-      } catch (err) {
-        console.error('Error loading points:', err);
-        setError('Failed to load data');
-      } finally {
+      const response = await fetch(apiUrl(`/api/achievements/${uid}/summary`));
+      if (response.ok) {
+        const data = await response.json();
+        setUserPoints(Number(data.points) || 0);
+        setError('');
+      } else {
+        setError(t('market.errPoints'));
+      }
+    } catch (err) {
+      console.error('Error loading points:', err);
+      setError(t('market.errData'));
+    } finally {
+      if (showPageLoading) {
         setLoading(false);
       }
-    };
+    }
+  };
 
-    loadUserPoints();
+  useEffect(() => {
+    fetchPointsBalance({ showPageLoading: true });
   }, []);
 
   // Load shelter needs
@@ -107,7 +91,7 @@ const MarketplacePage = () => {
     const loadShelterNeeds = async () => {
       setIsLoadingShelterNeeds(true);
       try {
-        const response = await fetch(`${API_BASE_URL}/needs`);
+        const response = await fetch(apiUrl('/api/needs'));
         if (response.ok) {
           const data = await response.json();
           const openNeeds = (Array.isArray(data) ? data : [])
@@ -130,43 +114,73 @@ const MarketplacePage = () => {
 
   const handleRedeem = async (discount) => {
     const user = getCurrentUser();
-    if (!user?.id) {
-      setError('You are not logged in');
+    const uid = getNumericUserId(user);
+    if (!uid) {
+      setError(t('market.errLogin'));
       return;
     }
 
     if (userPoints < discount.points) {
-      setError(
-        `Not enough points. You need ${discount.points}, you have ${userPoints}.`
-      );
+      setError(t('market.errNotEnough', { need: discount.points, have: userPoints }));
       return;
     }
 
     setRedeemingId(discount.id);
+    setError('');
     try {
-      const response = await fetch(`${API_BASE_URL}/achievements/redeem`, {
+      const payload = {
+        userId: uid,
+        partner_name: discount.partner,
+        points: discount.points,
+      };
+
+      let response = await fetch(apiUrl('/api/marketplace/redeem'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          partner_name: discount.partner,
-          points: discount.points,
-        }),
+        body: JSON.stringify(payload),
       });
 
+      if (response.status === 404) {
+        response = await fetch(apiUrl(`/api/achievements/${uid}/redeem`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      if (response.status === 404) {
+        response = await fetch(apiUrl('/api/achievements/redeem'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      const data = await response.json().catch(() => ({}));
       if (response.ok) {
-        const data = await response.json();
-        setUserPoints(Number(data.new_balance ?? userPoints - discount.points));
         setSuccessPromoCode(data.promo_code || 'MUSYA2026');
         setError('');
+        try {
+          await fetchPointsBalance({ showPageLoading: false });
+        } catch (balErr) {
+          console.error('Balance refresh after redeem:', balErr);
+        }
         setTimeout(() => setSuccessPromoCode(''), 5000);
       } else {
-        const errData = await response.json();
-        setError(errData.message || 'Failed to redeem points');
+        const msg =
+          data?.message ||
+          (response.status
+            ? `Redeem failed (HTTP ${response.status})`
+            : t('market.errRedeem'));
+        setError(msg);
       }
     } catch (err) {
       console.error('Redeem error:', err);
-      setError('Failed to redeem points');
+      const net =
+        err?.message === 'Failed to fetch' || err?.name === 'TypeError'
+          ? 'Cannot reach API. Start the backend and check VITE_API_BASE_URL / proxy.'
+          : null;
+      setError(net || err?.message || t('market.errRedeem'));
     } finally {
       setRedeemingId(null);
     }
@@ -176,7 +190,7 @@ const MarketplacePage = () => {
     return (
       <Layout>
         <div className="marketplace-container">
-          <div className="loading">Loading...</div>
+          <div className="loading">{t('market.loading')}</div>
         </div>
       </Layout>
     );
@@ -189,16 +203,16 @@ const MarketplacePage = () => {
           <button className="back-btn" onClick={() => navigate(-1)}>
             <FiArrowLeft size={24} />
           </button>
-          <h1>Discounts</h1>
+          <h1>{t('market.title')}</h1>
           <div className="spacer" />
         </header>
 
         {/* Points Balance Card */}
         <div className="points-balance-card">
           <div className="points-icon">✨</div>
-          <h2>Your points balance</h2>
+          <h2>{t('market.pointsTitle')}</h2>
           <div className="points-amount">{userPoints}</div>
-          <p className="points-subtitle">Redeem your points for partner discounts</p>
+          <p className="points-subtitle">{t('market.pointsSub')}</p>
         </div>
 
         {/* Error message */}
@@ -216,37 +230,37 @@ const MarketplacePage = () => {
               <div className="success-icon">
                 <FiCheck size={48} />
               </div>
-              <h3>Redeemed successfully!</h3>
-              <p>Your promo code:</p>
+              <h3>{t('market.redeemedTitle')}</h3>
+              <p>{t('market.promoLabel')}</p>
               <div className="promo-code">{successPromoCode}</div>
-              <p className="promo-hint">Show this code to the partner at checkout</p>
+              <p className="promo-hint">{t('market.promoHint')}</p>
             </div>
           </div>
         )}
 
         {/* Discounts Section */}
         <section className="discounts-section">
-          <h3>Available offers</h3>
+          <h3>{t('market.offersTitle')}</h3>
           <div className="discounts-grid">
             {discounts.map((discount) => (
               <div key={discount.id} className="discount-card">
                 <div className="discount-icon">{discount.icon}</div>
                 <h4>{discount.partner}</h4>
-                <p className="discount-description">{discount.description}</p>
+                <p className="discount-description">{t(discount.descriptionKey)}</p>
                 <div className="discount-points">
                   <Zap size={16} />
-                  {discount.points} points
+                  {discount.points} {t('market.pointsWord')}
                 </div>
                 <button
                   className={`redeem-btn ${userPoints < discount.points ? 'disabled' : ''}`}
                   onClick={() => handleRedeem(discount)}
                   disabled={userPoints < discount.points || redeemingId === discount.id}
                 >
-                  {redeemingId === discount.id ? 'Processing...' : 'Redeem'}
+                  {redeemingId === discount.id ? t('market.processing') : t('market.redeem')}
                 </button>
                 {userPoints < discount.points && (
                   <p className="insufficient-points">
-                    You need {discount.points - userPoints} more points
+                    {t('market.needMore', { n: discount.points - userPoints })}
                   </p>
                 )}
               </div>
@@ -257,19 +271,17 @@ const MarketplacePage = () => {
         {/* Shelter Needs Section */}
         {shelterNeeds.length > 0 && (
           <section className="shelter-needs-section">
-            <h3>Help shelters</h3>
-            <p className="section-subtitle">
-              Current open requests from shelters
-            </p>
+            <h3>{t('market.helpShelters')}</h3>
+            <p className="section-subtitle">{t('market.helpSheltersSub')}</p>
             <div className="needs-list">
               {shelterNeeds.map((need) => (
                 <div key={need.id} className="need-item">
                   <div className="need-header">
                     <h4>{need.title}</h4>
                     <span className={`priority-badge priority-${need.priority}`}>
-                      {need.priority === 'high' && '🔴 High'}
-                      {need.priority === 'medium' && '🟡 Medium'}
-                      {need.priority === 'low' && '🟢 Low'}
+                      {need.priority === 'high' && t('market.pHigh')}
+                      {need.priority === 'medium' && t('market.pMedium')}
+                      {need.priority === 'low' && t('market.pLow')}
                     </span>
                   </div>
                   <p className="need-description">{need.description}</p>
@@ -287,22 +299,22 @@ const MarketplacePage = () => {
 
         {/* Info Section */}
         <section className="info-section">
-          <h3>How it works</h3>
+          <h3>{t('market.howTitle')}</h3>
           <div className="info-steps">
             <div className="info-step">
               <div className="step-number">1</div>
-              <h4>Earn points</h4>
-              <p>Complete tasks and collect points for your activity</p>
+              <h4>{t('market.step1Title')}</h4>
+              <p>{t('market.step1Desc')}</p>
             </div>
             <div className="info-step">
               <div className="step-number">2</div>
-              <h4>Choose an offer</h4>
-              <p>Pick a partner discount you like</p>
+              <h4>{t('market.step2Title')}</h4>
+              <p>{t('market.step2Desc')}</p>
             </div>
             <div className="info-step">
               <div className="step-number">3</div>
-              <h4>Redeem a promo code</h4>
-              <p>Redeem your points and use the promo code at checkout</p>
+              <h4>{t('market.step3Title')}</h4>
+              <p>{t('market.step3Desc')}</p>
             </div>
           </div>
         </section>
