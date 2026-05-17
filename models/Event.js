@@ -28,7 +28,7 @@ export const Event = sequelize.define(
       allowNull: true,
     },
     date: {
-      type: DataTypes.DATEONLY,
+      type: DataTypes.DATE,
       allowNull: true,
     },
     eventTime: {
