@@ -1,17 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import '../styles/ManagerSettingsPage.css';
 import BottomNav from '../components/BottomNav';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import { useI18n } from '../i18n/I18nContext';
 
-import {
-  FiUpload,
-  FiTrash2,
-  FiSave,
-} from 'react-icons/fi';
+import { FiUpload, FiTrash2, FiSave } from 'react-icons/fi';
 import { FaCat } from 'react-icons/fa6';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/users`;
 
 const ProfilePage = () => {
+  const { t } = useI18n();
   const [userId, setUserId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -41,7 +40,7 @@ const ProfilePage = () => {
           Number(localStorage.getItem('userId'));
 
         if (!currentUserId) {
-          setError('User ID was not found. Please login again.');
+          setError(t('profUser.errLogin'));
           setIsLoading(false);
           return;
         }
@@ -92,18 +91,18 @@ const ProfilePage = () => {
             facebook: result?.facebook || '',
             telegram: result?.telegram || '',
             photo: result?.photo || '',
-          })
+          }),
         );
       } catch (e) {
         console.error(e);
-        setError(e.message || 'Failed to load profile');
+        setError(e.message || t('profUser.errLoad'));
       } finally {
         setIsLoading(false);
       }
     };
 
     loadProfile();
-  }, []);
+  }, [t]);
 
   const handleChange = (e) => {
     setFormData((prev) => ({
@@ -139,34 +138,34 @@ const ProfilePage = () => {
     setMessage('');
 
     if (!userId) {
-      setError('User ID was not found.');
+      setError(t('profUser.errUserId'));
       return;
     }
 
     if (!formData.fullName.trim()) {
-      setError('Please enter your full name');
+      setError(t('profUser.errName'));
       return;
     }
 
     if (formData.password || formData.confirmPassword) {
       if (formData.password !== formData.confirmPassword) {
-        setError("Passwords don't match!");
+        setError(t('profUser.errPassMatch'));
         return;
       }
     }
 
     if (!formData.email.trim()) {
-      setError('Please enter email');
+      setError(t('profUser.errEmail'));
       return;
     }
 
     if (formData.password && formData.password.length < 6) {
-      setError('New password must be at least 6 characters long');
+      setError(t('profUser.errPassLen'));
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('profUser.errPassMismatch'));
       return;
     }
 
@@ -224,7 +223,7 @@ const ProfilePage = () => {
           facebook: result?.facebook || '',
           telegram: result?.telegram || '',
           photo: result?.photo || '',
-        })
+        }),
       );
 
       setFormData((prev) => ({
@@ -241,10 +240,10 @@ const ProfilePage = () => {
         confirmPassword: '',
       }));
 
-      setMessage('Profile saved successfully');
+      setMessage(t('profUser.saved'));
     } catch (e) {
       console.error(e);
-      setError(e.message || 'Failed to save profile');
+      setError(e.message || t('profUser.errSave'));
     }
   };
 
@@ -253,8 +252,11 @@ const ProfilePage = () => {
       <header className="settings-hero">
         <div className="settings-header-row">
           <div className="settings-title-block">
-            <h1>Profile Settings</h1>
-            <p>Edit your personal information and profile details</p>
+            <h1>{t('profUser.title')}</h1>
+            <p>{t('profUser.subtitle')}</p>
+          </div>
+          <div className="settings-header-lang">
+            <LanguageSwitcher />
           </div>
         </div>
       </header>
@@ -262,7 +264,7 @@ const ProfilePage = () => {
       <main className="settings-content">
         <form className="settings-form" onSubmit={handleSave}>
           <section className="settings-card logo-card">
-            <h2>Profile Photo</h2>
+            <h2>{t('profUser.photoTitle')}</h2>
 
             <div className="logo-section">
               <div className="logo-preview">
@@ -278,23 +280,14 @@ const ProfilePage = () => {
               <div className="logo-actions">
                 <label className="upload-btn">
                   <FiUpload size={16} />
-                  Upload Photo
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    hidden
-                  />
+                  {t('profUser.upload')}
+                  <input type="file" accept="image/*" onChange={handlePhotoUpload} hidden />
                 </label>
 
                 {formData.photo && (
-                  <button
-                    type="button"
-                    className="remove-btn"
-                    onClick={handleRemovePhoto}
-                  >
+                  <button type="button" className="remove-btn" onClick={handleRemovePhoto}>
                     <FiTrash2 size={16} />
-                    Remove
+                    {t('profUser.remove')}
                   </button>
                 )}
               </div>
@@ -302,130 +295,130 @@ const ProfilePage = () => {
           </section>
 
           <section className="settings-card">
-            <h2>Main Information</h2>
+            <h2>{t('profUser.mainInfo')}</h2>
 
             <div className="settings-grid">
               <div className="field-group">
-                <label>Full Name</label>
+                <label>{t('profUser.fullName')}</label>
                 <input
                   type="text"
                   name="fullName"
                   value={formData.fullName}
                   onChange={handleChange}
-                  placeholder="Enter your full name"
+                  placeholder={t('profUser.phFullName')}
                 />
               </div>
 
               <div className="field-group">
-                <label>Email</label>
+                <label>{t('profUser.email')}</label>
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="Enter email"
+                  placeholder={t('profUser.phEmail')}
                 />
               </div>
 
               <div className="field-group">
-                <label>Phone Number</label>
+                <label>{t('profUser.phone')}</label>
                 <input
                   type="text"
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="Enter phone number"
+                  placeholder={t('profUser.phPhone')}
                 />
               </div>
 
               <div className="field-group">
-                <label>City</label>
+                <label>{t('profUser.city')}</label>
                 <input
                   type="text"
                   name="address"
                   value={formData.address}
                   onChange={handleChange}
-                  placeholder="Enter your address"
+                  placeholder={t('profUser.phAddress')}
                 />
               </div>
             </div>
           </section>
 
           <section className="settings-card">
-            <h2>Social Networks</h2>
+            <h2>{t('profUser.social')}</h2>
 
             <div className="settings-grid">
               <div className="field-group">
-                <label>Instagram</label>
+                <label>{t('profUser.insta')}</label>
                 <input
                   type="text"
                   name="instagram"
                   value={formData.instagram}
                   onChange={handleChange}
-                  placeholder="@your_instagram"
+                  placeholder={t('profUser.phInsta')}
                 />
               </div>
 
               <div className="field-group">
-                <label>Facebook</label>
+                <label>{t('profUser.fb')}</label>
                 <input
                   type="text"
                   name="facebook"
                   value={formData.facebook}
                   onChange={handleChange}
-                  placeholder="Facebook page link or name"
+                  placeholder={t('profUser.phFb')}
                 />
               </div>
 
               <div className="field-group full-width">
-                <label>Telegram</label>
+                <label>{t('profUser.tg')}</label>
                 <input
                   type="text"
                   name="telegram"
                   value={formData.telegram}
                   onChange={handleChange}
-                  placeholder="@telegram or link"
+                  placeholder={t('profUser.phTg')}
                 />
               </div>
             </div>
           </section>
 
           <section className="settings-card">
-            <h2>Change Password</h2>
+            <h2>{t('profUser.password')}</h2>
 
             <div className="settings-grid">
               <div className="field-group">
-                <label>New Password</label>
+                <label>{t('profUser.newPass')}</label>
                 <input
                   type="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  placeholder="Enter new password"
+                  placeholder={t('profUser.phNewPass')}
                 />
               </div>
 
               <div className="field-group">
-                <label>Confirm New Password</label>
+                <label>{t('profUser.confirmPass')}</label>
                 <input
                   type="password"
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  placeholder="Confirm new password"
+                  placeholder={t('profUser.phConfirmPass')}
                 />
               </div>
             </div>
           </section>
 
-          {isLoading && <div className="form-alert">Loading profile...</div>}
+          {isLoading && <div className="form-alert">{t('profUser.loading')}</div>}
           {error && <div className="form-alert error-alert">{error}</div>}
           {message && <div className="form-alert success-alert">{message}</div>}
 
           <div className="form-buttons" style={{ justifyContent: 'flex-end' }}>
             <button type="submit" className="primary-action-btn" disabled={isLoading}>
               <FiSave size={18} />
-              Save Profile
+              {t('profUser.save')}
             </button>
           </div>
         </form>

@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import '../styles/RegistrationPage.css';
 import { Sparkles, AlertCircle, Home, Cat, Eye, EyeOff } from 'lucide-react';
-import BottomNav from '../components/BottomNav';
+import { useI18n } from '../i18n/I18nContext';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/auth`;
 
 const RegistrationPage = () => {
+  const { t } = useI18n();
   const [isLogin, setIsLogin] = useState(true);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const mode = searchParams.get('mode');
+    if (mode === 'signup') setIsLogin(false);
+    else if (mode === 'login') setIsLogin(true);
+  }, [searchParams]);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -41,43 +49,79 @@ const RegistrationPage = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
+  const handleSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      setError('');
 
-    const normalizedEmail = email.trim().toLowerCase();
-    const trimmedName = name.trim();
+      const normalizedEmail = email.trim().toLowerCase();
+      const trimmedName = name.trim();
 
-    if (!normalizedEmail || !password) {
-      setError('Please fill in all required fields');
-      return;
-    }
+      if (!normalizedEmail || !password) {
+        setError(t('auth.err.fillRequired'));
+        return;
+      }
 
-    if (!isLogin && !trimmedName) {
-      setError(role === 'manager' ? 'Please enter shelter name' : 'Please enter your full name');
-      return;
-    }
+      if (!isLogin && !trimmedName) {
+        setError(role === 'manager' ? t('auth.err.nameManager') : t('auth.err.nameUser'));
+        return;
+      }
 
-    if (!isLogin && password.length < 8) {
-      setError('Password must be at least 8 characters long');
-      return;
-    }
+      if (!isLogin && password.length < 8) {
+        setError(t('auth.err.passwordShort'));
+        return;
+      }
 
-    if (!isLogin && password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
+      if (!isLogin && password !== confirmPassword) {
+        setError(t('auth.err.passwordMismatch'));
+        return;
+      }
 
-    setIsSubmitting(true);
+      setIsSubmitting(true);
 
-    try {
-      if (isLogin) {
-        const response = await fetch(`${API_BASE_URL}/login`, {
+      try {
+        if (isLogin) {
+          const response = await fetch(`${API_BASE_URL}/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: normalizedEmail,
+              password,
+            }),
+          });
+
+          const result = await response.json().catch(() => null);
+
+          if (!response.ok) {
+            throw new Error(result?.message || t('auth.err.incorrectLogin'));
+          }
+
+          localStorage.setItem('user', JSON.stringify(result.user));
+          localStorage.setItem('musyamatch_is_registered', 'true');
+          localStorage.setItem('userId', String(result.user?.userId || result.user?.id || ''));
+          localStorage.setItem('userRole', result.user?.role || '');
+          localStorage.setItem('userName', result.user?.name || '');
+          localStorage.setItem('userEmail', result.user?.email || '');
+
+          if (result.user.role === 'manager') {
+            navigate('/manager/profile', { replace: true });
+          } else {
+            navigate('/dashboard', { replace: true });
+          }
+
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/register`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            role,
+            name: trimmedName,
             email: normalizedEmail,
             password,
           }),
@@ -86,7 +130,7 @@ const RegistrationPage = () => {
         const result = await response.json().catch(() => null);
 
         if (!response.ok) {
-          throw new Error(result?.message || 'Incorrect email or password');
+          throw new Error(result?.message || t('auth.err.registerFailed'));
         }
 
         localStorage.setItem('user', JSON.stringify(result.user));
@@ -95,62 +139,38 @@ const RegistrationPage = () => {
         localStorage.setItem('userRole', result.user?.role || '');
         localStorage.setItem('userName', result.user?.name || '');
         localStorage.setItem('userEmail', result.user?.email || '');
+        resetFormState();
 
         if (result.user.role === 'manager') {
           navigate('/manager/profile', { replace: true });
         } else {
           navigate('/dashboard', { replace: true });
         }
-
-        return;
+      } catch (err) {
+        console.error(err);
+        setError(err.message || t('auth.err.generic'));
+      } finally {
+        setIsSubmitting(false);
       }
-
-      const response = await fetch(`${API_BASE_URL}/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          role,
-          name: trimmedName,
-          email: normalizedEmail,
-          password,
-        }),
-      });
-
-      const result = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(result?.message || 'Registration failed');
-      }
-
-      localStorage.setItem('user', JSON.stringify(result.user));
-      localStorage.setItem('musyamatch_is_registered', 'true');
-      localStorage.setItem('userId', String(result.user?.userId || result.user?.id || ''));
-      localStorage.setItem('userRole', result.user?.role || '');
-      localStorage.setItem('userName', result.user?.name || '');
-      localStorage.setItem('userEmail', result.user?.email || '');
-      resetFormState();
-
-      if (result.user.role === 'manager') {
-        navigate('/manager/profile', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
-    } catch (e) {
-      console.error(e);
-      setError(e.message || 'Something went wrong');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    },
+    [
+      confirmPassword,
+      email,
+      isLogin,
+      name,
+      navigate,
+      password,
+      role,
+      t,
+    ],
+  );
 
   return (
     <div className="auth-wrapper">
       <div className="auth-card">
         <div className="auth-header">
-          <h2>{isLogin ? 'Welcome Back!' : 'Create an Account'}</h2>
-          <p>{isLogin ? 'Log in to find your purrfect match 🐱' : 'Join MusyaMatch ✨'}</p>
+          <h2>{isLogin ? t('auth.welcomeLogin') : t('auth.welcomeSignup')}</h2>
+          <p>{isLogin ? t('auth.subLogin') : t('auth.subSignup')}</p>
         </div>
 
         <div className="tab-switcher">
@@ -159,14 +179,14 @@ const RegistrationPage = () => {
             onClick={() => handleTabSwitch(true)}
             type="button"
           >
-            Log In
+            {t('auth.tabLogin')}
           </button>
           <button
             className={`tab-btn ${!isLogin ? 'active' : ''}`}
             onClick={() => handleTabSwitch(false)}
             type="button"
           >
-            Sign Up
+            {t('auth.tabSignup')}
           </button>
         </div>
 
@@ -193,7 +213,7 @@ const RegistrationPage = () => {
         <form onSubmit={handleSubmit} className="auth-form">
           {!isLogin && (
             <div className="input-group">
-              <label>Who are you?</label>
+              <label>{t('auth.whoAreYou')}</label>
               <div className="role-selector">
                 <label className={`role-option ${role === 'user' ? 'selected' : ''}`}>
                   <input
@@ -205,7 +225,7 @@ const RegistrationPage = () => {
                   />
                   <div className="role-content">
                     <Cat size={24} />
-                    <span>Looking for a cat</span>
+                    <span>{t('auth.roleUser')}</span>
                   </div>
                 </label>
 
@@ -219,7 +239,7 @@ const RegistrationPage = () => {
                   />
                   <div className="role-content">
                     <Home size={24} />
-                    <span>Shelter manager</span>
+                    <span>{t('auth.roleManager')}</span>
                   </div>
                 </label>
               </div>
@@ -228,11 +248,11 @@ const RegistrationPage = () => {
 
           {!isLogin && role === 'user' && (
             <div className="input-group">
-              <label>Full Name</label>
+              <label>{t('auth.labelFullName')}</label>
               <div className="input-with-icon">
                 <input
                   type="text"
-                  placeholder="What's your full name?"
+                  placeholder={t('auth.phFullName')}
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -243,11 +263,11 @@ const RegistrationPage = () => {
 
           {!isLogin && role === 'manager' && (
             <div className="input-group">
-              <label>Shelter Name</label>
+              <label>{t('auth.labelShelterName')}</label>
               <div className="input-with-icon">
                 <input
                   type="text"
-                  placeholder="Enter shelter name"
+                  placeholder={t('auth.phShelterName')}
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -257,11 +277,11 @@ const RegistrationPage = () => {
           )}
 
           <div className="input-group">
-            <label>Email</label>
+            <label>{t('auth.labelEmail')}</label>
             <div className="input-with-icon">
               <input
                 type="email"
-                placeholder="Enter your email"
+                placeholder={t('auth.phEmail')}
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -270,12 +290,12 @@ const RegistrationPage = () => {
           </div>
 
           <div className="input-group">
-            <label>Password</label>
+            <label>{t('auth.labelPassword')}</label>
             <div className="input-with-icon">
               <input
                 className="has-right-icon"
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Enter your password"
+                placeholder={t('auth.phPassword')}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -284,7 +304,7 @@ const RegistrationPage = () => {
                 type="button"
                 className="password-toggle-btn"
                 onClick={() => setShowPassword((prev) => !prev)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -293,12 +313,12 @@ const RegistrationPage = () => {
 
           {!isLogin && (
             <div className="input-group">
-              <label>Confirm Password</label>
+              <label>{t('auth.labelConfirm')}</label>
               <div className="input-with-icon">
                 <input
                   className="has-right-icon"
                   type={showConfirmPassword ? 'text' : 'password'}
-                  placeholder="Confirm your password"
+                  placeholder={t('auth.phConfirm')}
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -307,7 +327,9 @@ const RegistrationPage = () => {
                   type="button"
                   className="password-toggle-btn"
                   onClick={() => setShowConfirmPassword((prev) => !prev)}
-                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                  aria-label={
+                    showConfirmPassword ? t('auth.hideConfirm') : t('auth.showConfirm')
+                  }
                 >
                   {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -316,12 +338,11 @@ const RegistrationPage = () => {
           )}
 
           <button type="submit" className="btn-submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Please wait...' : isLogin ? 'Log In' : 'Sign Up'}
+            {isSubmitting ? t('auth.submitWait') : isLogin ? t('auth.submitLogin') : t('auth.submitSignup')}
             {!isLogin && !isSubmitting && <Sparkles size={18} style={{ marginLeft: '8px' }} />}
           </button>
         </form>
       </div>
-      <BottomNav active="" />
     </div>
   );
 };

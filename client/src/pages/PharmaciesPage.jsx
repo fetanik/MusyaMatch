@@ -4,6 +4,7 @@ import GoogleMap from '../components/GoogleMap';
 import '../styles/PharmaciesPage.css';
 import BottomNav from '../components/BottomNav';
 import { useMessages } from '../components/MessagesContext';
+import { useI18n } from '../i18n/I18nContext';
 
 const ukrainianCities = {
   "Kyiv": { lat: 50.4501, lng: 30.5234, radius: 15000 },
@@ -106,6 +107,7 @@ const fallbackPharmaciesData = [
 
 const PharmaciesPage = () => {
   const { notify } = useMessages();
+  const { t } = useI18n();
   const [pharmacies, setPharmacies] = useState(fallbackPharmaciesData);
   const [selectedPharma, setSelectedPharma] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
@@ -142,23 +144,23 @@ const PharmaciesPage = () => {
             lng: position.coords.longitude
           };
           setUserLocation(loc);
-          notify('Location detected! Searching nearby pharmacies...', {
+          notify(t('pharm.locFoundBody'), {
             type: 'success',
-            title: 'Location Found',
+            title: t('pharm.locFoundTitle'),
             autoCloseMs: 2000
           });
         },
         (error) => {
           console.log('Failed to get location:', error);
-          notify('Please enable location access to find nearby pharmacies.', {
+          notify(t('pharm.locDeniedBody'), {
             type: 'info',
-            title: 'Location Not Available',
+            title: t('pharm.locDeniedTitle'),
             autoCloseMs: 3000
           });
         }
       );
     }
-  }, [notify]);
+  }, [notify, t]);
 
   // Search for pharmacies using Places API
   useEffect(() => {
@@ -193,13 +195,16 @@ const PharmaciesPage = () => {
               const pharmaResults = results.slice(0, 20).map((place, index) => ({
                 id: place.place_id || `${index}-${place.name}`,
                 name: place.name,
-                address: place.vicinity || place.formatted_address || 'Address not available',
+                address: place.vicinity || place.formatted_address || t('pharm.addrNA'),
                 city: cityFilter,
                 coords: {
                   lat: place.geometry.location.lat(),
                   lng: place.geometry.location.lng()
                 },
-                phone: place.formatted_phone_number || place.international_phone_number || 'Phone not available',
+                phone:
+                  place.formatted_phone_number ||
+                  place.international_phone_number ||
+                  t('pharm.phoneNA'),
                 placeId: place.place_id,
                 isOpen: place.opening_hours?.isOpen(),
                 rating: place.rating || null,
@@ -208,17 +213,17 @@ const PharmaciesPage = () => {
 
               console.log('Found pharmacies in city:', pharmaResults.length);
               setPharmacies(pharmaResults);
-              notify(`Found ${pharmaResults.length} pharmacies in ${cityFilter}`, {
+              notify(t('pharm.foundInCity', { count: pharmaResults.length, city: cityFilter }), {
                 type: 'success',
-                title: 'Search Results',
+                title: t('pharm.searchResults'),
                 autoCloseMs: 2000
               });
             } else {
               console.log('No pharmacies found in city');
               setPharmacies(fallbackPharmaciesData);
-              notify(`No pharmacies found in ${cityFilter}. Showing alternatives.`, {
+              notify(t('pharm.noInCity', { city: cityFilter }), {
                 type: 'info',
-                title: 'No Results',
+                title: t('pharm.noResults'),
                 autoCloseMs: 3000
               });
             }
@@ -227,9 +232,9 @@ const PharmaciesPage = () => {
         } catch (error) {
           console.error('Search error:', error);
           setPharmacies(fallbackPharmaciesData);
-          notify('Error searching pharmacies. Showing alternatives.', {
+          notify(t('pharm.errSearch'), {
             type: 'error',
-            title: 'Search Error'
+            title: t('pharm.searchError'),
           });
           setIsLoading(false);
         }
@@ -258,13 +263,16 @@ const PharmaciesPage = () => {
               const pharmaResults = results.slice(0, 20).map((place, index) => ({
                 id: place.place_id || `${index}-${place.name}`,
                 name: place.name,
-                address: place.vicinity || place.formatted_address || 'Address not available',
-                city: 'Your Area',
+                address: place.vicinity || place.formatted_address || t('pharm.addrNA'),
+                city: t('pharm.yourArea'),
                 coords: {
                   lat: place.geometry.location.lat(),
                   lng: place.geometry.location.lng()
                 },
-                phone: place.formatted_phone_number || place.international_phone_number || 'Phone not available',
+                phone:
+                  place.formatted_phone_number ||
+                  place.international_phone_number ||
+                  t('pharm.phoneNA'),
                 placeId: place.place_id,
                 isOpen: place.opening_hours?.isOpen(),
                 rating: place.rating || null,
@@ -273,17 +281,17 @@ const PharmaciesPage = () => {
 
               console.log('Found pharmacies near user:', pharmaResults.length);
               setPharmacies(pharmaResults);
-              notify(`Found ${pharmaResults.length} pharmacies near you!`, {
+              notify(t('pharm.foundNear', { count: pharmaResults.length }), {
                 type: 'success',
-                title: 'Search Results',
+                title: t('pharm.searchResults'),
                 autoCloseMs: 2000
               });
             } else {
               console.log('No pharmacies found nearby. Showing alternatives.');
               setPharmacies(fallbackPharmaciesData);
-              notify('No pharmacies found nearby. Showing alternatives.', {
+              notify(t('pharm.noNearby'), {
                 type: 'info',
-                title: 'No Results',
+                title: t('pharm.noResults'),
                 autoCloseMs: 3000
               });
             }
@@ -292,9 +300,9 @@ const PharmaciesPage = () => {
         } catch (error) {
           console.error('Search error:', error);
           setPharmacies(fallbackPharmaciesData);
-          notify('Error searching pharmacies. Showing alternatives.', {
+          notify(t('pharm.errSearch'), {
             type: 'error',
-            title: 'Search Error'
+            title: t('pharm.searchError'),
           });
           setIsLoading(false);
         }
@@ -309,7 +317,7 @@ const PharmaciesPage = () => {
     };
 
     searchPharmacies();
-  }, [cityFilter, userLocation, notify]);
+  }, [cityFilter, userLocation, notify, t]);
 
   const filteredPharmacies = useMemo(() => {
     let filtered = pharmacies;
@@ -344,16 +352,16 @@ const PharmaciesPage = () => {
   return (
     <div className="pharmacies-page">
       <div className="header-section">
-        <h2 className="title">Vet Pharmacies</h2>
-        <p className="subtitle">Find the best care for your cat 🐾</p>
+        <h2 className="title">{t('pharm.title')}</h2>
+        <p className="subtitle">{t('pharm.subtitle')}</p>
 
         <div className="filters-section">
           <div className="filter-group">
-            <label>City:</label>
+            <label>{t('pharm.cityLabel')}</label>
             <input
               type="text"
               list="cities"
-              placeholder="Select or type a city..."
+              placeholder={t('pharm.cityPh')}
               value={cityFilter}
               onChange={(e) => setCityFilter(e.target.value)}
               className="city-input"
@@ -365,18 +373,18 @@ const PharmaciesPage = () => {
                 <option key={city} value={city} />
               ))}
             </datalist>
-            {isLoading && <span className="loading-indicator">Searching...</span>}
+            {isLoading && <span className="loading-indicator">{t('pharm.searching')}</span>}
           </div>
 
           <div className="filter-group">
-            <label>Min Rating:</label>
+            <label>{t('pharm.minRating')}</label>
             <select
               value={minRating}
               onChange={(e) => setMinRating(Number(e.target.value))}
               className="sort-select"
               disabled={isLoading}
             >
-              <option value="0">Any rating</option>
+              <option value="0">{t('pharm.anyRating')}</option>
               <option value="3">3.0+ ⭐</option>
               <option value="3.5">3.5+ ⭐</option>
               <option value="4">4.0+ ⭐</option>
@@ -385,27 +393,27 @@ const PharmaciesPage = () => {
           </div>
 
           <div className="filter-group">
-            <label>Status:</label>
+            <label>{t('pharm.statusLabel')}</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="sort-select"
               disabled={isLoading}
             >
-              <option value="all">All pharmacies</option>
-              <option value="open">Open now</option>
+              <option value="all">{t('pharm.allPharmacies')}</option>
+              <option value="open">{t('pharm.openNow')}</option>
             </select>
           </div>
 
           <div className="filter-group">
-            <label>Sort by name:</label>
+            <label>{t('pharm.sortName')}</label>
             <select
               value={nameSort}
               onChange={(e) => setNameSort(e.target.value)}
               className="sort-select"
               disabled={isLoading}
             >
-              <option value="none">No sorting</option>
+              <option value="none">{t('pharm.noSort')}</option>
               <option value="az">A-Z</option>
               <option value="za">Z-A</option>
             </select>
@@ -420,7 +428,7 @@ const PharmaciesPage = () => {
                   onChange={(e) => setDistanceSort(e.target.checked)}
                   disabled={isLoading}
                 />
-                Sort by distance
+                {t('pharm.sortDistance')}
               </label>
             </div>
           )}
@@ -451,22 +459,24 @@ const PharmaciesPage = () => {
               <span className="phone">{pharma.phone}</span>
               {pharma.isOpen !== undefined && (
                 <span className={`status ${pharma.isOpen ? 'open' : 'closed'}`}>
-                  {pharma.isOpen ? '● Open' : '● Closed'}
+                  {pharma.isOpen ? t('pharm.openDot') : t('pharm.closedDot')}
                 </span>
               )}
-              {distance && <span className="distance">Distance: {distance} km</span>}
+              {distance && (
+                <span className="distance">{t('pharm.distanceKm', { n: distance })}</span>
+              )}
               <button 
                 className="btn-directions" 
                 onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${pharma.coords.lat},${pharma.coords.lng}`)}
               >
-                Get Directions
+                {t('pharm.getDirections')}
               </button>
             </div>
           );
         })}
         {filteredPharmacies.length === 0 && !isLoading && (
           <div className="no-results">
-            <p>No pharmacies found. Please select a city.</p>
+            <p>{t('pharm.noFoundSelectCity')}</p>
           </div>
         )}
       </div>

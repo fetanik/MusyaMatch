@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, CheckCircle2, Circle } from 'lucide-react';
 import '../styles/AchievementsPage.css';
 import BottomNav from '../components/BottomNav';
+import { useI18n } from '../i18n/I18nContext';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -18,6 +19,8 @@ const getCurrentUserId = () => {
 
 const AchievementsPage = () => {
   const navigate = useNavigate();
+  const { locale, t } = useI18n();
+  const dateLocale = locale === 'uk' ? 'uk-UA' : 'en-US';
   const userId = getCurrentUserId();
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
@@ -56,7 +59,7 @@ const AchievementsPage = () => {
         const allCats = Array.isArray(catsData) ? catsData : [];
         setCats(allCats.filter((c) => Number(c.userId) === userId));
       } catch {
-        setPageError('Failed to load achievements.');
+        setPageError(t('ach.loadFailBody'));
         setSummary(null);
         setCats([]);
       } finally {
@@ -65,17 +68,16 @@ const AchievementsPage = () => {
     };
 
     run();
-  }, [userId]);
+  }, [userId, t]);
 
   useEffect(() => {
-    // Recompute statuses after day changes (midnight).
     const tick = () => setNow(new Date());
     const current = new Date();
     const nextMidnight = new Date(current);
     nextMidnight.setHours(24, 0, 2, 0);
     const ms = Math.max(1000, nextMidnight.getTime() - current.getTime());
-    const t = setTimeout(tick, ms);
-    return () => clearTimeout(t);
+    const timer = setTimeout(tick, ms);
+    return () => clearTimeout(timer);
   }, [now]);
 
   const completedByType = summary?.completedByType || {};
@@ -121,7 +123,7 @@ const AchievementsPage = () => {
       const summaryData = await summaryRes.json().catch(() => null);
       if (summaryRes.ok) setSummary(summaryData);
     } catch (e) {
-      alert(e?.message || 'Failed to claim achievement');
+      alert(e?.message || t('ach.claimFail'));
     } finally {
       setClaiming('');
     }
@@ -131,7 +133,11 @@ const AchievementsPage = () => {
     if (!value) return '';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleDateString();
+    return d.toLocaleDateString(dateLocale, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
   };
 
   const isSameDay = (a, b) => {
@@ -145,27 +151,35 @@ const AchievementsPage = () => {
     );
   };
 
+  const achievementTitle = (type, fallback) => {
+    const key = `ach.type.${type}`;
+    const localized = t(key);
+    return localized === key ? fallback : localized;
+  };
+
+  const sep = t('ach.sep');
+
   return (
     <div className="achievements-wrapper">
       <header className="achievements-header">
-        <button className="back-btn" onClick={() => navigate(-1)}>
+        <button type="button" className="back-btn" onClick={() => navigate(-1)}>
           <ChevronLeft size={24} />
         </button>
-        <h1>Achievements</h1>
+        <h1>{t('ach.pageTitle')}</h1>
       </header>
 
       <main className="achievements-content">
         {loading ? (
           <div className="achievement-card">
             <div className="achievement-info">
-              <h3>Loading…</h3>
-              <p>Please wait.</p>
+              <h3>{t('ach.loadingTitle')}</h3>
+              <p>{t('ach.loadingHint')}</p>
             </div>
           </div>
         ) : pageError ? (
           <div className="achievement-card">
             <div className="achievement-info">
-              <h3>Could not load</h3>
+              <h3>{t('ach.loadFailTitle')}</h3>
               <p>{pageError}</p>
             </div>
           </div>
@@ -176,17 +190,21 @@ const AchievementsPage = () => {
                 <CheckCircle2 size={22} color="#2E7D32" />
               </div>
               <div className="achievement-info">
-                <h3>Total points</h3>
-                <p>Your current score</p>
+                <h3>{t('ach.totalTitle')}</h3>
+                <p>{t('ach.totalHint')}</p>
               </div>
-              <div className="achievement-status">{totalPoints} pts</div>
+              <div className="achievement-status">
+                {totalPoints} {t('ach.pts')}
+              </div>
             </div>
 
             <div className="achievement-list">
               {items.map((it) => {
-                const done = it.repeat === 'daily' || it.repeat === 'weekly' || it.repeat === 'monthly'
-                  ? it.isDoneNow
-                  : it.doneCount > 0;
+                const done =
+                  it.repeat === 'daily' || it.repeat === 'weekly' || it.repeat === 'monthly'
+                    ? it.isDoneNow
+                    : it.doneCount > 0;
+
                 const canClaimManually = [
                   'AI_CHAT_FIRST',
                   'FEEDING_DAILY',
@@ -206,6 +224,38 @@ const AchievementsPage = () => {
                 const lastLabel = it.lastAt ? formatDate(it.lastAt) : '';
                 const doneToday = it.repeat === 'daily' ? isSameDay(it.lastAt, now) : false;
 
+                const repeatLabel =
+                  it.repeat === 'daily'
+                    ? t('ach.daily')
+                    : it.repeat === 'weekly'
+                      ? t('ach.weekly')
+                      : it.repeat === 'monthly'
+                        ? t('ach.monthly')
+                        : it.repeat === 'once_per_cat'
+                          ? t('ach.oncePerCat')
+                          : it.repeat === 'once'
+                            ? t('ach.once')
+                            : t('ach.repeatable');
+
+                let detail = '';
+                if (it.repeat === 'daily') {
+                  if (doneToday) {
+                    detail = `${sep}${t('ach.doneToday', { date: lastLabel })}`;
+                  } else if (lastLabel) {
+                    detail = `${sep}${t('ach.last', { date: lastLabel })}`;
+                  } else {
+                    detail = `${sep}${t('ach.notDoneToday')}`;
+                  }
+                } else if (it.repeat === 'weekly' || it.repeat === 'monthly') {
+                  detail = lastLabel ? `${sep}${t('ach.last', { date: lastLabel })}` : `${sep}${t('ach.notDoneYet')}`;
+                } else if (it.doneCount) {
+                  detail = `${sep}${t('ach.doneCount', { count: it.doneCount })}${
+                    lastLabel ? `${sep}${t('ach.last', { date: lastLabel })}` : ''
+                  }`;
+                } else if (lastLabel) {
+                  detail = `${sep}${t('ach.last', { date: lastLabel })}`;
+                }
+
                 return (
                   <div key={it.type} className={`achievement-card ${done ? 'done' : ''}`}>
                     <div className="achievement-icon">
@@ -217,38 +267,12 @@ const AchievementsPage = () => {
                     </div>
                     <div className="achievement-info">
                       <h3>
-                        {it.title}{' '}
-                        <span style={{ fontWeight: 700, color: '#b45309' }}>
-                          +{it.points}
-                        </span>
+                        {achievementTitle(it.type, it.title)}{' '}
+                        <span style={{ fontWeight: 700, color: '#b45309' }}>+{it.points}</span>
                       </h3>
                       <p>
-                        {it.repeat === 'daily'
-                          ? 'Daily'
-                          : it.repeat === 'weekly'
-                          ? 'Weekly'
-                          : it.repeat === 'monthly'
-                          ? 'Monthly'
-                          : it.repeat === 'once_per_cat'
-                          ? 'Once per cat'
-                          : it.repeat === 'once'
-                          ? 'Once'
-                          : 'Repeatable'}
-                        {it.repeat === 'daily'
-                          ? doneToday
-                            ? ` • Done today (${lastLabel})`
-                            : lastLabel
-                            ? ` • Last: ${lastLabel}`
-                            : ' • Not done today'
-                          : it.repeat === 'weekly' || it.repeat === 'monthly'
-                          ? lastLabel
-                            ? ` • Last: ${lastLabel}`
-                            : ' • Not done yet'
-                          : it.doneCount
-                          ? ` • Done: ${it.doneCount}${lastLabel ? ` • Last: ${lastLabel}` : ''}`
-                          : lastLabel
-                          ? ` • Last: ${lastLabel}`
-                          : ''}
+                        {repeatLabel}
+                        {detail}
                       </p>
                     </div>
                     <div className="achievement-status">
@@ -258,18 +282,18 @@ const AchievementsPage = () => {
                           className="achievement-claim-btn"
                           onClick={() => claim(it.type)}
                           disabled={disabled}
-                          title={needsCat && !firstCatId ? 'Add a cat first' : 'Claim'}
+                          title={needsCat && !firstCatId ? t('ach.addCatFirst') : t('ach.claimTitle')}
                         >
                           {claiming === it.type
                             ? '...'
                             : it.eligibleNow
-                            ? 'Claim'
-                            : 'Done'}
+                              ? t('ach.claim')
+                              : t('ach.doneShort')}
                         </button>
                       ) : done ? (
-                        `Completed${lastLabel ? ` (${lastLabel})` : ''}`
+                        `${t('ach.completed')}${lastLabel ? ` (${lastLabel})` : ''}`
                       ) : (
-                        `Not completed${lastLabel ? ` • Last: ${lastLabel}` : ''}`
+                        `${t('ach.notCompleted')}${lastLabel ? `${sep}${t('ach.last', { date: lastLabel })}` : ''}`
                       )}
                     </div>
                   </div>
@@ -286,4 +310,3 @@ const AchievementsPage = () => {
 };
 
 export default AchievementsPage;
-

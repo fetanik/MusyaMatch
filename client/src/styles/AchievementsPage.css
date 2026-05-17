@@ -6,9 +6,10 @@
 }
 
 .achievements-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
   margin-bottom: 22px;
 }
 
@@ -16,6 +17,7 @@
   font-size: 1.5rem;
   color: #2D3436;
   margin: 0;
+  text-align: center;
 }
 
 .achievement-list {
