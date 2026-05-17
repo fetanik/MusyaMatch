@@ -1,0 +1,30 @@
+.lang-switch {
+  display: inline-flex;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+  padding: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.lang-switch button {
+  border: none;
+  background: transparent;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  color: #636e72;
+  font-family: inherit;
+}
+
+.lang-switch button.active {
+  background: var(--primary, #ffb347);
+  color: #fff;
+}
+
+.lang-switch button:not(.active):hover {
+  color: #2d3436;
+}
