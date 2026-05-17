@@ -4,6 +4,7 @@ import { FiArrowLeft, FiPlus, FiClipboard, FiEdit2, FiTrash2, FiX } from 'react-
 import BottomNav from '../components/BottomNav';
 import { useMessages } from '../components/MessagesContext';
 import '../styles/NeedsPage.css';
+import { useI18n } from '../i18n/I18nContext';
 
 const getNeedsApiBaseUrl = () => {
   const rawBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
@@ -22,17 +23,36 @@ const toPositiveInt = (value) => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
+const todayYmdLocal = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const formatNeedDueDisplay = (ymd) => {
+  if (!ymd) return '';
+  try {
+    return new Date(`${ymd}T12:00:00`).toLocaleDateString(undefined, { dateStyle: 'medium' });
+  } catch {
+    return String(ymd);
+  }
+};
+
 const emptyForm = {
   title: '',
   description: '',
   category: '',
   priority: 'medium',
   status: 'open',
+  dueDate: '',
 };
 
 const NeedsPage = () => {
   const navigate = useNavigate();
   const { notify, confirm } = useMessages();
+  const { t } = useI18n();
   const [needs, setNeeds] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -41,6 +61,7 @@ const NeedsPage = () => {
   const [formData, setFormData] = useState(emptyForm);
   const [formError, setFormError] = useState('');
   const [loadError, setLoadError] = useState('');
+  const minOpenDueDate = useMemo(() => todayYmdLocal(), []);
 
   const getCurrentUser = () => {
     try {
@@ -101,7 +122,7 @@ const NeedsPage = () => {
       setNeeds(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to load needs:', error);
-      setLoadError('Could not load needs. Please try again.');
+      setLoadError(t('needMgr.loadFail'));
       setNeeds([]);
     } finally {
       setIsLoading(false);
@@ -127,6 +148,7 @@ const NeedsPage = () => {
       category: need.category || '',
       priority: need.priority || 'medium',
       status: need.status || 'open',
+      dueDate: need.dueDate || need.due_date || '',
     });
     setFormError('');
     setIsModalOpen(true);
@@ -140,11 +162,11 @@ const NeedsPage = () => {
   };
 
   const handleDeleteNeed = async (needId) => {
-    const confirmed = await confirm('Are you sure you want to delete this need? This action cannot be undone.', {
+    const confirmed = await confirm(t('needMgr.delConfirm'), {
       type: 'confirm',
-      title: 'Delete need',
-      confirmText: 'Yes, delete',
-      cancelText: 'Cancel',
+      title: t('needMgr.delTitle'),
+      confirmText: t('needMgr.delYes'),
+      cancelText: t('needMgr.cancel'),
     });
     if (!confirmed) return;
 
@@ -160,7 +182,7 @@ const NeedsPage = () => {
       await loadNeeds();
     } catch (error) {
       console.error('Failed to delete need:', error);
-      await notify('Failed to delete need. Please try again.', { type: 'error', title: 'Error' });
+      await notify(t('needMgr.errDelete'), { type: 'error', title: t('common.error') });
     }
   };
 
@@ -169,28 +191,42 @@ const NeedsPage = () => {
     const trimmedTitle = formData.title.trim();
 
     if (!trimmedTitle) {
-      setFormError('Title is required.');
+      setFormError(t('needMgr.errTitleReq'));
+      return;
+    }
+
+    const dueTrim = (formData.dueDate || '').trim();
+    if (!editingNeedId && !dueTrim) {
+      setFormError(t('needMgr.errDue'));
+      return;
+    }
+    if (editingNeedId && formData.status === 'open' && !dueTrim) {
+      setFormError(t('needMgr.errDueOpen'));
       return;
     }
 
     const { userId, shelterId } = getCurrentUser();
     if (!userId && !shelterId) {
-      setFormError('Please log in again before creating needs.');
-      await notify('Could not detect your profile. Please re-login and try again.', {
+      setFormError(t('needMgr.errLogin'));
+      await notify(t('needMgr.errProfile'), {
         type: 'error',
-        title: 'Profile required',
+        title: t('needMgr.profileTitle'),
       });
       return;
     }
     const payload = {
       title: trimmedTitle,
       description: formData.description.trim(),
-      category: formData.category.trim() || 'General',
+      category: formData.category.trim() || t('needMgr.catGeneral'),
       priority: formData.priority,
       status: formData.status,
       userId,
       shelterId,
     };
+
+    if (dueTrim) {
+      payload.dueDate = dueTrim;
+    }
 
     try {
       setIsSaving(true);
@@ -216,8 +252,8 @@ const NeedsPage = () => {
       await loadNeeds();
     } catch (error) {
       console.error('Failed to save need:', error);
-      setFormError(error.message || 'Failed to save need.');
-      await notify('Failed to save need. Please try again.', { type: 'error', title: 'Error' });
+      setFormError(error.message || t('needMgr.errSave'));
+      await notify(t('needMgr.errSave'), { type: 'error', title: t('common.error') });
     } finally {
       setIsSaving(false);
     }
@@ -236,14 +272,15 @@ const NeedsPage = () => {
             type="button"
             className="needs-back-btn"
             onClick={() => navigate('/manager-profile')}
-            aria-label="Back to manager profile"
+            aria-label={t('needMgr.backAria')}
           >
             <FiArrowLeft size={18} />
           </button>
 
           <div className="needs-title-wrap">
-            <h1>Shelter Needs</h1>
-            <p>Manage current shelter needs and support requests</p>
+            <h1>{t('needMgr.title')}</h1>
+            <p>{t('needMgr.subtitle')}</p>
+            <p className="needs-page-hint">{t('needMgr.hint')}</p>
           </div>
         </div>
       </header>
@@ -255,41 +292,41 @@ const NeedsPage = () => {
           </div>
 
           <div className="needs-summary-text">
-            <h2>Current requests</h2>
-            <p>{openNeedsCount} open needs waiting for support</p>
+            <h2>{t('needMgr.summaryTitle')}</h2>
+            <p>{t('needMgr.summarySub', { n: openNeedsCount })}</p>
           </div>
 
           <button type="button" className="needs-primary-btn" onClick={openAddModal}>
             <FiPlus size={18} />
-            Add Need
+            {t('needMgr.addNeed')}
           </button>
         </section>
 
         <section className="needs-section">
           <div className="needs-section-head">
-            <h2>Need list</h2>
+            <h2>{t('needMgr.listTitle')}</h2>
             <span className="needs-count">{needs.length}</span>
           </div>
 
           {isLoading ? (
             <div className="needs-empty-card">
-              <h3>Loading needs...</h3>
+              <h3>{t('needMgr.loading')}</h3>
             </div>
           ) : loadError ? (
             <div className="needs-empty-card">
-              <h3>Could not load needs</h3>
+              <h3>{t('needMgr.errTitle')}</h3>
               <p>{loadError}</p>
               <button type="button" className="needs-primary-btn" onClick={loadNeeds}>
-                Try Again
+                {t('needMgr.tryAgain')}
               </button>
             </div>
           ) : needs.length === 0 ? (
             <div className="needs-empty-card">
-              <h3>No needs yet</h3>
-              <p>Create your first shelter request to start tracking support needs.</p>
+              <h3>{t('needMgr.noNeeds')}</h3>
+              <p>{t('needMgr.noNeedsSub')}</p>
               <button type="button" className="needs-primary-btn" onClick={openAddModal}>
                 <FiPlus size={18} />
-                Add Need
+                {t('needMgr.addNeed')}
               </button>
             </div>
           ) : (
@@ -306,8 +343,13 @@ const NeedsPage = () => {
                   <div className="need-meta">
                     <span className="need-meta-chip">{need.category}</span>
                     <span className={`need-priority-chip ${need.priority}`}>
-                      {need.priority} priority
+                      {need.priority} {t('needMgr.prioritySuffix')}
                     </span>
+                    {(need.dueDate || need.due_date) && (
+                      <span className="need-due-chip">
+                        {t('needMgr.due')} {formatNeedDueDisplay(need.dueDate || need.due_date)}
+                      </span>
+                    )}
                   </div>
 
                   <div className="need-actions">
@@ -317,7 +359,7 @@ const NeedsPage = () => {
                       onClick={() => openEditModal(need)}
                     >
                       <FiEdit2 size={15} />
-                      Edit
+                      {t('needMgr.edit')}
                     </button>
                     <button
                       type="button"
@@ -325,7 +367,7 @@ const NeedsPage = () => {
                       onClick={() => handleDeleteNeed(need.id)}
                     >
                       <FiTrash2 size={15} />
-                      Delete
+                      {t('needMgr.delete')}
                     </button>
                   </div>
                 </article>
@@ -339,7 +381,7 @@ const NeedsPage = () => {
         <div className="needs-modal-overlay">
           <div className="needs-modal-card">
             <div className="needs-modal-head">
-              <h3>{editingNeedId ? 'Edit Need' : 'Add New Need'}</h3>
+              <h3>{editingNeedId ? t('needMgr.modalEdit') : t('needMgr.modalAdd')}</h3>
               <button type="button" className="needs-modal-close" onClick={closeModal}>
                 <FiX size={18} />
               </button>
@@ -347,64 +389,79 @@ const NeedsPage = () => {
 
             <form className="needs-form" onSubmit={handleSubmit}>
               <div className="needs-form-group">
-                <label>Title</label>
+                <label>{t('needMgr.labelTitle')}</label>
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                  placeholder="Need title"
+                  placeholder={t('needMgr.phTitle')}
                   required
                 />
               </div>
 
               <div className="needs-form-group">
-                <label>Description</label>
+                <label>{t('needMgr.labelDesc')}</label>
                 <textarea
                   rows="4"
                   value={formData.description}
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, description: e.target.value }))
                   }
-                  placeholder="Describe the need"
+                  placeholder={t('needMgr.phDesc')}
                 />
               </div>
 
               <div className="needs-form-row">
                 <div className="needs-form-group">
-                  <label>Category</label>
+                  <label>{t('needMgr.labelCat')}</label>
                   <input
                     type="text"
                     value={formData.category}
                     onChange={(e) =>
                       setFormData((prev) => ({ ...prev, category: e.target.value }))
                     }
-                    placeholder="Food, Medical, Supplies..."
+                    placeholder={t('needMgr.phCategory')}
                   />
                 </div>
 
                 <div className="needs-form-group">
-                  <label>Priority</label>
+                  <label>{t('needMgr.labelPri')}</label>
                   <select
                     value={formData.priority}
                     onChange={(e) =>
                       setFormData((prev) => ({ ...prev, priority: e.target.value }))
                     }
                   >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
+                    <option value="low">{t('needMgr.optLow')}</option>
+                    <option value="medium">{t('needMgr.optMed')}</option>
+                    <option value="high">{t('needMgr.optHigh')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="needs-form-group">
-                <label>Status</label>
+                <label>{t('needMgr.labelDue')}</label>
+                <input
+                  type="date"
+                  value={formData.dueDate}
+                  min={formData.status === 'open' ? minOpenDueDate : undefined}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, dueDate: e.target.value }))
+                  }
+                />
+                <span className="needs-field-hint">
+                  {formData.status === 'open' ? t('needMgr.dueHintOpen') : t('needMgr.dueHintFulfilled')}
+                </span>
+              </div>
+
+              <div className="needs-form-group">
+                <label>{t('needMgr.labelStat')}</label>
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value }))}
                 >
-                  <option value="open">Open</option>
-                  <option value="fulfilled">Fulfilled</option>
+                  <option value="open">{t('needMgr.optOpen')}</option>
+                  <option value="fulfilled">{t('needMgr.optFulfilled')}</option>
                 </select>
               </div>
 
@@ -412,10 +469,14 @@ const NeedsPage = () => {
 
               <div className="needs-form-actions">
                 <button type="button" className="needs-secondary-btn" onClick={closeModal}>
-                  Cancel
+                  {t('needMgr.cancel')}
                 </button>
                 <button type="submit" className="needs-primary-btn" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : editingNeedId ? 'Save Changes' : 'Create Need'}
+                  {isSaving
+                    ? t('needMgr.saving')
+                    : editingNeedId
+                      ? t('needMgr.saveChanges')
+                      : t('needMgr.createNeed')}
                 </button>
               </div>
             </form>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiMapPin, FiPhone, FiSearch, FiFilter } from 'react-icons/fi';
 import BottomNav from '../components/BottomNav';
 import '../styles/ShelterNeedsPage.css';
+import { useI18n } from '../i18n/I18nContext';
 
 const getNeedsApiBaseUrl = () => {
   const rawBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
@@ -17,6 +18,15 @@ const getNeedsApiBaseUrl = () => {
 
 const API_BASE_URL = getNeedsApiBaseUrl();
 const SHELTER_API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/shelter`;
+
+const formatNeedDueDisplay = (ymd) => {
+  if (!ymd) return '';
+  try {
+    return new Date(`${ymd}T12:00:00`).toLocaleDateString(undefined, { dateStyle: 'medium' });
+  } catch {
+    return String(ymd);
+  }
+};
 
 const toPositiveInt = (value) => {
   const parsed = Number(value);
@@ -41,13 +51,14 @@ const getNeedShelterInfo = (need) => {
 
   if (!nameFromNeed && !addressFromNeed) return null;
   return {
-    name: nameFromNeed || 'Shelter',
+    name: nameFromNeed || '',
     address: addressFromNeed || '',
   };
 };
 
 const ShelterNeedsPage = () => {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [needs, setNeeds] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -162,14 +173,14 @@ const ShelterNeedsPage = () => {
             type="button"
             className="shelter-needs-back-btn"
             onClick={() => navigate('/')}
-            aria-label="Back to home"
+            aria-label={t('sNeeds.backAria')}
           >
             <FiArrowLeft size={18} />
           </button>
 
           <div className="shelter-needs-title-wrap">
-            <h1>Shelter Needs</h1>
-            <p>Help shelters in need</p>
+            <h1>{t('sNeeds.title')}</h1>
+            <p>{t('sNeeds.subtitle')}</p>
           </div>
         </div>
       </header>
@@ -181,7 +192,7 @@ const ShelterNeedsPage = () => {
             <FiSearch size={18} className="search-icon" />
             <input
               type="text"
-              placeholder="Search needs, shelters..."
+              placeholder={t('sNeeds.phSearch')}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               className="search-input"
@@ -193,7 +204,7 @@ const ShelterNeedsPage = () => {
         <section className="shelter-needs-filters">
           <div className="filter-item">
             <label htmlFor="location-filter">
-              <FiMapPin size={16} /> Location
+              <FiMapPin size={16} /> {t('sNeeds.locLabel')}
             </label>
             <select
               id="location-filter"
@@ -201,7 +212,7 @@ const ShelterNeedsPage = () => {
               onChange={(e) => setSelectedLocation(e.target.value)}
               className="filter-select"
             >
-              <option value="">All locations</option>
+              <option value="">{t('sNeeds.allLoc')}</option>
               {locations.map((loc) => (
                 <option key={loc} value={loc}>
                   {loc}
@@ -212,7 +223,7 @@ const ShelterNeedsPage = () => {
 
           <div className="filter-item">
             <label htmlFor="priority-filter">
-              <FiFilter size={16} /> Priority
+              <FiFilter size={16} /> {t('sNeeds.priLabel')}
             </label>
             <select
               id="priority-filter"
@@ -220,10 +231,10 @@ const ShelterNeedsPage = () => {
               onChange={(e) => setSelectedPriority(e.target.value)}
               className="filter-select"
             >
-              <option value="">All priorities</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
+              <option value="">{t('sNeeds.allPri')}</option>
+              <option value="low">{t('needMgr.optLow')}</option>
+              <option value="medium">{t('needMgr.optMed')}</option>
+              <option value="high">{t('needMgr.optHigh')}</option>
             </select>
           </div>
         </section>
@@ -232,33 +243,35 @@ const ShelterNeedsPage = () => {
         <section className="shelter-needs-results">
           {isLoading ? (
             <div className="shelter-needs-empty">
-              <h3>Loading needs...</h3>
+              <h3>{t('sNeeds.loading')}</h3>
             </div>
           ) : loadError ? (
             <div className="shelter-needs-empty">
-              <h3>Error loading needs</h3>
+              <h3>{t('sNeeds.errTitle')}</h3>
               <p>{loadError}</p>
               <button
                 type="button"
                 className="retry-btn"
                 onClick={loadNeeds}
               >
-                Try Again
+                {t('sNeeds.tryAgain')}
               </button>
             </div>
           ) : filteredNeeds.length === 0 ? (
             <div className="shelter-needs-empty">
-              <h3>No needs found</h3>
+              <h3>{t('sNeeds.noneTitle')}</h3>
               <p>
-                {needs.length === 0
-                  ? 'There are no active shelter needs at the moment.'
-                  : 'No needs match your filters. Try adjusting your search.'}
+                {needs.length === 0 ? t('sNeeds.noneAll') : t('sNeeds.noneFilter')}
               </p>
             </div>
           ) : (
             <>
               <div className="results-header">
-                <h2>Found {filteredNeeds.length} need{filteredNeeds.length !== 1 ? 's' : ''}</h2>
+                <h2>
+                  {filteredNeeds.length === 1
+                    ? t('sNeeds.found', { n: filteredNeeds.length })
+                    : t('sNeeds.foundPlural', { n: filteredNeeds.length })}
+                </h2>
               </div>
 
               <div className="needs-grid">
@@ -282,14 +295,22 @@ const ShelterNeedsPage = () => {
 
                     {need.category && (
                       <p className="need-category">
-                        <strong>Category:</strong> {need.category}
+                        <strong>{t('sNeeds.category')}:</strong> {need.category}
+                      </p>
+                    )}
+
+                    {(need.dueDate || need.due_date) && (
+                      <p className="need-due-line">
+                        <strong>{t('sNeeds.neededBy')}:</strong>{' '}
+                        {formatNeedDueDisplay(need.dueDate || need.due_date)}
                       </p>
                     )}
 
                     {shelterInfo && (
                       <div className="shelter-info">
                         <div className="shelter-name">
-                          <strong>Shelter:</strong> {shelterInfo.name || 'Unknown Shelter'}
+                          <strong>{t('sNeeds.shelter')}:</strong>{' '}
+                          {shelterInfo.name || t('sNeeds.unknownShelter')}
                         </div>
 
                         {shelterInfo.address && (

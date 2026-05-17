@@ -46,6 +46,14 @@
   opacity: 0.95;
 }
 
+.needs-title-wrap .needs-page-hint {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  opacity: 0.88;
+  max-width: 36rem;
+}
+
 .needs-content {
   margin-top: -54px;
   padding: 0 20px 24px;
@@ -254,6 +262,17 @@
   color: #c81e1e;
 }
 
+.need-due-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
 .needs-empty-card {
   padding: 24px;
   display: grid;
@@ -350,6 +369,14 @@
 .needs-form-group textarea:focus,
 .needs-form-group select:focus {
   border-color: #ff8a00;
+}
+
+.needs-field-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: #6b7280;
+  line-height: 1.35;
 }
 
 .needs-form-row {

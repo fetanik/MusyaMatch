@@ -206,6 +206,12 @@
   color: #6b7280;
 }
 
+.need-due-line {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: #0369a1;
+}
+
 .shelter-info {
   margin-top: 14px;
   padding-top: 14px;
