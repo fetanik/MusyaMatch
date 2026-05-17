@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/ManagerSettingsPage.css';
 import BottomNav from '../components/BottomNav';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import { useI18n } from '../i18n/I18nContext';
 
 import {
   FiArrowLeft,
@@ -14,6 +16,7 @@ const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/shelter`;
 
 const ManagerSettingsPage = () => {
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const [userId, setUserId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,7 +46,7 @@ const ManagerSettingsPage = () => {
         const currentUserId = currentUser.id || currentUser.userId;
 
         if (!currentUserId) {
-          setError('User ID was not found. Please login again.');
+          setError(t('profUser.errLogin'));
           setIsLoading(false);
           return;
         }
@@ -92,14 +95,14 @@ const ManagerSettingsPage = () => {
         );
       } catch (e) {
         console.error(e);
-        setError(e.message || 'Failed to load shelter profile');
+        setError(e.message || t('profMgr.errLoad'));
       } finally {
         setIsLoading(false);
       }
     };
 
     loadProfile();
-  }, []);
+  }, [t]);
 
   const handleChange = (e) => {
     setFormData((prev) => ({
@@ -135,27 +138,27 @@ const ManagerSettingsPage = () => {
     setMessage('');
 
     if (!userId) {
-      setError('User ID was not found.');
+      setError(t('profUser.errUserId'));
       return;
     }
 
     if (!formData.shelterName.trim()) {
-      setError('Please enter shelter name');
+      setError(t('profMgr.errShelter'));
       return;
     }
 
     if (!formData.email.trim()) {
-      setError('Please enter email');
+      setError(t('profUser.errEmail'));
       return;
     }
 
     if (formData.password && formData.password.length < 6) {
-      setError('New password must be at least 6 characters long');
+      setError(t('profUser.errPassLen'));
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('profUser.errPassMismatch'));
       return;
     }
 
@@ -227,10 +230,10 @@ const ManagerSettingsPage = () => {
         confirmPassword: '',
       }));
 
-      setMessage('Profile saved successfully');
+      setMessage(t('profMgr.saved'));
     } catch (e) {
       console.error(e);
-      setError(e.message || 'Failed to save profile');
+      setError(e.message || t('profMgr.errSave'));
     }
   };
 
@@ -242,13 +245,18 @@ const ManagerSettingsPage = () => {
             type="button"
             className="back-btn"
             onClick={() => navigate('/manager/profile')}
+            aria-label={t('common.back')}
           >
             <FiArrowLeft size={18} />
           </button>
 
           <div className="settings-title-block">
-            <h1>Manager Profile Settings</h1>
-            <p>Edit shelter information and profile details</p>
+            <h1>{t('profMgr.title')}</h1>
+            <p>{t('profMgr.subtitle')}</p>
+          </div>
+
+          <div className="settings-header-lang">
+            <LanguageSwitcher />
           </div>
         </div>
       </header>
@@ -256,15 +264,15 @@ const ManagerSettingsPage = () => {
       <main className="settings-content">
         <form className="settings-form" onSubmit={handleSave}>
           <section className="settings-card logo-card">
-            <h2>Shelter Logo</h2>
+            <h2>{t('profMgr.logoTitle')}</h2>
 
             <div className="logo-section">
               <div className="logo-preview">
                 {formData.logo ? (
-                  <img src={formData.logo} alt="Shelter logo" />
+                  <img src={formData.logo} alt={t('profMgr.logoAlt')} />
                 ) : (
                   <div className="logo-placeholder">
-                    <span>No logo</span>
+                    <span>{t('profMgr.noLogo')}</span>
                   </div>
                 )}
               </div>
@@ -272,7 +280,7 @@ const ManagerSettingsPage = () => {
               <div className="logo-actions">
                 <label className="upload-btn">
                   <FiUpload size={16} />
-                  Upload Logo
+                  {t('profMgr.uploadLogo')}
                   <input type="file" accept="image/*" onChange={handleLogoUpload} hidden />
                 </label>
 
@@ -283,7 +291,7 @@ const ManagerSettingsPage = () => {
                     onClick={handleRemoveLogo}
                   >
                     <FiTrash2 size={16} />
-                    Remove
+                    {t('profUser.remove')}
                   </button>
                 )}
               </div>
@@ -291,149 +299,149 @@ const ManagerSettingsPage = () => {
           </section>
 
           <section className="settings-card">
-            <h2>Main Information</h2>
+            <h2>{t('profMgr.mainInfo')}</h2>
 
             <div className="settings-grid">
               <div className="field-group">
-                <label>Shelter Name</label>
+                <label>{t('profMgr.shelterName')}</label>
                 <input
                   type="text"
                   name="shelterName"
                   value={formData.shelterName}
                   onChange={handleChange}
-                  placeholder="Enter shelter name"
+                  placeholder={t('profMgr.phShelter')}
                 />
               </div>
 
               <div className="field-group">
-                <label>Email</label>
+                <label>{t('profUser.email')}</label>
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="Enter email"
+                  placeholder={t('profUser.phEmail')}
                 />
               </div>
 
               <div className="field-group">
-                <label>Phone Number</label>
+                <label>{t('profUser.phone')}</label>
                 <input
                   type="text"
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="Enter phone number"
+                  placeholder={t('profUser.phPhone')}
                 />
               </div>
 
               <div className="field-group">
-                <label>Address</label>
+                <label>{t('profMgr.address')}</label>
                 <input
                   type="text"
                   name="address"
                   value={formData.address}
                   onChange={handleChange}
-                  placeholder="Enter shelter address"
+                  placeholder={t('profMgr.phAddress')}
                 />
               </div>
             </div>
           </section>
 
           <section className="settings-card">
-            <h2>Social Networks</h2>
+            <h2>{t('profUser.social')}</h2>
 
             <div className="settings-grid">
               <div className="field-group">
-                <label>Instagram</label>
+                <label>{t('profUser.insta')}</label>
                 <input
                   type="text"
                   name="instagram"
                   value={formData.instagram}
                   onChange={handleChange}
-                  placeholder="@your_instagram"
+                  placeholder={t('profUser.phInsta')}
                 />
               </div>
 
               <div className="field-group">
-                <label>Facebook</label>
+                <label>{t('profUser.fb')}</label>
                 <input
                   type="text"
                   name="facebook"
                   value={formData.facebook}
                   onChange={handleChange}
-                  placeholder="Facebook page link or name"
+                  placeholder={t('profUser.phFb')}
                 />
               </div>
 
               <div className="field-group full-width">
-                <label>Telegram</label>
+                <label>{t('profUser.tg')}</label>
                 <input
                   type="text"
                   name="telegram"
                   value={formData.telegram}
                   onChange={handleChange}
-                  placeholder="@telegram or link"
+                  placeholder={t('profUser.phTg')}
                 />
               </div>
             </div>
           </section>
 
           <section className="settings-card">
-            <h2>Shelter Description</h2>
+            <h2>{t('profMgr.descTitle')}</h2>
 
             <div className="field-group">
-              <label>About Shelter / Activity Description</label>
+              <label>{t('profMgr.aboutLabel')}</label>
               <textarea
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
                 rows="5"
-                placeholder="Describe shelter activity, mission, care conditions, etc."
+                placeholder={t('profMgr.aboutPh')}
               />
             </div>
 
             <div className="field-group">
-              <label>Adoption Conditions</label>
+              <label>{t('profMgr.adoptLabel')}</label>
               <textarea
                 name="adoptionConditions"
                 value={formData.adoptionConditions}
                 onChange={handleChange}
                 rows="5"
-                placeholder="Describe adoption terms and requirements"
+                placeholder={t('profMgr.adoptPh')}
               />
             </div>
           </section>
 
           <section className="settings-card">
-            <h2>Change Password</h2>
+            <h2>{t('profUser.password')}</h2>
 
             <div className="settings-grid">
               <div className="field-group">
-                <label>New Password</label>
+                <label>{t('profUser.newPass')}</label>
                 <input
                   type="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  placeholder="Enter new password"
+                  placeholder={t('profUser.phNewPass')}
                 />
               </div>
 
               <div className="field-group">
-                <label>Confirm New Password</label>
+                <label>{t('profUser.confirmPass')}</label>
                 <input
                   type="password"
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  placeholder="Confirm new password"
+                  placeholder={t('profUser.phConfirmPass')}
                 />
               </div>
             </div>
           </section>
 
-          {isLoading && <div className="form-alert">Loading profile...</div>}
+          {isLoading && <div className="form-alert">{t('profMgr.loading')}</div>}
           {error && <div className="form-alert error-alert">{error}</div>}
           {message && <div className="form-alert success-alert">{message}</div>}
 
@@ -443,12 +451,12 @@ const ManagerSettingsPage = () => {
               className="secondary-action-btn"
               onClick={() => navigate('/manager/profile')}
             >
-              Back to Dashboard
+              {t('profMgr.backDash')}
             </button>
 
             <button type="submit" className="primary-action-btn" disabled={isLoading}>
               <FiSave size={18} />
-              Save Profile
+              {t('profUser.save')}
             </button>
           </div>
         </form>

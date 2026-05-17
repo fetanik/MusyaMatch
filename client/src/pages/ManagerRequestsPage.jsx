@@ -4,6 +4,7 @@ import { FiArrowLeft, FiCheck, FiX, FiRotateCcw, FiImage } from 'react-icons/fi'
 import BottomNav from '../components/BottomNav';
 import { useMessages } from '../components/MessagesContext';
 import '../styles/ManagerRequestsPage.css';
+import { useI18n } from '../i18n/I18nContext';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -25,6 +26,7 @@ const getCurrentUserId = () => {
 const ManagerRequestsPage = () => {
   const navigate = useNavigate();
   const { notify } = useMessages();
+  const { t } = useI18n();
   const currentUserId = getCurrentUserId();
 
   const [requests, setRequests] = useState([]);
@@ -38,7 +40,7 @@ const ManagerRequestsPage = () => {
   const loadRequests = async () => {
     if (!currentUserId) {
       setLoading(false);
-      setPageError('Manager account was not found. Please log in again.');
+      setPageError(t('mgrReq.errAccount'));
       return;
     }
 
@@ -53,7 +55,7 @@ const ManagerRequestsPage = () => {
       setRequests(Array.isArray(payload) ? payload : []);
     } catch (error) {
       console.error(error);
-      setPageError('Failed to load requests.');
+      setPageError(t('mgrReq.errLoad'));
       setRequests([]);
     } finally {
       setLoading(false);
@@ -85,7 +87,11 @@ const ManagerRequestsPage = () => {
                 ...item,
                 status,
                 statusLabel:
-                  status === 'approved' ? 'Approved' : status === 'rejected' ? 'Rejected' : 'Pending',
+                  status === 'approved'
+                    ? t('mgrReq.statusApproved')
+                    : status === 'rejected'
+                      ? t('mgrReq.statusRejected')
+                      : t('mgrReq.statusPending'),
                 updatedAt: payload?.updatedAt || item.updatedAt,
               }
             : item
@@ -93,15 +99,15 @@ const ManagerRequestsPage = () => {
       );
 
       if (status === 'approved') {
-        await notify('Request approved successfully.', { type: 'success', title: 'Success' });
+        await notify(t('mgrReq.approved'), { type: 'success', title: t('common.success') });
       } else if (status === 'rejected') {
-        await notify('Request rejected successfully.', { type: 'success', title: 'Success' });
+        await notify(t('mgrReq.rejected'), { type: 'success', title: t('common.success') });
       } else {
-        await notify('Request set to pending successfully.', { type: 'success', title: 'Success' });
+        await notify(t('mgrReq.pending'), { type: 'success', title: t('common.success') });
       }
     } catch (error) {
       console.error(error);
-      await notify('Failed to update request status.', { type: 'error', title: 'Error' });
+      await notify(t('mgrReq.errUpdate'), { type: 'error', title: t('common.error') });
     } finally {
       setUpdatingId(null);
     }
@@ -133,7 +139,7 @@ const ManagerRequestsPage = () => {
     if (value === null || value === undefined || value === '') return '';
     const parsed = Number(value);
     if (!Number.isFinite(parsed) || parsed < 0) return '';
-    return `${parsed} year${parsed === 1 ? '' : 's'}`;
+    return t('chat.years', { n: parsed });
   };
 
   return (
@@ -144,13 +150,13 @@ const ManagerRequestsPage = () => {
             type="button"
             className="requests-back-btn"
             onClick={() => navigate('/manager/profile')}
-            aria-label="Back to manager profile"
+            aria-label={t('mgrReq.backAria')}
           >
             <FiArrowLeft size={18} />
           </button>
           <div className="requests-title-wrap">
-            <h1>Adoption & Foster Requests</h1>
-            <p>Review applications for your shelter cats</p>
+            <h1>{t('mgrReq.pageTitle')}</h1>
+            <p>{t('mgrReq.pageSub')}</p>
           </div>
         </div>
       </header>
@@ -158,30 +164,30 @@ const ManagerRequestsPage = () => {
       <main className="requests-content">
         <section className="requests-summary-card">
           <div>
-            <h2>Pending requests</h2>
-            <p>{totalPending} waiting for your decision</p>
+            <h2>{t('mgrReq.pendingTitle')}</h2>
+            <p>{t('mgrReq.pendingSub', { n: totalPending })}</p>
           </div>
           <div className="requests-filters">
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="all">All requests</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
+              <option value="all">{t('mgrReq.fAll')}</option>
+              <option value="pending">{t('mgrReq.fPending')}</option>
+              <option value="approved">{t('mgrReq.fApproved')}</option>
+              <option value="rejected">{t('mgrReq.fRejected')}</option>
             </select>
             <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-              <option value="all">All types</option>
-              <option value="adoption">Adoption</option>
-              <option value="foster">Foster Care</option>
+              <option value="all">{t('mgrReq.tAll')}</option>
+              <option value="adoption">{t('mgrReq.tAdopt')}</option>
+              <option value="foster">{t('mgrReq.tFoster')}</option>
             </select>
           </div>
         </section>
 
         {loading ? (
-          <div className="requests-empty">Loading requests...</div>
+          <div className="requests-empty">{t('mgrReq.loading')}</div>
         ) : pageError ? (
           <div className="requests-empty">{pageError}</div>
         ) : visibleRequests.length === 0 ? (
-          <div className="requests-empty">No requests yet.</div>
+          <div className="requests-empty">{t('mgrReq.empty')}</div>
         ) : (
           <div className="requests-grid">
             {visibleRequests.map((request) => (
@@ -208,24 +214,42 @@ const ManagerRequestsPage = () => {
                   )}
                   <div>
                     <h3>{request.catName}</h3>
-                    <p>{request.typeLabel || (request.type === 'foster' ? 'Foster Care' : 'Adoption')}</p>
+                    <p>
+                      {request.typeLabel ||
+                        (request.type === 'foster' ? t('mgrReq.fosterCare') : t('mgrReq.adoption'))}
+                    </p>
                   </div>
                 </div>
 
                 <div className="request-details">
                   <p>
-                    <strong>Applicant:</strong>{' '}
-                    {request.applicantName || request.applicantEmail || 'Account user'}
+                    <strong>{t('mgrReq.applicant')}:</strong>{' '}
+                    {request.applicantName || request.applicantEmail || t('mgrReq.accountUser')}
                   </p>
                   {request.applicantEmail ? (
-                    <p><strong>Email:</strong> {request.applicantEmail}</p>
+                    <p>
+                      <strong>{t('db.email')}:</strong> {request.applicantEmail}
+                    </p>
                   ) : null}
-                  {request.applicantPhone ? <p><strong>Phone:</strong> {request.applicantPhone}</p> : null}
-                  {request.comment ? <p><strong>Comment:</strong> {request.comment}</p> : null}
-                  <p><strong>Status:</strong> {request.statusLabel || 'Pending'}</p>
+                  {request.applicantPhone ? (
+                    <p>
+                      <strong>{t('db.phone')}:</strong> {request.applicantPhone}
+                    </p>
+                  ) : null}
+                  {request.comment ? (
+                    <p>
+                      <strong>{t('db.comment')}:</strong> {request.comment}
+                    </p>
+                  ) : null}
                   <p>
-                    <strong>Created:</strong>{' '}
-                    {request.createdAt ? new Date(request.createdAt).toLocaleString() : 'Unknown'}
+                    <strong>{t('db.status')}:</strong>{' '}
+                    {request.statusLabel || t('mgrReq.statusPending')}
+                  </p>
+                  <p>
+                    <strong>{t('db.created')}:</strong>{' '}
+                    {request.createdAt
+                      ? new Date(request.createdAt).toLocaleString()
+                      : t('mgrReq.unknown')}
                   </p>
                 </div>
 
@@ -242,7 +266,7 @@ const ManagerRequestsPage = () => {
                         disabled={updatingId === request.id}
                       >
                         <FiCheck size={15} />
-                        Approve
+                        {t('mgrReq.approveBtn')}
                       </button>
                       <button
                         type="button"
@@ -254,7 +278,7 @@ const ManagerRequestsPage = () => {
                         disabled={updatingId === request.id}
                       >
                         <FiX size={15} />
-                        Reject
+                        {t('mgrReq.rejectBtn')}
                       </button>
                     </>
                   ) : (
@@ -268,7 +292,7 @@ const ManagerRequestsPage = () => {
                       disabled={updatingId === request.id}
                     >
                       <FiRotateCcw size={15} />
-                      Set as Pending
+                      {t('mgrReq.setPending')}
                     </button>
                   )}
                 </div>
@@ -287,14 +311,14 @@ const ManagerRequestsPage = () => {
             className="request-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Request details"
+            aria-label={t('mgrReq.modalAria')}
             onClick={(event) => event.stopPropagation()}
           >
             <button
               type="button"
               className="request-modal-close"
               onClick={() => setSelectedRequest(null)}
-              aria-label="Close modal"
+              aria-label={t('mgrReq.closeModal')}
             >
               ×
             </button>
@@ -314,7 +338,8 @@ const ManagerRequestsPage = () => {
             <div className="request-modal-content">
               <h3>{selectedRequest.catName}</h3>
               <p className="request-modal-meta">
-                {selectedRequest.typeLabel || (selectedRequest.type === 'foster' ? 'Foster Care' : 'Adoption')}
+                {selectedRequest.typeLabel ||
+                  (selectedRequest.type === 'foster' ? t('mgrReq.fosterCare') : t('mgrReq.adoption'))}
                 {selectedRequest.catBreed ? ` • ${selectedRequest.catBreed}` : ''}
                 {formatCatAge(selectedRequest.catAge) ? ` • ${formatCatAge(selectedRequest.catAge)}` : ''}
               </p>
@@ -322,30 +347,47 @@ const ManagerRequestsPage = () => {
                 <p className="request-modal-description">{selectedRequest.catDescription}</p>
               ) : null}
               <div className="request-modal-chips">
-                {selectedRequest.catSex ? <span className="request-chip">Sex: {selectedRequest.catSex}</span> : null}
-                {selectedRequest.catPersonality ? (
-                  <span className="request-chip">Personality: {selectedRequest.catPersonality}</span>
+                {selectedRequest.catSex ? (
+                  <span className="request-chip">
+                    {t('gal.lblSex')}: {selectedRequest.catSex}
+                  </span>
                 ) : null}
-                <span className="request-chip">Status: {selectedRequest.statusLabel}</span>
+                {selectedRequest.catPersonality ? (
+                  <span className="request-chip">
+                    {t('gal.lblPersonality')}: {selectedRequest.catPersonality}
+                  </span>
+                ) : null}
+                <span className="request-chip">
+                  {t('db.status')}: {selectedRequest.statusLabel}
+                </span>
               </div>
 
               <div className="request-modal-applicant">
-                <h4>Applicant details</h4>
-                <p><strong>Name:</strong> {selectedRequest.applicantName || 'Account user'}</p>
+                <h4>{t('mgrReq.applicant')}</h4>
+                <p>
+                  <strong>{t('profUser.fullName')}:</strong>{' '}
+                  {selectedRequest.applicantName || t('mgrReq.accountUser')}
+                </p>
                 {selectedRequest.applicantEmail ? (
-                  <p><strong>Email:</strong> {selectedRequest.applicantEmail}</p>
+                  <p>
+                    <strong>{t('db.email')}:</strong> {selectedRequest.applicantEmail}
+                  </p>
                 ) : null}
                 {selectedRequest.applicantPhone ? (
-                  <p><strong>Phone:</strong> {selectedRequest.applicantPhone}</p>
+                  <p>
+                    <strong>{t('db.phone')}:</strong> {selectedRequest.applicantPhone}
+                  </p>
                 ) : null}
                 {selectedRequest.comment ? (
-                  <p><strong>Comment:</strong> {selectedRequest.comment}</p>
+                  <p>
+                    <strong>{t('db.comment')}:</strong> {selectedRequest.comment}
+                  </p>
                 ) : null}
                 <p>
-                  <strong>Created:</strong>{' '}
+                  <strong>{t('db.created')}:</strong>{' '}
                   {selectedRequest.createdAt
                     ? new Date(selectedRequest.createdAt).toLocaleString()
-                    : 'Unknown'}
+                    : t('mgrReq.unknown')}
                 </p>
               </div>
             </div>

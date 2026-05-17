@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/ManagerProfile.css';
 
@@ -15,10 +15,13 @@ import {
 import { FaPaw } from 'react-icons/fa6';
 import BottomNav from '../components/BottomNav';
 import { useMessages } from '../components/MessagesContext';
+import { useI18n } from '../i18n/I18nContext';
+import { apiUrl } from '../utils/apiUrl';
+import { resolveUploadedImageUrl } from '../utils/mediaUrl';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
-const EVENTS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/events`;
-const SHELTER_API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/shelter`;
+const API_BASE_URL = apiUrl('/api/cats');
+const EVENTS_API = apiUrl('/api/events');
+const SHELTER_API_BASE_URL = apiUrl('/api/shelter');
 
 const normalizeVaccinations = (vaccinations) => {
   if (!Array.isArray(vaccinations)) return [];
@@ -26,12 +29,6 @@ const normalizeVaccinations = (vaccinations) => {
   return vaccinations
     .map((item) => (typeof item === 'string' ? item.trim() : ''))
     .filter(Boolean);
-};
-
-const formatGender = (gender) => {
-  if (gender === 'male') return 'Male';
-  if (gender === 'female') return 'Female';
-  return 'Not specified';
 };
 
 const getCurrentUserIds = () => {
@@ -55,16 +52,80 @@ const getCurrentUserIds = () => {
   }
 };
 
+/** Resolve shelter + build query for manager-scoped event APIs. */
+const resolveManagerShelterContext = async () => {
+  const { userId, shelterId: storedShelterId } = getCurrentUserIds();
+  let shelterId = storedShelterId;
+
+  if (!shelterId && userId) {
+    try {
+      const response = await fetch(apiUrl(`/api/shelter/profile/${userId}`));
+      if (response.ok) {
+        const profile = await response.json();
+        const resolved = Number(profile?.shelterId);
+        if (Number.isInteger(resolved) && resolved > 0) {
+          shelterId = resolved;
+        }
+      }
+    } catch {
+      /* optional */
+    }
+  }
+
+  return { userId, shelterId };
+};
+
+const buildManagerEventsQuery = ({ userId, shelterId }) => {
+  const params = new URLSearchParams();
+  if (shelterId) params.set('shelterId', String(shelterId));
+  if (userId) params.set('userId', String(userId));
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+};
+
 const ManagerProfile = () => {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { notify, confirm } = useMessages();
 
   const topRef = useRef(null);
 
-  const [shelterName, setShelterName] = useState('Happy Paws Shelter');
+  const formatGender = useCallback(
+    (gender) => {
+      if (gender === 'male') return t('gal.male');
+      if (gender === 'female') return t('gal.female');
+      return t('db.notSpecified');
+    },
+    [t],
+  );
+
+  const formatListingStatus = useCallback(
+    (status) => {
+      const key = status === 'adopted' ? 'mgr.listingAdopted' : 'mgr.listingActive';
+      return t(key);
+    },
+    [t],
+  );
+
+  const formatEventStatus = useCallback(
+    (status) => {
+      const map = {
+        active: 'mgr.eventStatusActive',
+        inactive: 'mgr.eventStatusInactive',
+        cancelled: 'mgr.eventStatusCancelled',
+        completed: 'mgr.eventStatusCompleted',
+      };
+      return map[status] ? t(map[status]) : status;
+    },
+    [t],
+  );
+
+  const [shelterName, setShelterName] = useState('');
   const [shelterLogo, setShelterLogo] = useState('');
   const [myCats, setMyCats] = useState([]);
+  const [catVaccinations, setCatVaccinations] = useState({});
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [openCalendarAfterSave, setOpenCalendarAfterSave] = useState(false);
   const [editingCatId, setEditingCatId] = useState(null);
   const [isLoadingCats, setIsLoadingCats] = useState(true);
   const [catImageFile, setCatImageFile] = useState(null);
@@ -79,8 +140,10 @@ const ManagerProfile = () => {
     imageFile: null,
     imagePreview: '',
     date: '',
+    eventTime: '',
     location: '',
     cost: '',
+    maxParticipants: '',
     status: 'active'
   });
 
@@ -99,11 +162,39 @@ const ManagerProfile = () => {
     birthDate: '',
     personality: '',
     description: '',
-    vaccinationInput: '',
     vaccinations: [],
   });
 
   const [requests, setRequests] = useState([]);
+
+  const fetchCatVaccinations = useCallback(async (catList) => {
+    if (!Array.isArray(catList) || catList.length === 0) {
+      setCatVaccinations({});
+      return;
+    }
+
+    const records = {};
+
+    await Promise.all(
+      catList.map(async (cat) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/${cat.id}/vaccinations`);
+          if (!response.ok) {
+            records[cat.id] = [];
+            return;
+          }
+
+          const data = await response.json();
+          records[cat.id] = Array.isArray(data) ? data : [];
+        } catch (error) {
+          console.error('Failed to load vaccinations for cat', cat.id, error);
+          records[cat.id] = [];
+        }
+      }),
+    );
+
+    setCatVaccinations(records);
+  }, []);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -111,10 +202,10 @@ const ManagerProfile = () => {
     if (userData) {
       try {
         const parsed = JSON.parse(userData);
-        setShelterName(parsed.shelterName || parsed.name || 'Happy Paws Shelter');
+        setShelterName(parsed.shelterName || parsed.name || t('mgr.defaultShelter'));
         setShelterLogo(parsed.logo || '');
       } catch {
-        setShelterName('Happy Paws Shelter');
+        setShelterName(t('mgr.defaultShelter'));
         setShelterLogo('');
       }
     }
@@ -154,9 +245,11 @@ const ManagerProfile = () => {
         });
 
         setMyCats(filteredCats);
+        await fetchCatVaccinations(filteredCats);
       } catch (error) {
         console.error('Failed to load cats from API:', error);
         setMyCats([]);
+        setCatVaccinations({});
       } finally {
         setIsLoadingCats(false);
       }
@@ -185,7 +278,7 @@ const ManagerProfile = () => {
 
     loadCats();
     loadRequests();
-  }, []);
+  }, [t, fetchCatVaccinations]);
 
   const stats = useMemo(() => {
     return {
@@ -219,7 +312,7 @@ const ManagerProfile = () => {
       );
     } catch (error) {
       console.error('Failed to update request:', error);
-      notify('Failed to update request status.', { type: 'error', title: 'Error' });
+      notify(t('mgrReq.errUpdate'), { type: 'error', title: t('msg.errorTitle') });
     }
   };
 
@@ -231,12 +324,12 @@ const ManagerProfile = () => {
       birthDate: '',
       personality: '',
       description: '',
-      vaccinationInput: '',
       vaccinations: [],
     });
     setEditingCatId(null);
     setCatImageFile(null);
     setCatImagePreview('');
+    setOpenCalendarAfterSave(false);
   };
 
   const openAddCatModal = () => {
@@ -253,11 +346,11 @@ const ManagerProfile = () => {
       birthDate: cat.birthDate || '',
       personality: cat.personality || '',
       description: cat.description || '',
-      vaccinationInput: '',
       vaccinations: normalizeVaccinations(cat.vaccinations),
     });
     setCatImageFile(null);
     setCatImagePreview(cat.image_url || '');
+    setOpenCalendarAfterSave(false);
     setIsModalOpen(true);
   };
 
@@ -270,29 +363,6 @@ const ManagerProfile = () => {
   const closeCatModal = () => {
     resetCatForm();
     setIsModalOpen(false);
-  };
-
-  const addVaccination = () => {
-    const value = (newCatData.vaccinationInput || '').trim();
-    if (!value) return;
-
-    if (newCatData.vaccinations.includes(value)) {
-      setNewCatData((prev) => ({ ...prev, vaccinationInput: '' }));
-      return;
-    }
-
-    setNewCatData((prev) => ({
-      ...prev,
-      vaccinations: [...prev.vaccinations, value],
-      vaccinationInput: '',
-    }));
-  };
-
-  const removeVaccination = (itemToRemove) => {
-    setNewCatData((prev) => ({
-      ...prev,
-      vaccinations: prev.vaccinations.filter((item) => item !== itemToRemove),
-    }));
   };
 
   const handleSaveCat = async (e) => {
@@ -321,11 +391,13 @@ const ManagerProfile = () => {
 
     if (catImageFile) {
       formData.append('image', catImageFile);
-    } else if (catImagePreview) {
+    } else if (catImagePreview && !String(catImagePreview).startsWith('blob:')) {
       formData.append('image_url', catImagePreview);
     }
 
     try {
+      const shouldOpenCalendar = openCalendarAfterSave;
+
       if (editingCatId) {
         const response = await fetch(`${API_BASE_URL}/${editingCatId}`, {
           method: 'PUT',
@@ -348,6 +420,7 @@ const ManagerProfile = () => {
               : cat
           )
         );
+        closeCatModal();
       } else {
         const response = await fetch(API_BASE_URL, {
           method: 'POST',
@@ -367,24 +440,28 @@ const ManagerProfile = () => {
           },
           ...prev,
         ]);
-      }
 
-      closeCatModal();
+        const savedId = Number(savedCat?.id);
+        closeCatModal();
+        if (shouldOpenCalendar && Number.isInteger(savedId) && savedId > 0) {
+          navigate(`/manager/cats/${savedId}/vaccinations`, { state: { cat: savedCat } });
+        }
+      }
     } catch (error) {
       console.error('Failed to save cat:', error);
-      await notify('Failed to save cat profile. Please check the backend connection.', {
+      await notify(t('mgr.errSaveCat'), {
         type: 'error',
-        title: 'Error',
+        title: t('msg.errorTitle'),
       });
     }
   };
 
   const handleDeleteCat = async (catId) => {
-    const confirmed = await confirm('Are you sure you want to delete this cat profile? This action cannot be undone.', {
+    const confirmed = await confirm(t('mgr.deleteCatConfirm'), {
       type: 'confirm',
-      title: 'Delete cat profile',
-      confirmText: 'Yes, delete',
-      cancelText: 'Cancel',
+      title: t('mgr.deleteCatTitle'),
+      confirmText: t('db.deleteYes'),
+      cancelText: t('common.cancel'),
     });
     if (!confirmed) return;
 
@@ -398,48 +475,56 @@ const ManagerProfile = () => {
       }
 
       setMyCats((prev) => prev.filter((cat) => cat.id !== catId));
+      setCatVaccinations((prev) => {
+        const next = { ...prev };
+        delete next[catId];
+        return next;
+      });
 
       if (editingCatId === catId) {
         closeCatModal();
       }
     } catch (error) {
       console.error('Failed to delete cat:', error);
-      await notify('Failed to delete cat profile. Please check the backend connection.', {
+      await notify(t('mgr.errDeleteCat'), {
         type: 'error',
-        title: 'Error',
+        title: t('msg.errorTitle'),
       });
     }
   };
 
-  const formatAge = (birthDate) => {
-    if (!birthDate) return 'Not specified';
+  const formatAge = useCallback(
+    (birthDate) => {
+      if (!birthDate) return t('db.notSpecified');
 
-    const birth = new Date(birthDate);
-    if (Number.isNaN(birth.getTime())) return 'Not specified';
+      const birth = new Date(birthDate);
+      if (Number.isNaN(birth.getTime())) return t('db.notSpecified');
 
-    const now = new Date();
-    let years = now.getFullYear() - birth.getFullYear();
-    let months = now.getMonth() - birth.getMonth();
+      const now = new Date();
+      let years = now.getFullYear() - birth.getFullYear();
+      let months = now.getMonth() - birth.getMonth();
 
-    if (months < 0) {
-      years -= 1;
-      months += 12;
-    }
+      if (months < 0) {
+        years -= 1;
+        months += 12;
+      }
 
-    const yearLabel = years === 1 ? 'year' : 'years';
-    const monthLabel = months === 1 ? 'month' : 'months';
+      const yearLabel = years === 1 ? t('mgr.ageYear') : t('mgr.ageYears');
+      const monthLabel = months === 1 ? t('mgr.ageMonth') : t('mgr.ageMonths');
 
-    if (years <= 0) {
-      return `${months} ${monthLabel}`;
-    }
+      if (years <= 0) {
+        return `${months} ${monthLabel}`;
+      }
 
-    return months > 0
-      ? `${years} ${yearLabel} ${months} ${monthLabel}`
-      : `${years} ${yearLabel}`;
-  };
+      return months > 0
+        ? `${years} ${yearLabel} ${months} ${monthLabel}`
+        : `${years} ${yearLabel}`;
+    },
+    [t],
+  );
 
   const showPlaceholder = (label) => {
-    notify(`${label} will be added later`, { type: 'info', title: 'Info' });
+    notify(t('mgr.placeholderLater', { label }), { type: 'info', title: t('msg.infoTitle') });
   };
 
   const resetEventForm = () => {
@@ -449,8 +534,10 @@ const ManagerProfile = () => {
       imageFile: null,
       imagePreview: '',
       date: '',
+      eventTime: '',
       location: '',
       cost: '',
+      maxParticipants: '',
       status: 'active'
     });
     setEditingEvent(null);
@@ -458,7 +545,8 @@ const ManagerProfile = () => {
 
   const fetchEvents = useCallback(async () => {
     try {
-      const response = await fetch(EVENTS_API);
+      const scope = await resolveManagerShelterContext();
+      const response = await fetch(`${EVENTS_API}${buildManagerEventsQuery(scope)}`);
       if (!response.ok) {
         throw new Error('Failed to load events');
       }
@@ -487,8 +575,15 @@ const ManagerProfile = () => {
       imageFile: null,
       imagePreview: event.image_url || '',
       date: event.date || '',
+      eventTime: event.event_time || event.eventTime || '',
       location: event.location || '',
       cost: event.cost || '',
+      maxParticipants:
+        event.max_participants != null && event.max_participants !== ''
+          ? String(event.max_participants)
+          : event.maxParticipants != null
+            ? String(event.maxParticipants)
+            : '',
       status: event.status || 'active'
     });
     setIsEventModalOpen(true);
@@ -524,20 +619,27 @@ const ManagerProfile = () => {
     e.preventDefault();
     
     if (!eventForm.title.trim()) {
-      await notify('Event title is required.', { type: 'error', title: 'Error' });
+      await notify(t('mgr.eventTitleRequired'), { type: 'error', title: t('msg.errorTitle') });
       return;
     }
 
-    const { userId: currentUserId, shelterId: currentShelterId } = getCurrentUserIds();
+    const { userId: currentUserId, shelterId: currentShelterId } =
+      await resolveManagerShelterContext();
+    const scopeQuery = buildManagerEventsQuery({
+      userId: currentUserId,
+      shelterId: currentShelterId,
+    });
 
     const formData = new FormData();
     formData.append('title', eventForm.title.trim());
     formData.append('description', eventForm.description.trim());
     formData.append('date', eventForm.date || '');
+    formData.append('event_time', eventForm.eventTime || '');
     formData.append('location', eventForm.location.trim());
     formData.append('cost', eventForm.cost.trim());
+    formData.append('max_participants', eventForm.maxParticipants.trim());
     formData.append('status', eventForm.status);
-    
+
     if (currentShelterId) {
       formData.append('shelterId', String(currentShelterId));
     }
@@ -547,7 +649,7 @@ const ManagerProfile = () => {
 
     if (eventForm.imageFile) {
       formData.append('image', eventForm.imageFile);
-    } else if (eventForm.imagePreview) {
+    } else if (eventForm.imagePreview && !String(eventForm.imagePreview).startsWith('blob:')) {
       formData.append('image_url', eventForm.imagePreview);
     }
 
@@ -556,21 +658,24 @@ const ManagerProfile = () => {
       let savedEvent;
 
       if (editingEvent) {
-        response = await fetch(`${EVENTS_API}/${editingEvent.id}`, {
+        response = await fetch(`${EVENTS_API}/${editingEvent.id}${scopeQuery}`, {
           method: 'PUT',
           body: formData,
         });
 
         if (!response.ok) {
-          throw new Error('Failed to update event');
+          const errBody = await response.json().catch(() => ({}));
+          const detail =
+            errBody.message || errBody.error || `Request failed (${response.status})`;
+          throw new Error(detail);
         }
 
         savedEvent = await response.json();
-        console.log('🖼️ Frontend received saved event:', savedEvent);
+        console.log('рџ–јпёЏ Frontend received saved event:', savedEvent);
         setEvents(prev => prev.map(event => 
           event.id === editingEvent.id ? savedEvent : event
         ));
-        await notify('Event updated successfully!', { type: 'success', title: 'Success' });
+        await notify(t('mgr.eventUpdated'), { type: 'success', title: t('msg.successTitle') });
       } else {
         response = await fetch(EVENTS_API, {
           method: 'POST',
@@ -578,27 +683,38 @@ const ManagerProfile = () => {
         });
 
         if (!response.ok) {
-          throw new Error('Failed to create event');
+          const errBody = await response.json().catch(() => ({}));
+          const detail =
+            errBody.message || errBody.error || `Request failed (${response.status})`;
+          throw new Error(detail);
         }
 
         savedEvent = await response.json();
         setEvents(prev => [savedEvent, ...prev]);
-        await notify('Event added successfully!', { type: 'success', title: 'Success' });
+        await notify(t('mgr.eventAdded'), { type: 'success', title: t('msg.successTitle') });
       }
 
       closeEventModal();
     } catch (error) {
       console.error('Failed to save event:', error);
-      await notify('Failed to save event. Please check the backend connection.', { 
-        type: 'error', 
-        title: 'Error' 
+      const msg =
+        error?.message &&
+        !['Failed to create event', 'Failed to update event', 'Failed to fetch'].includes(
+          error.message,
+        )
+          ? error.message
+          : t('mgr.errSaveEvent');
+      await notify(msg, {
+        type: 'error',
+        title: t('msg.errorTitle'),
       });
     }
   };
 
   const handleUpdateEventStatus = async (eventId, newStatus) => {
     try {
-      const response = await fetch(`${EVENTS_API}/${eventId}/status`, {
+      const scopeQuery = buildManagerEventsQuery(await resolveManagerShelterContext());
+      const response = await fetch(`${EVENTS_API}/${eventId}/status${scopeQuery}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -614,28 +730,32 @@ const ManagerProfile = () => {
       setEvents(prev => prev.map(event => 
         event.id === eventId ? updatedEvent : event
       ));
-      await notify(`Event status updated to ${newStatus}`, { type: 'success', title: 'Success' });
+      await notify(t('mgr.eventStatusUpdated', { status: formatEventStatus(newStatus) }), {
+        type: 'success',
+        title: t('msg.successTitle'),
+      });
     } catch (error) {
       console.error('Failed to update event status:', error);
-      await notify('Failed to update event status. Please check the backend connection.', { 
-        type: 'error', 
-        title: 'Error' 
+      await notify(t('mgr.errUpdateEventStatus'), {
+        type: 'error',
+        title: t('msg.errorTitle'),
       });
     }
   };
 
   const handleDeleteEvent = async (eventId) => {
-    const confirmed = await confirm('Are you sure you want to delete this event? This action cannot be undone.', {
+    const confirmed = await confirm(t('mgr.deleteEventConfirm'), {
       type: 'confirm',
-      title: 'Delete event',
-      confirmText: 'Yes, delete',
-      cancelText: 'Cancel'
+      title: t('mgr.deleteEventTitle'),
+      confirmText: t('db.deleteYes'),
+      cancelText: t('common.cancel'),
     });
     
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`${EVENTS_API}/${eventId}`, {
+      const scopeQuery = buildManagerEventsQuery(await resolveManagerShelterContext());
+      const response = await fetch(`${EVENTS_API}/${eventId}${scopeQuery}`, {
         method: 'DELETE',
       });
 
@@ -643,13 +763,13 @@ const ManagerProfile = () => {
         throw new Error('Failed to delete event');
       }
 
-      setEvents(prev => prev.filter(event => event.id !== eventId));
-      await notify('Event deleted successfully!', { type: 'success', title: 'Success' });
+      setEvents((prev) => prev.filter((event) => event.id !== eventId));
+      await notify(t('mgr.eventDeleted'), { type: 'success', title: t('msg.successTitle') });
     } catch (error) {
       console.error('Failed to delete event:', error);
-      await notify('Failed to delete event. Please check the backend connection.', { 
-        type: 'error', 
-        title: 'Error' 
+      await notify(t('mgr.errDeleteEvent'), {
+        type: 'error',
+        title: t('msg.errorTitle'),
       });
     }
   };
@@ -663,7 +783,7 @@ const ManagerProfile = () => {
               {shelterLogo ? (
                 <img
                   src={shelterLogo}
-                  alt="Shelter logo"
+                  alt={t('profMgr.logoAlt')}
                   style={{
                     width: '100%',
                     height: '100%',
@@ -677,8 +797,8 @@ const ManagerProfile = () => {
             </div>
 
             <div className="brand-text">
-              <h1>Hello, {shelterName}</h1>
-              <p>Shelter dashboard</p>
+              <h1>{t('mgr.hello', { name: shelterName })}</h1>
+              <p>{t('mgr.dashboardSub')}</p>
             </div>
           </div>
 
@@ -686,29 +806,29 @@ const ManagerProfile = () => {
             className="hero-icon-btn"
             type="button"
             onClick={() => navigate('/manager/settings')}
-            title="Open profile settings"
+            title={t('mgr.settingsTitle')}
           >
             <FiBell size={20} />
           </button>
         </div>
 
         <div className="stats-card">
-          <div className="section-chip">Shelter statistics</div>
+          <div className="section-chip">{t('mgr.statsChip')}</div>
 
           <div className="stats-grid">
             <div className="stat-card">
               <span className="stat-number">{stats.available}</span>
-              <span className="stat-label">Available</span>
+              <span className="stat-label">{t('mgr.statAvailable')}</span>
             </div>
 
             <div className="stat-card">
               <span className="stat-number">{stats.adopted}</span>
-              <span className="stat-label">Adopted</span>
+              <span className="stat-label">{t('mgr.statAdopted')}</span>
             </div>
 
             <div className="stat-card">
               <span className="stat-number">{stats.total}</span>
-              <span className="stat-label">Total Cats</span>
+              <span className="stat-label">{t('mgr.statTotal')}</span>
             </div>
           </div>
         </div>
@@ -718,8 +838,8 @@ const ManagerProfile = () => {
         <section className="manager-section">
           <div className="section-head">
             <div>
-              <h2>Active requests</h2>
-              <p>Review pending adoption applications</p>
+              <h2>{t('mgr.activeReq')}</h2>
+              <p>{t('mgr.activeReqSub')}</p>
             </div>
             <span className="section-count">{pendingRequests.length}</span>
           </div>
@@ -727,7 +847,7 @@ const ManagerProfile = () => {
           <div className="requests-list">
             {pendingRequests.length === 0 ? (
               <div className="empty-card">
-                <p>No pending requests right now.</p>
+                <p>{t('mgr.noPendingReq')}</p>
               </div>
             ) : (
               pendingRequests.map((request) => (
@@ -742,7 +862,10 @@ const ManagerProfile = () => {
                         {request.typeLabel || request.type}: {request.catName}
                       </h3>
                       <p>
-                        Applicant: {request.applicant} • {request.time}
+                        {t('mgr.applicantLine', {
+                          name: request.applicant,
+                          time: request.time,
+                        })}
                       </p>
                     </div>
                   </div>
@@ -754,7 +877,7 @@ const ManagerProfile = () => {
                       onClick={() => handleRequestAction(request.id, 'approved')}
                     >
                       <FiCheck size={16} />
-                      Approve
+                      {t('mgrReq.approveBtn')}
                     </button>
 
                     <button
@@ -763,7 +886,7 @@ const ManagerProfile = () => {
                       onClick={() => handleRequestAction(request.id, 'rejected')}
                     >
                       <FiX size={16} />
-                      Reject
+                      {t('mgrReq.rejectBtn')}
                     </button>
                   </div>
                 </div>
@@ -775,8 +898,8 @@ const ManagerProfile = () => {
         <section className="manager-section">
           <div className="section-head">
             <div>
-              <h2>Management actions</h2>
-              <p>Main tools for shelter workflow</p>
+              <h2>{t('mgr.mgmtActions')}</h2>
+              <p>{t('mgr.mgmtSub')}</p>
             </div>
           </div>
 
@@ -789,8 +912,8 @@ const ManagerProfile = () => {
               <div className="action-icon">
                 <FiPlusCircle size={22} />
               </div>
-              <h3>Add Cat</h3>
-              <p>Create a new cat profile</p>
+              <h3>{t('db.addCatBtn')}</h3>
+              <p>{t('mgr.addCatSub')}</p>
             </button>
 
             <button
@@ -801,8 +924,8 @@ const ManagerProfile = () => {
               <div className="action-icon">
                 <FiMapPin size={22} />
               </div>
-              <h3>Vet-pharmacies</h3>
-              <p>Open pharmacy map</p>
+              <h3>{t('mgr.vetPharm')}</h3>
+              <p>{t('mgr.vetPharmSub')}</p>
             </button>
 
             <button
@@ -813,8 +936,8 @@ const ManagerProfile = () => {
               <div className="action-icon">
                 <FiCalendar size={22} />
               </div>
-              <h3>Add Events</h3>
-              <p>Create a new event</p>
+              <h3>{t('mgr.addEvents')}</h3>
+              <p>{t('mgr.addEventsSub')}</p>
             </button>
 
             <button
@@ -825,8 +948,8 @@ const ManagerProfile = () => {
               <div className="action-icon">
                 <FiClipboard size={22} />
               </div>
-              <h3>Needs</h3>
-              <p>Manage shelter support requests</p>
+              <h3>{t('mgr.needsTitle')}</h3>
+              <p>{t('mgr.needsSub')}</p>
             </button>
           </div>
         </section>
@@ -834,24 +957,30 @@ const ManagerProfile = () => {
         <section className="manager-section">
           <div className="section-head">
             <div>
-              <h2>My cats</h2>
-              <p>Edit, delete, or open vaccinations for each cat profile</p>
+              <h2>{t('mgr.myCats')}</h2>
+              <p>{t('mgr.catsSub')}</p>
             </div>
             <span className="section-count">{myCats.length}</span>
           </div>
 
           {isLoadingCats ? (
             <div className="empty-card">
-              <p>Loading cats...</p>
+              <p>{t('mgr.loadingCats')}</p>
             </div>
           ) : myCats.length === 0 ? (
             <div className="empty-card">
-              <p>No cats yet. Add the first cat profile.</p>
+              <p>{t('mgr.noCats')}</p>
             </div>
           ) : (
             <div className="cats-grid">
               {myCats.map((cat) => {
-                const vaccinations = normalizeVaccinations(cat.vaccinations);
+                const savedVaccinations = Array.isArray(catVaccinations[cat.id])
+                  ? catVaccinations[cat.id]
+                  : normalizeVaccinations(cat.vaccinations).map((name) => ({ name }));
+                const vaccinationNames = savedVaccinations
+                  .map((item) => (typeof item === 'string' ? item : item?.name))
+                  .map((name) => (typeof name === 'string' ? name.trim() : ''))
+                  .filter(Boolean);
 
                 return (
                   <article
@@ -860,19 +989,19 @@ const ManagerProfile = () => {
                   >
                     <div className="cat-card-head">
                       <div>
-                        <h3>{cat.name || 'Unnamed cat'}</h3>
-                        <p>{cat.breed || 'Breed not specified'}</p>
+                        <h3>{cat.name || t('mgr.unnamedCat')}</h3>
+                        <p>{cat.breed || t('db.breedUnknown')}</p>
                       </div>
 
                       <span className={`status-badge ${cat.listingStatus || 'active'}`}>
-                        {cat.listingStatus || 'active'}
+                        {formatListingStatus(cat.listingStatus || 'active')}
                       </span>
                     </div>
 
                     {cat.image_url && (
                       <img
-                        src={cat.image_url}
-                        alt={cat.name || 'Cat'}
+                        src={resolveUploadedImageUrl(cat.image_url)}
+                        alt={cat.name || t('mgr.catAlt')}
                         style={{
                           width: '100%',
                           height: '260px',
@@ -886,28 +1015,30 @@ const ManagerProfile = () => {
 
                     <div className="cat-meta">
                       <span>
-                        <strong>Gender:</strong> {formatGender(cat.gender)}
+                        <strong>{t('db.labelGender')}:</strong> {formatGender(cat.gender)}
                       </span>
                       <span>
-                        <strong>Age:</strong> {formatAge(cat.birthDate)}
+                        <strong>{t('mgr.labelAge')}:</strong> {formatAge(cat.birthDate)}
                       </span>
                       <span>
-                        <strong>Vaccinations:</strong>{' '}
-                        {vaccinations.length > 0 ? vaccinations.length : 'Not added'}
+                        <strong>{t('db.vaccinations')}:</strong>{' '}
+                        {vaccinationNames.length > 0
+                          ? vaccinationNames.length
+                          : t('mgr.vaxNotAdded')}
                       </span>
                     </div>
 
                     <div className="cat-expanded-content">
                       <p className="cat-description">
-                        {cat.description || 'No description yet.'}
+                        {cat.description || t('db.noDesc')}
                       </p>
 
                       <div className="cat-vaccination-block">
-                        <p className="cat-vaccination-title">Vaccinations</p>
+                        <p className="cat-vaccination-title">{t('db.vaccinations')}</p>
 
-                        {vaccinations.length > 0 ? (
+                        {vaccinationNames.length > 0 ? (
                           <div className="cat-vaccination-list">
-                            {vaccinations.map((item, index) => (
+                            {vaccinationNames.map((item, index) => (
                               <span key={`${item}-${index}`} className="cat-vaccination-chip">
                                 {item}
                               </span>
@@ -915,7 +1046,7 @@ const ManagerProfile = () => {
                           </div>
                         ) : (
                           <p className="no-vaccinations-text">
-                            No vaccinations added yet.
+                            {t('db.vaxNone')}
                           </p>
                         )}
                       </div>
@@ -926,7 +1057,7 @@ const ManagerProfile = () => {
                           className="cat-edit-btn"
                           onClick={() => openVaccinationPage(cat)}
                         >
-                          Vaccinations
+                          {t('db.btnVax')}
                         </button>
 
                         <button
@@ -934,7 +1065,7 @@ const ManagerProfile = () => {
                           className="cat-edit-btn"
                           onClick={() => openEditCatModal(cat)}
                         >
-                          Edit profile
+                          {t('mgr.editProfile')}
                         </button>
 
                         <button
@@ -942,7 +1073,7 @@ const ManagerProfile = () => {
                           className="cat-delete-btn"
                           onClick={() => handleDeleteCat(cat.id)}
                         >
-                          Delete profile
+                          {t('mgr.deleteProfile')}
                         </button>
                       </div>
                     </div>
@@ -956,15 +1087,15 @@ const ManagerProfile = () => {
         <section className="manager-section">
           <div className="section-head">
             <div>
-              <h2>Events</h2>
-              <p>Manage shelter events and activities</p>
+              <h2>{t('mgr.events')}</h2>
+              <p>{t('mgr.eventsSub')}</p>
             </div>
             <span className="section-count">{events.length}</span>
           </div>
 
           {events.length === 0 ? (
             <div className="empty-card">
-              <p>No events yet. Create your first event.</p>
+              <p>{t('mgr.noEvents')}</p>
             </div>
           ) : (
             <div className="events-grid">
@@ -972,7 +1103,7 @@ const ManagerProfile = () => {
                 <article key={event.id} className="event-card expanded-event-card">
                   {event.image_url && (
                     <img
-                      src={event.image_url}
+                      src={resolveUploadedImageUrl(event.image_url)}
                       alt={event.title}
                     />
                   )}
@@ -983,18 +1114,35 @@ const ManagerProfile = () => {
                       <p>{event.location}</p>
                     </div>
                     <span className={`status-badge ${event.status}`}>
-                      {event.status}
+                      {formatEventStatus(event.status)}
                     </span>
                   </div>
 
                   <div className="event-meta">
-                    <span><strong>Date:</strong> {event.date || 'Not set'}</span>
-                    <span><strong>Cost:</strong> {event.cost || 'Free'}</span>
+                    <span>
+                      <strong>{t('mgr.labelDate')}:</strong>{' '}
+                      {event.date || t('mgr.dateNotSet')}
+                      {(event.event_time || event.eventTime) &&
+                        ` \u00b7 ${event.event_time || event.eventTime}`}
+                    </span>
+                    <span>
+                      <strong>{t('mgr.labelParticipants')}:</strong>{' '}
+                      {t('mgr.participantsCount', {
+                        count: event.participants_count ?? 0,
+                        max:
+                          event.max_participants != null
+                            ? event.max_participants
+                            : event.maxParticipants != null
+                              ? event.maxParticipants
+                              : 'в€ћ',
+                      })}
+                    </span>
+                    <span><strong>{t('mgr.labelCost')}:</strong> {event.cost || t('mgr.costFree')}</span>
                   </div>
 
                   <div className="event-expanded-content">
                     <p className="event-description">
-                      {event.description || 'No description yet.'}
+                      {event.description || t('db.noDesc')}
                     </p>
 
                     <div className="event-card-actions">
@@ -1003,7 +1151,7 @@ const ManagerProfile = () => {
                         className="cat-edit-btn"
                         onClick={() => openEditEventModal(event)}
                       >
-                        Edit
+                        {t('db.btnEdit')}
                       </button>
                       
                       <select
@@ -1011,10 +1159,10 @@ const ManagerProfile = () => {
                         onChange={(e) => handleUpdateEventStatus(event.id, e.target.value)}
                         className="status-select"
                       >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="cancelled">Cancelled</option>
-                        <option value="completed">Completed</option>
+                        <option value="active">{t('mgr.eventStatusActive')}</option>
+                        <option value="inactive">{t('mgr.eventStatusInactive')}</option>
+                        <option value="cancelled">{t('mgr.eventStatusCancelled')}</option>
+                        <option value="completed">{t('mgr.eventStatusCompleted')}</option>
                       </select>
 
                       <button
@@ -1022,7 +1170,7 @@ const ManagerProfile = () => {
                         className="cat-delete-btn"
                         onClick={() => handleDeleteEvent(event.id)}
                       >
-                        Delete
+                        {t('db.btnDelete')}
                       </button>
                     </div>
                   </div>
@@ -1037,45 +1185,46 @@ const ManagerProfile = () => {
         <div className="modal-overlay">
           <div className="modal-card">
             <div className="modal-head">
-              <h3>{editingCatId ? 'Edit Cat Profile' : 'Add New Cat'}</h3>
+              <h3>{editingCatId ? t('mgr.editCatProfile') : t('mgr.addNewCat')}</h3>
               <button
                 className="modal-close"
                 type="button"
                 onClick={closeCatModal}
+                aria-label={t('gal.closeModal')}
               >
-                ×
+                <FiX size={18} />
               </button>
             </div>
 
             <form onSubmit={handleSaveCat} className="cat-form">
               <div className="form-group">
-                <label>Name</label>
+                <label>{t('db.labelName')}</label>
                 <input
                   type="text"
                   value={newCatData.name}
                   onChange={(e) =>
                     setNewCatData((prev) => ({ ...prev, name: e.target.value }))
                   }
-                  placeholder="Cat name"
+                  placeholder={t('db.phCatName')}
                   required
                 />
               </div>
 
               <div className="form-group">
-                <label>Breed</label>
+                <label>{t('db.labelBreed')}</label>
                 <input
                   type="text"
                   value={newCatData.breed}
                   onChange={(e) =>
                     setNewCatData((prev) => ({ ...prev, breed: e.target.value }))
                   }
-                  placeholder="Breed"
+                  placeholder={t('db.phBreed')}
                   required
                 />
               </div>
 
               <div className="form-group">
-                <label>Gender</label>
+                <label>{t('db.labelGender')}</label>
                 <select
                   value={newCatData.gender}
                   onChange={(e) =>
@@ -1083,14 +1232,14 @@ const ManagerProfile = () => {
                   }
                   required
                 >
-                  <option value="">Select gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
+                  <option value="">{t('db.genderSelect')}</option>
+                  <option value="male">{t('gal.male')}</option>
+                  <option value="female">{t('gal.female')}</option>
                 </select>
               </div>
 
               <div className="form-group">
-                <label>Birth date</label>
+                <label>{t('db.labelBirth')}</label>
                 <input
                   type="date"
                   value={newCatData.birthDate}
@@ -1101,19 +1250,19 @@ const ManagerProfile = () => {
               </div>
 
               <div className="form-group">
-                <label>Personality</label>
+                <label>{t('db.labelPersonality')}</label>
                 <input
                   type="text"
                   value={newCatData.personality}
                   onChange={(e) =>
                     setNewCatData((prev) => ({ ...prev, personality: e.target.value }))
                   }
-                  placeholder="e.g. playful, calm, social"
+                  placeholder={t('db.phPersonality')}
                 />
               </div>
 
               <div className="form-group">
-                <label>Photo</label>
+                <label>{t('db.labelPhoto')}</label>
                 <input
                   type="file"
                   accept="image/*"
@@ -1128,7 +1277,7 @@ const ManagerProfile = () => {
                 {catImagePreview && (
                   <img
                     src={catImagePreview}
-                    alt="Cat preview"
+                    alt={t('db.catPreview')}
                     style={{
                       width: '100%',
                       maxHeight: '180px',
@@ -1141,42 +1290,23 @@ const ManagerProfile = () => {
               </div>
 
               <div className="form-group">
-                <label>Vaccinations</label>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <input
-                    type="text"
-                    value={newCatData.vaccinationInput}
-                    onChange={(e) =>
-                      setNewCatData((prev) => ({ ...prev, vaccinationInput: e.target.value }))
-                    }
-                    placeholder="Add vaccination"
-                    style={{ flex: 1 }}
-                  />
-                  <button
-                    type="button"
-                    className="primary-btn"
-                    onClick={addVaccination}
-                  >
-                    + Add vaccine
-                  </button>
-                </div>
+                <label>{t('db.labelDesc')}</label>
+                <textarea
+                  value={newCatData.description}
+                  onChange={(e) =>
+                    setNewCatData((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder={t('db.phDesc')}
+                  rows="4"
+                  required
+                />
+              </div>
 
-                {newCatData.vaccinations.length > 0 && (
-                  <div className="cat-vaccination-list" style={{ marginTop: '12px' }}>
-                    {newCatData.vaccinations.map((item, index) => (
-                      <button
-                        key={`${item}-${index}`}
-                        type="button"
-                        className="cat-vaccination-chip"
-                        onClick={() => removeVaccination(item)}
-                        title="Remove vaccination"
-                      >
-                        {item} ×
-                      </button>
-                    ))}
-                  </div>
-                )}
-
+              <div className="form-group">
+                <label>{t('db.vaccinations')}</label>
                 {editingCatId ? (
                   <button
                     type="button"
@@ -1188,25 +1318,19 @@ const ManagerProfile = () => {
                     }}
                     style={{ width: '100%' }}
                   >
-                    Open vaccination calendar
+                    {t('db.openCal')}
                   </button>
-                ) : null}
-              </div>
-
-              <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  value={newCatData.description}
-                  onChange={(e) =>
-                    setNewCatData((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                  placeholder="Detailed cat description"
-                  rows="4"
-                  required
-                />
+                ) : (
+                  <button
+                    type="submit"
+                    className="secondary-btn"
+                    onClick={() => setOpenCalendarAfterSave(true)}
+                    style={{ width: '100%' }}
+                    title={t('db.saveOpenCalTitle')}
+                  >
+                    {t('db.saveOpenCal')}
+                  </button>
+                )}
               </div>
 
               <div className="form-actions">
@@ -1215,10 +1339,14 @@ const ManagerProfile = () => {
                   className="secondary-btn"
                   onClick={closeCatModal}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
-                <button type="submit" className="primary-btn">
-                  {editingCatId ? 'Save changes' : 'Save Cat'}
+                <button
+                  type="submit"
+                  className="primary-btn"
+                  onClick={() => setOpenCalendarAfterSave(false)}
+                >
+                  {editingCatId ? t('mgr.saveChanges') : t('db.saveCat')}
                 </button>
               </div>
             </form>
@@ -1230,41 +1358,42 @@ const ManagerProfile = () => {
         <div className="modal-overlay">
           <div className="modal-card">
             <div className="modal-head">
-              <h3>{editingEvent ? 'Edit Event' : 'Add New Event'}</h3>
+              <h3>{editingEvent ? t('mgr.editEvent') : t('mgr.addNewEvent')}</h3>
               <button
                 className="modal-close"
                 type="button"
                 onClick={closeEventModal}
+                aria-label={t('gal.closeModal')}
               >
-                ×
+                <FiX size={18} />
               </button>
             </div>
 
             <form onSubmit={handleSaveEvent} className="event-form">
               <div className="form-group">
-                <label>Event Title</label>
+                <label>{t('mgr.labelEventTitle')}</label>
                 <input
                   type="text"
                   value={eventForm.title}
                   onChange={(e) => handleEventFormChange('title', e.target.value)}
-                  placeholder="Event title"
+                  placeholder={t('mgr.phEventTitle')}
                   required
                 />
               </div>
 
               <div className="form-group">
-                <label>Description</label>
+                <label>{t('db.labelDesc')}</label>
                 <textarea
                   value={eventForm.description}
                   onChange={(e) => handleEventFormChange('description', e.target.value)}
-                  placeholder="Event description"
+                  placeholder={t('mgr.phEventDesc')}
                   rows="4"
                   required
                 />
               </div>
 
               <div className="form-group">
-                <label>Photo/Poster</label>
+                <label>{t('mgr.labelEventPoster')}</label>
                 <input
                   type="file"
                   accept="image/*"
@@ -1273,7 +1402,7 @@ const ManagerProfile = () => {
                 {eventForm.imagePreview && (
                   <img
                     src={eventForm.imagePreview}
-                    alt="Event preview"
+                    alt={t('mgr.eventPreview')}
                     style={{
                       width: '100%',
                       maxHeight: '180px',
@@ -1285,46 +1414,67 @@ const ManagerProfile = () => {
                 )}
               </div>
 
+              <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label>{t('mgr.labelDate')}</label>
+                  <input
+                    type="date"
+                    value={eventForm.date}
+                    onChange={(e) => handleEventFormChange('date', e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>{t('mgr.labelEventTime')}</label>
+                  <input
+                    type="time"
+                    value={eventForm.eventTime}
+                    onChange={(e) => handleEventFormChange('eventTime', e.target.value)}
+                  />
+                </div>
+              </div>
+
               <div className="form-group">
-                <label>Date</label>
+                <label>{t('mgr.labelMaxParticipants')}</label>
                 <input
-                  type="date"
-                  value={eventForm.date}
-                  onChange={(e) => handleEventFormChange('date', e.target.value)}
+                  type="number"
+                  min="1"
+                  value={eventForm.maxParticipants}
+                  onChange={(e) => handleEventFormChange('maxParticipants', e.target.value)}
+                  placeholder={t('mgr.phMaxParticipants')}
                 />
               </div>
 
               <div className="form-group">
-                <label>Location</label>
+                <label>{t('mgr.labelLocation')}</label>
                 <input
                   type="text"
                   value={eventForm.location}
                   onChange={(e) => handleEventFormChange('location', e.target.value)}
-                  placeholder="Event location"
+                  placeholder={t('mgr.phLocation')}
                   required
                 />
               </div>
 
               <div className="form-group">
-                <label>Cost</label>
+                <label>{t('mgr.labelCost')}</label>
                 <input
                   type="text"
                   value={eventForm.cost}
                   onChange={(e) => handleEventFormChange('cost', e.target.value)}
-                  placeholder="e.g., Free, 50 UAH, 100-200 UAH"
+                  placeholder={t('mgr.phCost')}
                 />
               </div>
 
               <div className="form-group">
-                <label>Status</label>
+                <label>{t('db.status')}</label>
                 <select
                   value={eventForm.status}
                   onChange={(e) => handleEventFormChange('status', e.target.value)}
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="completed">Completed</option>
+                  <option value="active">{t('mgr.eventStatusActive')}</option>
+                  <option value="inactive">{t('mgr.eventStatusInactive')}</option>
+                  <option value="cancelled">{t('mgr.eventStatusCancelled')}</option>
+                  <option value="completed">{t('mgr.eventStatusCompleted')}</option>
                 </select>
               </div>
 
@@ -1334,10 +1484,10 @@ const ManagerProfile = () => {
                   className="secondary-btn"
                   onClick={closeEventModal}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" className="primary-btn">
-                  {editingEvent ? 'Save Changes' : 'Add Event'}
+                  {editingEvent ? t('mgr.saveChanges') : t('mgr.addEventBtn')}
                 </button>
               </div>
             </form>

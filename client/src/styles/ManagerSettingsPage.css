@@ -15,9 +15,14 @@
 
 .settings-header-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
   color: white;
+}
+
+.settings-header-lang {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .back-btn {
