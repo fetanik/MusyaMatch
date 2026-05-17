@@ -1,5 +1,5 @@
 .calendar-wrapper {
-  background-color: #FFF5EC;
+  background-color: transparent;
   min-height: 100vh;
   padding: 20px 20px 110px;
   font-family: 'Poppins', sans-serif;
@@ -37,10 +37,45 @@
   text-align: center;
   display: flex;
   flex-direction: column;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.summary-card.completed { border-bottom: 4px solid #4CAF50; }
-.summary-card:not(.completed) { border-bottom: 4px solid #FFB347; }
+.summary-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+.summary-card:focus-visible {
+  outline: 2px solid #ffb347;
+  outline-offset: 2px;
+}
+
+button.summary-card {
+  appearance: none;
+  border: none;
+  border-bottom: 4px solid #ffb347;
+}
+
+button.summary-card.completed {
+  border-bottom-color: #4caf50;
+}
+
+.summary-card.summary-card--active:not(.completed) {
+  box-shadow: 0 0 0 2px #ffb347, 0 4px 14px rgba(255, 179, 71, 0.25);
+}
+
+.summary-card.completed.summary-card--active {
+  box-shadow: 0 0 0 2px #4caf50, 0 4px 14px rgba(76, 175, 80, 0.22);
+}
+
+.vax-info .vax-filter-hint {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: #636e72;
+}
 
 .vax-list { display: flex; flex-direction: column; gap: 15px; }
 

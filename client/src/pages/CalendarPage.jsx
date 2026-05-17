@@ -4,6 +4,7 @@ import { ChevronLeft, Syringe, CheckCircle2, Clock } from 'lucide-react';
 import '../styles/CalendarPage.css';
 import BottomNav from '../components/BottomNav';
 import { useMessages } from '../components/MessagesContext';
+import { useI18n } from '../i18n/I18nContext';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 const normalizeVaccinationNames = (value) => {
@@ -36,6 +37,7 @@ const normalizeVaccinationNames = (value) => {
 
 const CalendarPage = () => {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const { notify } = useMessages();
   const location = useLocation();
   const { catId } = useParams();
@@ -57,6 +59,8 @@ const CalendarPage = () => {
     notes: '',
   });
   const [saving, setSaving] = useState(false);
+  /** null = show all; click summary card to filter, click again to clear */
+  const [vaxListFilter, setVaxListFilter] = useState(null);
 
   const isManagerRoute = location.pathname.startsWith('/manager/');
   const backFallback = isManagerRoute ? '/manager/profile' : '/dashboard';
@@ -64,7 +68,7 @@ const CalendarPage = () => {
   useEffect(() => {
     const run = async () => {
       if (!Number.isInteger(numericCatId) || numericCatId <= 0) {
-        setPageError('Invalid cat id.');
+        setPageError(t('cal.invalidCat'));
         setLoading(false);
         return;
       }
@@ -94,14 +98,14 @@ const CalendarPage = () => {
         const vaxData = await vaxRes.json();
         setVaccinations(Array.isArray(vaxData) ? vaxData : []);
       } catch (e) {
-        setPageError(e?.message || 'Failed to load page');
+        setPageError(e?.message || t('cal.errLoadPage'));
       } finally {
         setLoading(false);
       }
     };
 
     run();
-  }, [numericCatId]);
+  }, [numericCatId, t]);
 
   const visibleVaccinations = useMemo(() => {
     const reminderNames = new Set(
@@ -131,6 +135,11 @@ const CalendarPage = () => {
     () => visibleVaccinations.filter((item) => item.status === 'completed').length,
     [visibleVaccinations]
   );
+
+  const filteredVaccinations = useMemo(() => {
+    if (!vaxListFilter) return visibleVaccinations;
+    return visibleVaccinations.filter((item) => item.status === vaxListFilter);
+  }, [visibleVaccinations, vaxListFilter]);
 
   const closeModal = () => {
     setIsModalOpen(false);
@@ -163,7 +172,7 @@ const CalendarPage = () => {
       closeModal();
     } catch (e2) {
       console.error(e2);
-      await notify('Failed to add vaccination. Please try again.', { type: 'error', title: 'Error' });
+      await notify(t('cal.errAdd'), { type: 'error', title: t('common.error') });
     } finally {
       setSaving(false);
     }
@@ -176,15 +185,15 @@ const CalendarPage = () => {
           <button className="back-btn" onClick={() => navigate(backFallback)}>
             <ChevronLeft size={24} />
           </button>
-          <h1>Vaccination Calendar</h1>
+          <h1>{t('cal.title')}</h1>
         </header>
 
         <main className="calendar-content">
           <div className="vax-list">
             <div className="vax-card upcoming">
               <div className="vax-info">
-                <h3>Loading…</h3>
-                <p>Please wait.</p>
+                <h3>{t('cal.loadingTitle')}</h3>
+                <p>{t('cal.loadingHint')}</p>
               </div>
             </div>
           </div>
@@ -201,20 +210,19 @@ const CalendarPage = () => {
           <button className="back-btn" onClick={() => navigate(backFallback)}>
             <ChevronLeft size={24} />
           </button>
-          <h1>Vaccination Calendar</h1>
+          <h1>{t('cal.title')}</h1>
         </header>
 
         <main className="calendar-content">
           <div className="vax-list">
             <div className="vax-card upcoming">
               <div className="vax-info">
-                <h3>Cat not found</h3>
+                <h3>{t('cal.catNotFound')}</h3>
                 <p>
-                  {pageError ||
-                    'Please go back and open the vaccination page from the cat card.'}
+                  {pageError || t('cal.catNotFoundHint')}
                 </p>
                 <p style={{ marginTop: 6, fontSize: 12, color: '#636E72' }}>
-                  Cat ID: {String(catId)}
+                  {t('cal.catId')}: {String(catId)}
                 </p>
               </div>
             </div>
@@ -231,36 +239,60 @@ const CalendarPage = () => {
         <button className="back-btn" onClick={() => navigate(-1)}>
           <ChevronLeft size={24} />
         </button>
-        <h1>{cat?.name ? `${cat.name} vaccinations` : 'Vaccination Calendar'}</h1>
+        <h1>{cat?.name ? t('cal.titleWithName', { name: cat.name }) : t('cal.title')}</h1>
       </header>
 
       <main className="calendar-content">
         <div className="status-summary">
-          <div className="summary-card">
+          <button
+            type="button"
+            className={`summary-card${vaxListFilter === 'upcoming' ? ' summary-card--active' : ''}`}
+            onClick={() => setVaxListFilter((f) => (f === 'upcoming' ? null : 'upcoming'))}
+            aria-pressed={vaxListFilter === 'upcoming'}
+            aria-label={t('cal.filterUpcomingAria')}
+          >
             <span className="count">{upcomingCount}</span>
-            <span className="label">Upcoming</span>
-          </div>
-          <div className="summary-card completed">
+            <span className="label">{t('cal.upcoming')}</span>
+          </button>
+          <button
+            type="button"
+            className={`summary-card completed${vaxListFilter === 'completed' ? ' summary-card--active' : ''}`}
+            onClick={() => setVaxListFilter((f) => (f === 'completed' ? null : 'completed'))}
+            aria-pressed={vaxListFilter === 'completed'}
+            aria-label={t('cal.filterDoneAria')}
+          >
             <span className="count">{doneCount}</span>
-            <span className="label">Done</span>
-          </div>
+            <span className="label">{t('cal.done')}</span>
+          </button>
         </div>
 
         <div className="vax-list">
           {visibleVaccinations.length === 0 ? (
             <div className="vax-card upcoming">
               <div className="vax-info">
-                <h3>No reminders yet</h3>
-                <p>Add the first vaccination reminder for this cat.</p>
+                <h3>{t('cal.noReminders')}</h3>
+                <p>{t('cal.noRemindersHint')}</p>
               </div>
             </div>
-          ) : visibleVaccinations.map((vax) => (
+          ) : filteredVaccinations.length === 0 ? (
+            <div className="vax-card upcoming">
+              <div className="vax-info">
+                <h3>{t('cal.noItemsView')}</h3>
+                <p>
+                  {vaxListFilter === 'upcoming'
+                    ? t('cal.noUpcomingList')
+                    : t('cal.noCompletedList')}
+                </p>
+                <p className="vax-filter-hint">{t('cal.filterHint')}</p>
+              </div>
+            </div>
+          ) : filteredVaccinations.map((vax) => (
             <div key={vax.id} className={`vax-card ${vax.status}`}>
               <div className="vax-icon"><Syringe size={20} /></div>
               <div className="vax-info">
                 <h3>{vax.name}</h3>
                 <p>
-                  {vax.dueDate || 'No date'} • {vax.source === 'profile' ? 'From cat profile' : 'Reminder'}
+                  {vax.dueDate || t('cal.noDate')} • {vax.source === 'profile' ? t('cal.fromProfile') : t('cal.reminder')}
                 </p>
               </div>
               <div className="vax-status">
@@ -274,7 +306,7 @@ const CalendarPage = () => {
         </div>
 
         <button className="add-vax-btn" type="button" onClick={() => setIsModalOpen(true)}>
-          + Add Reminder
+          {t('cal.addReminder')}
         </button>
       </main>
 
@@ -282,7 +314,7 @@ const CalendarPage = () => {
         <div className="modal-overlay">
           <div className="modal-card">
             <div className="modal-head">
-              <h3>Add vaccine reminder</h3>
+              <h3>{t('cal.modalTitle')}</h3>
               <button type="button" className="modal-close" onClick={closeModal}>
                 ×
               </button>
@@ -290,18 +322,18 @@ const CalendarPage = () => {
 
             <form className="cat-form" onSubmit={handleCreate}>
               <div className="form-group">
-                <label>Vaccine name</label>
+                <label>{t('cal.vaccineName')}</label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="Example: Rabies"
+                  placeholder={t('cal.phVaccine')}
                 />
               </div>
 
               <div className="form-grid">
                 <div className="form-group">
-                  <label>Due date</label>
+                  <label>{t('cal.dueDate')}</label>
                   <input
                     type="date"
                     value={form.dueDate}
@@ -310,33 +342,33 @@ const CalendarPage = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Status</label>
+                  <label>{t('cal.status')}</label>
                   <select
                     value={form.status}
                     onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
                   >
-                    <option value="upcoming">Upcoming</option>
-                    <option value="completed">Completed</option>
+                    <option value="upcoming">{t('cal.statusUpcoming')}</option>
+                    <option value="completed">{t('cal.statusCompleted')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="form-group">
-                <label>Notes (optional)</label>
+                <label>{t('cal.notes')}</label>
                 <textarea
                   rows="3"
                   value={form.notes}
                   onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                  placeholder="Anything important…"
+                  placeholder={t('cal.phNotes')}
                 />
               </div>
 
               <div className="modal-actions">
                 <button type="button" className="secondary-btn" onClick={closeModal}>
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" className="primary-btn" disabled={saving}>
-                  {saving ? 'Saving…' : 'Add reminder'}
+                  {saving ? t('cal.saving') : t('cal.addReminderBtn')}
                 </button>
               </div>
             </form>
