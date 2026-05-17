@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import '../styles/DashboardPage.css';
 
 import {
@@ -20,11 +20,14 @@ import {
 } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
 import { useMessages } from '../components/MessagesContext';
+import { useI18n } from '../i18n/I18nContext';
+import { resolveUploadedImageUrl } from '../utils/mediaUrl';
+import { apiUrl } from '../utils/apiUrl';
 
-const CATS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/cats`;
+const CATS_API = apiUrl('/api/cats');
 const USERS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/users`;
 const ACHIEVEMENTS_API = `${import.meta.env.VITE_API_BASE_URL || ''}/api/achievements`;
-const NEEDS_API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || ''}/api/needs`;
+const NEEDS_API_BASE_URL = apiUrl('/api/needs');
 
 const emptyForm = {
   name: '',
@@ -33,7 +36,6 @@ const emptyForm = {
   birthDate: '',
   personality: '',
   description: '',
-  vaccinationInput: '',
   vaccinations: [],
   imageFile: null,
   imagePreview: '',
@@ -77,23 +79,59 @@ const getCurrentUserId = () => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 };
 
-const getStatusMeta = (cat) => {
+const getStatusMeta = (cat, t) => {
   if (cat.listingType === 'foster' || cat.listingStatus === 'pending') {
-    return { label: 'Fostered', className: 'fostered' };
+    return { label: t('db.statusFostered'), className: 'fostered' };
   }
 
   const catOrigin = String(cat.sourceType || cat.source || '').toLowerCase();
   const isShelterOrigin = catOrigin === 'shelter';
   if ((cat.listingStatus === 'placed' || cat.listingStatus === 'adopted') && isShelterOrigin) {
-    return { label: 'Adopted', className: 'adopted' };
+    return { label: t('db.statusAdopted'), className: 'adopted' };
   }
 
-  return { label: 'Private', className: 'available' };
+  return { label: t('db.statusPrivate'), className: 'available' };
 };
 
-const formatBirthDate = (birthDate) => {
-  if (!birthDate) return 'Not specified';
+const formatBirthDate = (birthDate, t) => {
+  if (!birthDate) return t('db.notSpecified');
   return birthDate;
+};
+
+const formatShortDate = (value, localeTag = 'en-US') => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString(localeTag, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+};
+
+const formatRequestDateTime = (value, localeTag, t) => {
+  if (!value) return t('db.notSpecified');
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString(localeTag, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const formatRequestType = (type, t) => {
+  if (type === 'foster') return t('db.foster');
+  if (type === 'adoption') return t('db.adoption');
+  return type || '—';
+};
+
+const formatRequestStatus = (status, t) => {
+  if (status === 'approved') return t('db.statusApproved');
+  if (status === 'rejected') return t('db.statusRejected');
+  return t('db.statusPending');
 };
 
 const getCatOwnerId = (cat) => {
@@ -142,7 +180,7 @@ const getCurrentUserContext = () => {
   }
 };
 
-const getNeedShelterInfo = (need) => {
+const getNeedShelterInfo = (need, t) => {
   if (need?.shelter?.name || need?.shelter?.address) {
     return need.shelter;
   }
@@ -159,7 +197,7 @@ const getNeedShelterInfo = (need) => {
     need?.location;
   if (nameFromNeed || addressFromNeed) {
     return {
-      name: nameFromNeed || 'My Shelter',
+      name: nameFromNeed || t('sNeeds.shelterFallback'),
       address: addressFromNeed || '',
     };
   }
@@ -169,6 +207,9 @@ const getNeedShelterInfo = (need) => {
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { notify, confirm } = useMessages();
+  const { locale, t } = useI18n();
+  const dateLocale = locale === 'uk' ? 'uk-UA' : 'en-US';
+
   const userId = getCurrentUserId();
   const userName = localStorage.getItem('userName') || 'Alex Johnson';
 
@@ -191,6 +232,14 @@ const DashboardPage = () => {
   const [isFosterModalOpen, setIsFosterModalOpen] = useState(false);
   const [selectedFosterCat, setSelectedFosterCat] = useState(null);
   const [fosterForm, setFosterForm] = useState(emptyFosterForm);
+
+  const [sentRequests, setSentRequests] = useState([]);
+  const [sentRequestsLoading, setSentRequestsLoading] = useState(false);
+  const [receivedRequests, setReceivedRequests] = useState([]);
+  const [receivedRequestsLoading, setReceivedRequestsLoading] = useState(false);
+  const [requestActionLoadingId, setRequestActionLoadingId] = useState(null);
+  const [sentRequestDeletingId, setSentRequestDeletingId] = useState(null);
+  const [receivedRequestDeletingId, setReceivedRequestDeletingId] = useState(null);
 
   const [needs, setNeeds] = useState([]);
   const carouselRef = useRef(null);
@@ -264,17 +313,57 @@ const DashboardPage = () => {
       }
     } catch (error) {
       console.error(error);
-      setPageError(error.message || 'Failed to load cats');
+      setPageError(error.message || t('gal.failLoad'));
     } finally {
       setLoading(false);
     }
-  }, [userId, fetchCatVaccinations]);
+  }, [userId, fetchCatVaccinations, t]);
+
+  const fetchSentRequests = useCallback(async () => {
+    if (!userId) return;
+    try {
+      setSentRequestsLoading(true);
+      const response = await fetch(`${CATS_API}/foster-requests/sent/${userId}`);
+      const data = await response.json().catch(() => []);
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to load sent requests');
+      }
+      setSentRequests(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to load sent requests:', error);
+    } finally {
+      setSentRequestsLoading(false);
+    }
+  }, [userId]);
+
+  const fetchReceivedRequests = useCallback(async () => {
+    if (!userId) return;
+    try {
+      setReceivedRequestsLoading(true);
+      const response = await fetch(`${CATS_API}/foster-requests/received/${userId}`);
+      const data = await response.json().catch(() => []);
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to load foster requests');
+      }
+      setReceivedRequests(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to load foster requests:', error);
+    } finally {
+      setReceivedRequestsLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    fetchSentRequests();
+    fetchReceivedRequests();
+  }, [userId, cats.length, fetchSentRequests, fetchReceivedRequests]);
 
   useEffect(() => {
     const fetchShelterByUserId = async (targetUserId) => {
       const parsedUserId = toPositiveInt(targetUserId);
       if (!parsedUserId) return null;
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/shelter/profile/${parsedUserId}`);
+      const response = await fetch(apiUrl(`/api/shelter/profile/${parsedUserId}`));
       if (!response.ok) return null;
       const profile = await response.json().catch(() => null);
       if (!profile) return null;
@@ -304,34 +393,16 @@ const DashboardPage = () => {
 
     const loadNeedsForCarousel = async () => {
       try {
-        const { userId: ctxUserId, shelterId } = getCurrentUserContext();
-        const params = new URLSearchParams();
-        if (shelterId) params.set('shelterId', String(shelterId));
-        if (ctxUserId) params.set('userId', String(ctxUserId));
-
-        const url = params.toString()
-          ? `${NEEDS_API_BASE_URL}?${params.toString()}`
-          : NEEDS_API_BASE_URL;
-        const response = await fetch(url);
+        const response = await fetch(NEEDS_API_BASE_URL);
         if (!response.ok) {
           throw new Error('Failed to load shelter needs');
         }
 
-        let data = await response.json();
+        const data = await response.json();
         let realNeeds = (Array.isArray(data) ? data : [])
-          .filter((need) => need?.status === 'open')
+          .filter((need) => String(need?.status || 'open').toLowerCase() === 'open')
           .map((need) => ({ ...need, _carouselKey: `real-${need.id}` }));
 
-        // Fallback: if owner-scoped query is empty, show open DB needs.
-        if (realNeeds.length === 0 && (ctxUserId || shelterId)) {
-          const allNeedsResponse = await fetch(NEEDS_API_BASE_URL);
-          if (allNeedsResponse.ok) {
-            data = await allNeedsResponse.json();
-            realNeeds = (Array.isArray(data) ? data : [])
-              .filter((need) => need?.status === 'open')
-              .map((need) => ({ ...need, _carouselKey: `real-${need.id}` }));
-          }
-        }
         realNeeds = await enrichNeedsWithShelter(realNeeds);
         setNeeds(realNeeds);
       } catch (error) {
@@ -342,14 +413,14 @@ const DashboardPage = () => {
 
     if (!userId) {
       setLoading(false);
-      setPageError('User ID was not found. Please log in or save your profile first.');
+      setPageError(t('db.pageErrUserId'));
       loadNeedsForCarousel();
       return;
     }
 
     fetchMyCats();
     loadNeedsForCarousel();
-  }, [fetchMyCats, userId]);
+  }, [fetchMyCats, userId, t]);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -435,17 +506,35 @@ const DashboardPage = () => {
     return definitions.filter((def) => Number(completedByType[def.type] || 0) > 0).length;
   }, [achievementsSummary]);
 
-  const totalPoints = Number(achievementsSummary?.points ?? 0);
+  const balancePoints = Number(achievementsSummary?.points ?? 0);
+  const lifetimePoints = Number(
+    achievementsSummary?.pointsLifetime ?? achievementsSummary?.points_lifetime ?? balancePoints,
+  );
   const maxLevels = 10;
   const pointsPerLevel = 250;
-  const currentLevel = Math.min(maxLevels, Math.max(1, Math.floor(totalPoints / pointsPerLevel) + 1));
-  const pointsIntoLevel = Math.max(0, totalPoints - (currentLevel - 1) * pointsPerLevel);
-  const progressPercent = currentLevel === maxLevels ? 100 : Math.min(100, Math.max(0, (pointsIntoLevel / pointsPerLevel) * 100));
-  const pointsToNext = currentLevel === maxLevels ? 0 : pointsPerLevel - pointsIntoLevel;
+  const currentLevel = Math.min(
+    maxLevels,
+    Math.max(1, Math.floor(lifetimePoints / pointsPerLevel) + 1),
+  );
+  const pointsIntoLevel = Math.max(0, lifetimePoints - (currentLevel - 1) * pointsPerLevel);
+  const progressPercent =
+    currentLevel === maxLevels
+      ? 100
+      : Math.min(100, Math.max(0, (pointsIntoLevel / pointsPerLevel) * 100));
+  const pointsToNext =
+    currentLevel === maxLevels ? 0 : pointsPerLevel - pointsIntoLevel;
   const nextLevelText =
     currentLevel === maxLevels
-      ? 'Max level reached'
-      : `${pointsToNext} pts to Level ${currentLevel + 1}`;
+      ? t('db.maxLevel')
+      : t('db.ptsToNext', { n: pointsToNext, next: currentLevel + 1 });
+
+  const levelShortLabel = useMemo(() => {
+    const lvl = String(currentLevel);
+    const full = t('db.levelParent', { level: currentLevel });
+    const pos = full.indexOf(lvl);
+    if (pos === -1) return full;
+    return full.slice(0, pos + lvl.length).replace(/:+\s*$/, '').trim();
+  }, [t, currentLevel]);
 
   const openAddCatModal = () => {
     setEditingCat(null);
@@ -463,7 +552,6 @@ const DashboardPage = () => {
       birthDate: cat.birthDate || '',
       personality: cat.personality || '',
       description: cat.description || '',
-      vaccinationInput: '',
       vaccinations: normalizeVaccinations(cat.vaccinations),
       imageFile: null,
       imagePreview: cat.image_url || '',
@@ -480,12 +568,19 @@ const DashboardPage = () => {
 
   const openFosterModal = (cat) => {
     setSelectedFosterCat(cat);
+    const existingStart = cat.fosterStartDate || cat.foster_start_date || '';
+    const existingEnd = cat.fosterEndDate || cat.foster_end_date || '';
     setFosterForm({
-      startDate: '',
-      endDate: '',
-      comment: '',
-      location: userProfile?.address || localStorage.getItem('userAddress') || '',
-      urgency: '',
+      startDate: existingStart ? String(existingStart).slice(0, 10) : '',
+      endDate: existingEnd ? String(existingEnd).slice(0, 10) : '',
+      comment: cat.fosterComment || cat.foster_comment || '',
+      location:
+        cat.fosterCity ||
+        cat.foster_city ||
+        userProfile?.address ||
+        localStorage.getItem('userAddress') ||
+        '',
+      urgency: cat.urgency || '',
     });
     setIsFosterModalOpen(true);
   };
@@ -498,25 +593,6 @@ const DashboardPage = () => {
 
   const handleFormChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const addVaccination = () => {
-    const name = String(form.vaccinationInput || '').trim();
-    if (!name) return;
-    setForm((prev) => {
-      const list = Array.isArray(prev.vaccinations) ? prev.vaccinations : [];
-      if (list.includes(name)) {
-        return { ...prev, vaccinationInput: '' };
-      }
-      return { ...prev, vaccinationInput: '', vaccinations: [...list, name] };
-    });
-  };
-
-  const removeVaccination = (name) => {
-    setForm((prev) => ({
-      ...prev,
-      vaccinations: (Array.isArray(prev.vaccinations) ? prev.vaccinations : []).filter((v) => v !== name),
-    }));
   };
 
   const handleFosterFormChange = (field, value) => {
@@ -547,12 +623,12 @@ const DashboardPage = () => {
     e.preventDefault();
 
     if (!userId) {
-      await notify('User ID is missing. Please log in first.', { type: 'error', title: 'Error' });
+      await notify(t('db.notifyUserId'), { type: 'error', title: t('common.error') });
       return;
     }
 
     if (!form.name.trim()) {
-      await notify('Cat name is required.', { type: 'error', title: 'Error' });
+      await notify(t('db.notifyCatName'), { type: 'error', title: t('common.error') });
       return;
     }
 
@@ -606,18 +682,18 @@ const DashboardPage = () => {
       }
     } catch (error) {
       console.error(error);
-      await notify(error.message || 'Failed to save cat.', { type: 'error', title: 'Error' });
+      await notify(error.message || t('db.notifySaveFail'), { type: 'error', title: t('common.error') });
     } finally {
       setSaveLoading(false);
     }
   };
 
   const handleDeleteCat = async (cat) => {
-    const confirmed = await confirm(`Are you sure you want to delete ${cat.name}? This action cannot be undone.`, {
+    const confirmed = await confirm(t('db.deleteConfirm', { name: cat.name }), {
       type: 'confirm',
-      title: 'Delete cat',
-      confirmText: 'Yes, delete',
-      cancelText: 'Cancel',
+      title: t('db.deleteTitle'),
+      confirmText: t('db.deleteYes'),
+      cancelText: t('common.cancel'),
     });
     if (!confirmed) return;
 
@@ -637,7 +713,7 @@ const DashboardPage = () => {
       await fetchMyCats();
     } catch (error) {
       console.error(error);
-      await notify(error.message || 'Failed to delete cat.', { type: 'error', title: 'Error' });
+      await notify(error.message || t('db.notifyDeleteFail'), { type: 'error', title: t('common.error') });
     } finally {
       setDeleteLoadingId(null);
     }
@@ -649,46 +725,22 @@ const DashboardPage = () => {
     if (!selectedFosterCat) return;
 
     if (!fosterForm.startDate || !fosterForm.endDate) {
-      await notify('Please select foster period.', { type: 'error', title: 'Error' });
+      await notify(t('db.notifyFosterPeriod'), { type: 'error', title: t('common.error') });
       return;
     }
 
     if (fosterForm.endDate < fosterForm.startDate) {
-      await notify('End date cannot be earlier than start date.', { type: 'error', title: 'Error' });
+      await notify(t('db.notifyFosterDates'), { type: 'error', title: t('common.error') });
       return;
     }
 
     if (!fosterForm.urgency) {
-      await notify('Please select how urgent foster care is needed.', { type: 'error', title: 'Error' });
+      await notify(t('db.notifyFosterUrgent'), { type: 'error', title: t('common.error') });
       return;
     }
 
     try {
       setFosterLoadingId(selectedFosterCat.id);
-
-      const fosterResponse = await fetch(
-        `${CATS_API}/${selectedFosterCat.id}/foster-request`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            user_id: userId,
-            cat_id: selectedFosterCat.id,
-            start_date: fosterForm.startDate,
-            end_date: fosterForm.endDate,
-            comment: fosterForm.comment,
-            location: fosterForm.location,
-          }),
-        }
-      );
-
-      const fosterData = await fosterResponse.json().catch(() => ({}));
-
-      if (!fosterResponse.ok) {
-        throw new Error(fosterData?.message || 'Failed to send foster request');
-      }
 
       const updateResponse = await fetch(`${CATS_API}/${selectedFosterCat.id}`, {
         method: 'PUT',
@@ -709,6 +761,10 @@ const DashboardPage = () => {
           sourceType: selectedFosterCat.sourceType || 'private',
           source: selectedFosterCat.source || 'private',
           urgency: fosterForm.urgency,
+          fosterStartDate: fosterForm.startDate,
+          fosterEndDate: fosterForm.endDate,
+          fosterCity: fosterForm.location || null,
+          fosterComment: fosterForm.comment || null,
         }),
       });
 
@@ -719,13 +775,17 @@ const DashboardPage = () => {
       }
 
       await fetchMyCats();
+      await fetchReceivedRequests();
       closeFosterModal();
-      await notify(`${selectedFosterCat.name} was successfully submitted for fostering.`, { type: 'success', title: 'Success' });
+      await notify(t('db.notifyFosterOk', { name: selectedFosterCat.name }), {
+        type: 'success',
+        title: t('common.success'),
+      });
     } catch (error) {
       console.error(error);
-      await notify(error.message || 'Failed to submit foster request. Please try again.', {
+      await notify(error.message || t('db.notifyFosterFail'), {
         type: 'error',
-        title: 'Error',
+        title: t('common.error'),
       });
     } finally {
       setFosterLoadingId(null);
@@ -733,11 +793,11 @@ const DashboardPage = () => {
   };
 
   const handleWithdrawFoster = async (cat) => {
-    const confirmed = await confirm(`Withdraw foster request for ${cat.name}?`, {
+    const confirmed = await confirm(t('db.withdrawConfirm', { name: cat.name }), {
       type: 'confirm',
-      title: 'Withdraw foster request',
-      confirmText: 'Yes, withdraw',
-      cancelText: 'Cancel',
+      title: t('db.withdrawTitle'),
+      confirmText: t('db.withdrawYes'),
+      cancelText: t('common.cancel'),
     });
     if (!confirmed) return;
 
@@ -757,6 +817,10 @@ const DashboardPage = () => {
           sourceType: cat.sourceType || 'private',
           source: cat.source || 'private',
           urgency: null,
+          fosterStartDate: null,
+          fosterEndDate: null,
+          fosterCity: null,
+          fosterComment: null,
         }),
       });
 
@@ -767,12 +831,108 @@ const DashboardPage = () => {
       }
 
       await fetchMyCats();
-      await notify(`${cat.name} was successfully withdrawn from fostering.`, { type: 'success', title: 'Success' });
+      await fetchReceivedRequests();
+      await notify(t('db.notifyWithdrawOk', { name: cat.name }), {
+        type: 'success',
+        title: t('common.success'),
+      });
     } catch (error) {
       console.error(error);
-      await notify('Failed to withdraw foster request. Please try again.', { type: 'error', title: 'Error' });
+      await notify(t('db.notifyWithdrawFail'), { type: 'error', title: t('common.error') });
     } finally {
       setFosterLoadingId(null);
+    }
+  };
+
+  const removeFosterRequest = async (request, { scope, setDeletingId, onSuccess, failKey, restartKey, okKey }) => {
+    if (!userId || !request?.id) return;
+
+    const confirmKey = scope === 'received' ? 'db.recvRemoveConfirm' : 'db.sentRemoveConfirm';
+    const titleKey = scope === 'received' ? 'db.recvRemoveTitle' : 'db.sentRemoveTitle';
+    const yesKey = scope === 'received' ? 'db.recvRemoveYes' : 'db.sentRemoveYes';
+    const catName = request.cat?.name || t('common.unknown');
+
+    const confirmed = await confirm(t(confirmKey, { name: catName }), {
+      type: 'confirm',
+      title: t(titleKey),
+      confirmText: t(yesKey),
+      cancelText: t('common.cancel'),
+    });
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(request.id);
+      const removeUrl = `${CATS_API}/foster-requests/${request.id}?userId=${encodeURIComponent(String(userId))}`;
+      const response = await fetch(removeUrl, { method: 'DELETE' });
+      const rawText = await response.text();
+      let data = {};
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        data = {};
+      }
+      if (!response.ok) {
+        if (response.status === 404 && /Cannot DELETE/i.test(rawText)) {
+          throw new Error(t(restartKey));
+        }
+        throw new Error(data?.message || t(failKey));
+      }
+      onSuccess(request.id);
+      await notify(t(okKey), { type: 'success', title: t('msg.successTitle') });
+    } catch (error) {
+      console.error(error);
+      await notify(error.message || t(failKey), {
+        type: 'error',
+        title: t('common.error'),
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleDeleteSentRequest = (request) =>
+    removeFosterRequest(request, {
+      scope: 'sent',
+      setDeletingId: setSentRequestDeletingId,
+      onSuccess: (id) => setSentRequests((prev) => prev.filter((item) => item.id !== id)),
+      failKey: 'db.sentRemoveFail',
+      restartKey: 'db.sentRemoveRestart',
+      okKey: 'db.sentRemoveOk',
+    });
+
+  const handleDeleteReceivedRequest = (request) =>
+    removeFosterRequest(request, {
+      scope: 'received',
+      setDeletingId: setReceivedRequestDeletingId,
+      onSuccess: (id) => setReceivedRequests((prev) => prev.filter((item) => item.id !== id)),
+      failKey: 'db.recvRemoveFail',
+      restartKey: 'db.sentRemoveRestart',
+      okKey: 'db.recvRemoveOk',
+    });
+
+  const handleRequestDecision = async (requestId, status) => {
+    try {
+      setRequestActionLoadingId(requestId);
+      const response = await fetch(`${CATS_API}/foster-requests/${requestId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.message || `Failed to ${status} request`);
+      }
+      await fetchReceivedRequests();
+      await fetchMyCats();
+      await notify(
+        status === 'approved' ? t('db.notifyDecisionOkA') : t('db.notifyDecisionOkR'),
+        { type: 'success', title: t('db.updatedTitle') }
+      );
+    } catch (error) {
+      console.error(error);
+      await notify(error.message, { type: 'error', title: t('common.error') });
+    } finally {
+      setRequestActionLoadingId(null);
     }
   };
 
@@ -785,8 +945,8 @@ const DashboardPage = () => {
               <Cat color="#FFB347" size={24} />
             </div>
             <div className="text-info">
-              <h1>Hello, {userName}!</h1>
-              <p>Level {currentLevel} Cat Parent</p>
+              <h1>{t('db.hello', { name: userName })}</h1>
+              <p>{t('db.levelParent', { level: currentLevel })}</p>
             </div>
           </div>
           <button className="notification-btn" type="button">
@@ -796,19 +956,19 @@ const DashboardPage = () => {
 
         <div className="purr-points-card">
           <div className="points-header">
-            <p className="points-label">Your Purr-Points</p>
+            <p className="points-label">{t('db.purrPoints')}</p>
             <div className="points-icon-badge">
               <Award color="white" />
             </div>
           </div>
 
           <div className="points-value">
-            <h2>{totalPoints}</h2>
-            <span>pts</span>
+            <h2>{balancePoints}</h2>
+            <span>{t('db.pts')}</span>
           </div>
 
           <div className="level-info">
-            <span className="current-level">Level {currentLevel}</span>
+            <span className="current-level">{levelShortLabel}</span>
             <span className="points-to-next">{nextLevelText}</span>
           </div>
 
@@ -825,12 +985,12 @@ const DashboardPage = () => {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') navigate('/achievements');
               }}
-              title="Open achievements"
+              title={t('db.achievementsOpen')}
             >
-              <Star /> {achievementsCount} Achievements
+              <Star /> {t('db.achievementsCount', { n: achievementsCount })}
             </div>
             <div className="achievement-badge foster-badge">
-              <Heart fill="currentColor" /> {fosterCount} Fosters
+              <Heart fill="currentColor" /> {t('db.fostersCount', { n: fosterCount })}
             </div>
           </div>
         </div>
@@ -842,16 +1002,195 @@ const DashboardPage = () => {
             <Cpu />
           </div>
           <div className="ai-text">
-            <h3>Chat with Musya AI</h3>
-            <p>Get expert advice & find your perfect match</p>
+            <h3>{t('db.aiTitle')}</h3>
+            <p>{t('db.aiSub')}</p>
           </div>
           <button className="ai-action-btn" type="button" onClick={() => navigate('/chat')}>
             <MessageSquare />
           </button>
         </div>
 
+        <div className="my-cats-header" style={{ marginTop: '28px' }}>
+          <div>
+            <h2>{t('db.sentTitle')}</h2>
+            <p>{t('db.sentSub')}</p>
+          </div>
+        </div>
+
+        {sentRequestsLoading ? (
+          <div className="empty-card">
+            <p>{t('db.sentLoading')}</p>
+          </div>
+        ) : sentRequests.length === 0 ? (
+          <div className="empty-card">
+            <p>{t('db.sentEmpty')}</p>
+          </div>
+        ) : (
+          <div className="requests-list">
+            {sentRequests.map((request) => (
+              <article key={`sent-${request.id}`} className="request-card request-card--sent">
+                <button
+                  type="button"
+                  className="request-card-dismiss"
+                  onClick={() => handleDeleteSentRequest(request)}
+                  disabled={sentRequestDeletingId === request.id}
+                  aria-label={t('db.sentRemoveAria')}
+                  title={t('db.sentRemove')}
+                >
+                  <X size={18} />
+                </button>
+                <div className="request-card-top">
+                  {request.cat?.image_url ? (
+                    <img
+                      src={resolveUploadedImageUrl(request.cat.image_url)}
+                      alt={request.cat?.name || t('common.unknown')}
+                      className="request-card-image"
+                    />
+                  ) : (
+                    <div className="request-card-image request-card-image-placeholder" aria-hidden />
+                  )}
+                  <div className="request-card-main">
+                    <h3>{request.cat?.name || t('common.unknown')}</h3>
+                    <p className="request-card-type">{formatRequestType(request.type, t)}</p>
+                  </div>
+                </div>
+                <div className="request-card-details">
+                  <p>
+                    <strong>{t('db.owner')}:</strong>{' '}
+                    {request.owner?.firstName || t('db.unknownUser')}
+                  </p>
+                  <p>
+                    <strong>{t('db.status')}:</strong> {formatRequestStatus(request.status, t)}
+                  </p>
+                  <p>
+                    <strong>{t('db.experience')}:</strong> {request.experienceLevel || '—'}
+                  </p>
+                  {request.type === 'foster' ? (
+                    <p>
+                      <strong>{t('db.period')}:</strong>{' '}
+                      {formatShortDate(request.startDate, dateLocale)} –{' '}
+                      {formatShortDate(request.endDate, dateLocale)}
+                    </p>
+                  ) : null}
+                  <p>
+                    <strong>{t('db.created')}:</strong>{' '}
+                    {formatRequestDateTime(request.createdAt ?? request.created_at, dateLocale, t)}
+                  </p>
+                  {request.comment ? (
+                    <p>
+                      <strong>{t('db.comment')}:</strong> {request.comment}
+                    </p>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+        <div className="my-cats-header" style={{ marginTop: '28px' }}>
+          <div>
+            <h2>{t('db.reqTitle')}</h2>
+            <p>{t('db.reqSub')}</p>
+          </div>
+        </div>
+
+        {receivedRequestsLoading ? (
+          <div className="empty-card">
+            <p>{t('db.reqLoading')}</p>
+          </div>
+        ) : receivedRequests.length === 0 ? (
+          <div className="empty-card">
+            <p>{t('db.reqEmpty')}</p>
+          </div>
+        ) : (
+          <div className="requests-list">
+            {receivedRequests.map((request) => (
+              <article key={request.id} className="request-card request-card--sent">
+                <button
+                  type="button"
+                  className="request-card-dismiss"
+                  onClick={() => handleDeleteReceivedRequest(request)}
+                  disabled={receivedRequestDeletingId === request.id}
+                  aria-label={t('db.recvRemoveAria')}
+                  title={t('db.recvRemove')}
+                >
+                  <X size={18} />
+                </button>
+                <div className="request-card-top">
+                  {request.cat?.image_url ? (
+                    <img
+                      src={resolveUploadedImageUrl(request.cat.image_url)}
+                      alt={request.cat?.name || t('common.unknown')}
+                      className="request-card-image"
+                    />
+                  ) : (
+                    <div className="request-card-image request-card-image-placeholder" aria-hidden />
+                  )}
+
+                  <div className="request-card-main">
+                    <h3>{request.cat?.name || t('common.unknown')}</h3>
+                    <p className="request-card-type">{formatRequestType(request.type, t)}</p>
+                  </div>
+                </div>
+
+                <div className="request-card-details">
+                  <p>
+                    <strong>{t('db.applicant')}:</strong>{' '}
+                    {request.requester?.firstName || t('db.unknownUser')}
+                  </p>
+                  <p>
+                    <strong>{t('db.email')}:</strong> {request.requester?.email || '—'}
+                  </p>
+                  <p>
+                    <strong>{t('db.phone')}:</strong> {request.requester?.phone || '—'}
+                  </p>
+                  <p>
+                    <strong>{t('db.status')}:</strong> {formatRequestStatus(request.status, t)}
+                  </p>
+                  <p>
+                    <strong>{t('db.experience')}:</strong> {request.experienceLevel || '—'}
+                  </p>
+                  <p>
+                    <strong>{t('db.period')}:</strong> {formatShortDate(request.startDate, dateLocale)} –{' '}
+                    {formatShortDate(request.endDate, dateLocale)}
+                  </p>
+                  <p>
+                    <strong>{t('db.created')}:</strong>{' '}
+                    {formatRequestDateTime(request.createdAt ?? request.created_at, dateLocale, t)}
+                  </p>
+                  {request.comment ? (
+                    <p>
+                      <strong>{t('db.comment')}:</strong> {request.comment}
+                    </p>
+                  ) : null}
+                  {request.status === 'pending' ? (
+                    <div className="request-card-actions">
+                      <button
+                        type="button"
+                        className="request-approve-btn"
+                        onClick={() => handleRequestDecision(request.id, 'approved')}
+                        disabled={requestActionLoadingId === request.id}
+                      >
+                        {requestActionLoadingId === request.id ? t('db.updating') : t('db.approve')}
+                      </button>
+                      <button
+                        type="button"
+                        className="request-reject-btn"
+                        onClick={() => handleRequestDecision(request.id, 'rejected')}
+                        disabled={requestActionLoadingId === request.id}
+                      >
+                        {requestActionLoadingId === request.id ? t('db.updating') : t('db.reject')}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
         <div className="section-header">
-          <h2>Quick Actions</h2>
+          <h2>{t('db.quickTitle')}</h2>
         </div>
 
         <div className="quick-actions-grid">
@@ -859,48 +1198,48 @@ const DashboardPage = () => {
             <div className="action-icon">
               <PlusCircle />
             </div>
-            <h4>Add a Cat</h4>
-            <p>Create your cat profile</p>
+            <h4>{t('db.addCat')}</h4>
+            <p>{t('db.addCatSub')}</p>
           </div>
 
-          <div className="action-card">
+          <div className="action-card" onClick={() => navigate('/events')}>
             <div className="action-icon">
               <Users />
             </div>
-            <h4>Community</h4>
-            <p>Connect with others</p>
+            <h4>{t('db.community')}</h4>
+            <p>{t('db.communitySub')}</p>
           </div>
 
           <div className="action-card" onClick={() => navigate('/pharmacies')}>
             <div className="action-icon">
               <MapPin />
             </div>
-            <h4>Find Vet</h4>
-            <p>Nearby clinics</p>
+            <h4>{t('db.findVet')}</h4>
+            <p>{t('db.findVetSub')}</p>
           </div>
 
           <div className="action-card" onClick={() => navigate('/achievements')}>
             <div className="action-icon"><TrendingUp /></div>
-            <h4>My Progress</h4>
-            <p>View achievements</p>
+            <h4>{t('db.progress')}</h4>
+            <p>{t('db.progressSub')}</p>
           </div>
         </div>
 
         <div className="my-cats-header">
           <div>
-            <h2>My Cats</h2>
-            <p>Manage your cat profiles, vaccinations, and foster status</p>
+            <h2>{t('db.myCatsTitle')}</h2>
+            <p>{t('db.myCatsSub')}</p>
           </div>
 
           <button type="button" className="add-cat-btn" onClick={openAddCatModal}>
             <PlusCircle size={18} />
-            <span>Add Cat</span>
+            <span>{t('db.addCatBtn')}</span>
           </button>
         </div>
 
         {loading ? (
           <div className="empty-card">
-            <p>Loading cats...</p>
+            <p>{t('db.loadingCats')}</p>
           </div>
         ) : pageError ? (
           <div className="empty-card">
@@ -908,7 +1247,7 @@ const DashboardPage = () => {
           </div>
         ) : cats.length === 0 ? (
           <div className="empty-card">
-            <p>No cats added yet. Create your first cat profile.</p>
+            <p>{t('db.noCats')}</p>
           </div>
         ) : (
           <div className="cats-grid">
@@ -926,7 +1265,7 @@ const DashboardPage = () => {
               const completedNames = completedVaccinations
                 .map((item) => item.name)
                 .filter(Boolean);
-              const statusMeta = getStatusMeta(cat);
+              const statusMeta = getStatusMeta(cat, t);
               const isOnFoster =
                 cat.listingType === 'foster' || cat.listingStatus === 'pending';
 
@@ -934,7 +1273,7 @@ const DashboardPage = () => {
                 <article key={cat.id} className="cat-card">
                   {cat.image_url ? (
                     <img
-                      src={cat.image_url}
+                      src={resolveUploadedImageUrl(cat.image_url)}
                       alt={cat.name}
                       style={{
                         width: '100%',
@@ -949,7 +1288,7 @@ const DashboardPage = () => {
                   <div className="cat-card-head">
                     <div>
                       <h3>{cat.name}</h3>
-                      <p>{cat.breed || 'Breed not specified'}</p>
+                      <p>{cat.breed || t('db.breedUnknown')}</p>
                     </div>
 
                     <span className={`status-badge ${statusMeta.className}`}>
@@ -959,26 +1298,26 @@ const DashboardPage = () => {
 
                   <div className="cat-meta">
                     <span>
-                      <strong>Birth date:</strong> {formatBirthDate(cat.birthDate)}
+                      <strong>{t('db.birthDate')}:</strong> {formatBirthDate(cat.birthDate, t)}
                     </span>
                     <span>
-                      <strong>Vaccinations:</strong>{' '}
+                      <strong>{t('db.vaccinations')}:</strong>{' '}
                       {completedCount > 0
-                        ? `${completedCount} completed`
-                        : 'No vaccinations added yet.'}
+                        ? t('db.vaxCompleted', { n: completedCount })
+                        : t('db.vaxNone')}
                     </span>
                   </div>
 
                   <div className="cat-expanded-content">
                     <p className="cat-description">
-                      {cat.description || 'No description yet.'}
+                      {cat.description || t('db.noDesc')}
                     </p>
 
-                    <h4>Completed vaccinations</h4>
+                    <h4>{t('db.vaxCompletedTitle')}</h4>
                     <p className="cat-vaccinations-text">
                       {completedNames.length > 0
                         ? completedNames.join(', ')
-                        : 'No completed vaccinations yet.'}
+                        : t('db.vaxNoneCompleted')}
                     </p>
 
                     <div className="cat-card-actions">
@@ -987,7 +1326,7 @@ const DashboardPage = () => {
                         className="secondary-btn"
                         onClick={() => navigate(`/cats/${cat.id}/vaccinations`, { state: { cat } })}
                       >
-                        Vaccinations
+                        {t('db.btnVax')}
                       </button>
 
                       <button
@@ -996,7 +1335,7 @@ const DashboardPage = () => {
                         onClick={() => openEditCatModal(cat)}
                       >
                         <Pencil size={16} />
-                        Edit
+                        {t('db.btnEdit')}
                       </button>
 
                       <button
@@ -1006,7 +1345,7 @@ const DashboardPage = () => {
                         disabled={deleteLoadingId === cat.id}
                       >
                         <Trash2 size={16} />
-                        {deleteLoadingId === cat.id ? 'Deleting...' : 'Delete'}
+                        {deleteLoadingId === cat.id ? t('db.deleting') : t('db.btnDelete')}
                       </button>
 
                      <button
@@ -1022,8 +1361,8 @@ const DashboardPage = () => {
                         disabled={fosterLoadingId === cat.id}
 >
                        {fosterLoadingId === cat.id
-                       ? (isOnFoster ? 'Updating...' : 'Sending...')
-                       : (isOnFoster ? 'Withdraw foster' : 'Put on foster')}
+                       ? (isOnFoster ? t('db.updating') : t('db.sending'))
+                       : (isOnFoster ? t('db.withdrawFoster') : t('db.putFoster'))}
                      </button>
                     </div>
                   </div>
@@ -1038,7 +1377,7 @@ const DashboardPage = () => {
         <div className="modal-overlay">
           <div className="modal-card">
             <div className="modal-head">
-              <h3>{editingCat ? 'Edit Cat' : 'Add a Cat'}</h3>
+              <h3>{editingCat ? t('db.modalEditCat') : t('db.modalAddCat')}</h3>
               <button type="button" className="modal-close" onClick={closeCatModal}>
                 <X size={18} />
               </button>
@@ -1046,39 +1385,39 @@ const DashboardPage = () => {
 
             <form className="cat-form" onSubmit={handleSaveCat}>
               <div className="form-group">
-                <label>Name</label>
+                <label>{t('db.labelName')}</label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={(e) => handleFormChange('name', e.target.value)}
-                  placeholder="Cat name"
+                  placeholder={t('db.phCatName')}
                 />
               </div>
 
               <div className="form-group">
-                <label>Breed</label>
+                <label>{t('db.labelBreed')}</label>
                 <input
                   type="text"
                   value={form.breed}
                   onChange={(e) => handleFormChange('breed', e.target.value)}
-                  placeholder="Breed"
+                  placeholder={t('db.phBreed')}
                 />
               </div>
 
               <div className="form-group">
-                <label>Gender</label>
+                <label>{t('db.labelGender')}</label>
                 <select
                   value={form.gender}
                   onChange={(e) => handleFormChange('gender', e.target.value)}
                 >
-                  <option value="">Select gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
+                  <option value="">{t('db.genderSelect')}</option>
+                  <option value="male">{t('gal.male')}</option>
+                  <option value="female">{t('gal.female')}</option>
                 </select>
               </div>
 
               <div className="form-group">
-                <label>Birth date</label>
+                <label>{t('db.labelBirth')}</label>
                 <input
                   type="date"
                   value={form.birthDate}
@@ -1087,65 +1426,28 @@ const DashboardPage = () => {
               </div>
 
               <div className="form-group">
-                <label>Personality</label>
+                <label>{t('db.labelPersonality')}</label>
                 <input
                   type="text"
                   value={form.personality}
                   onChange={(e) => handleFormChange('personality', e.target.value)}
-                  placeholder="e.g. playful, calm, social"
+                  placeholder={t('db.phPersonality')}
                 />
               </div>
 
               <div className="form-group">
-                <label>Add vaccinations</label>
-
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <input
-                    type="text"
-                    value={form.vaccinationInput}
-                    onChange={(e) => handleFormChange('vaccinationInput', e.target.value)}
-                    placeholder="Add vaccination"
-                    style={{ flex: 1 }}
-                  />
-                  <button
-                    type="button"
-                    className="primary-btn"
-                    onClick={addVaccination}
-                  >
-                    + Add vaccine
-                  </button>
-                </div>
-
-                {form.vaccinations.length > 0 && (
-                  <div className="cat-vaccination-list" style={{ marginTop: '12px' }}>
-                    {form.vaccinations.map((item, index) => (
-                      <button
-                        key={`${item}-${index}`}
-                        type="button"
-                        className="cat-vaccination-chip"
-                        onClick={() => removeVaccination(item)}
-                        title="Remove vaccination"
-                      >
-                        {item} ×
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label>Description</label>
+                <label>{t('db.labelDesc')}</label>
                 <textarea
                   rows="4"
                   value={form.description}
                   onChange={(e) => handleFormChange('description', e.target.value)}
-                  placeholder="Detailed cat description"
+                  placeholder={t('db.phDesc')}
                 />
               </div>
 
               {editingCat?.id ? (
                 <div className="form-group">
-                  <label>Vaccinations</label>
+                  <label>{t('db.vaccinations')}</label>
                   <button
                     type="button"
                     className="secondary-btn"
@@ -1157,26 +1459,26 @@ const DashboardPage = () => {
                     }}
                     style={{ width: '100%' }}
                   >
-                    Open vaccination calendar
+                    {t('db.openCal')}
                   </button>
                 </div>
               ) : (
                 <div className="form-group">
-                  <label>Vaccinations</label>
+                  <label>{t('db.vaccinations')}</label>
                   <button
                     type="submit"
                     className="secondary-btn"
                     onClick={() => setOpenCalendarAfterSave(true)}
                     style={{ width: '100%' }}
-                    title="Save cat and open calendar"
+                    title={t('db.saveOpenCalTitle')}
                   >
-                    Save & open vaccination calendar
+                    {t('db.saveOpenCal')}
                   </button>
                 </div>
               )}
 
               <div className="form-group">
-                <label>Photo</label>
+                <label>{t('db.labelPhoto')}</label>
                 <input
                   type="file"
                   accept="image/*"
@@ -1187,7 +1489,7 @@ const DashboardPage = () => {
                   <div style={{ marginTop: '12px' }}>
                     <img
                       src={form.imagePreview}
-                      alt="Cat preview"
+                      alt={t('db.catPreview')}
                       style={{
                         width: '160px',
                         height: '160px',
@@ -1202,7 +1504,7 @@ const DashboardPage = () => {
 
               <div className="modal-actions">
                 <button type="button" className="secondary-btn" onClick={closeCatModal}>
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -1210,7 +1512,7 @@ const DashboardPage = () => {
                   disabled={saveLoading}
                   onClick={() => setOpenCalendarAfterSave(false)}
                 >
-                  {saveLoading ? 'Saving...' : 'Save Cat'}
+                  {saveLoading ? t('db.saving') : t('db.saveCat')}
                 </button>
               </div>
             </form>
@@ -1223,7 +1525,7 @@ const DashboardPage = () => {
         <div className="modal-overlay">
           <div className="modal-card">
             <div className="modal-head">
-              <h3>Foster Request</h3>
+              <h3>{t('db.fosterModalTitle')}</h3>
               <button type="button" className="modal-close" onClick={closeFosterModal}>
                 <X size={18} />
               </button>
@@ -1233,7 +1535,7 @@ const DashboardPage = () => {
               <div className="foster-preview">
                 {selectedFosterCat.image_url ? (
                   <img
-                    src={selectedFosterCat.image_url}
+                    src={resolveUploadedImageUrl(selectedFosterCat.image_url)}
                     alt={selectedFosterCat.name}
                     className="foster-preview-image"
                   />
@@ -1246,45 +1548,46 @@ const DashboardPage = () => {
                 <div className="foster-preview-info">
                   <h4>{selectedFosterCat.name}</h4>
                   <p>
-                    <strong>Breed:</strong> {selectedFosterCat.breed || 'Not specified'}
+                    <strong>{t('db.labelBreed')}:</strong>{' '}
+                    {selectedFosterCat.breed || t('db.notSpecified')}
                   </p>
                   <p>
-                    <strong>Description:</strong>{' '}
-                    {selectedFosterCat.description || 'No description yet.'}
+                    <strong>{t('db.labelDesc')}:</strong>{' '}
+                    {selectedFosterCat.description || t('db.noDesc')}
                   </p>
                   <p>
-                    <strong>Character:</strong>{' '}
-                    {selectedFosterCat.personality || 'Not specified'}
+                    <strong>{t('db.labelPersonality')}:</strong>{' '}
+                    {selectedFosterCat.personality || t('db.notSpecified')}
                   </p>
                 </div>
               </div>
 
               <div className="form-group">
-                <label>City</label>
+                <label>{t('db.labelCity')}</label>
                 <input
                   type="text"
                   value={fosterForm.location}
                   onChange={(e) => handleFosterFormChange('location', e.target.value)}
-                  placeholder="Enter city or location"
+                  placeholder={t('db.phCity')}
                 />
               </div>
 
               <div className="form-group">
-                <label>Urgency</label>
+                <label>{t('db.labelUrgency')}</label>
                 <select
                   value={fosterForm.urgency}
                   onChange={(e) => handleFosterFormChange('urgency', e.target.value)}
                 >
-                  <option value="">Select urgency</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="immediate">Immediate</option>
+                  <option value="">{t('db.urgencySelect')}</option>
+                  <option value="low">{t('gal.low')}</option>
+                  <option value="medium">{t('gal.medium')}</option>
+                  <option value="immediate">{t('gal.immediate')}</option>
                 </select>
               </div>
 
               <div className="foster-period-grid">
                 <div className="form-group">
-                  <label>Start date</label>
+                  <label>{t('db.startDate')}</label>
                   <input
                     type="date"
                     value={fosterForm.startDate}
@@ -1293,7 +1596,7 @@ const DashboardPage = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>End date</label>
+                  <label>{t('db.endDate')}</label>
                   <input
                     type="date"
                     value={fosterForm.endDate}
@@ -1303,25 +1606,25 @@ const DashboardPage = () => {
               </div>
 
               <div className="form-group">
-                <label>Comment</label>
+                <label>{t('db.labelComment')}</label>
                 <textarea
                   rows="4"
                   value={fosterForm.comment}
                   onChange={(e) => handleFosterFormChange('comment', e.target.value)}
-                  placeholder="Additional comment about foster period"
+                  placeholder={t('db.phFosterComment')}
                 />
               </div>
 
               <div className="modal-actions">
                 <button type="button" className="secondary-btn" onClick={closeFosterModal}>
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="primary-btn"
                   disabled={fosterLoadingId === selectedFosterCat.id}
                 >
-                  {fosterLoadingId === selectedFosterCat.id ? 'Sending...' : 'Send Request'}
+                  {fosterLoadingId === selectedFosterCat.id ? t('db.sending') : t('db.sendRequest')}
                 </button>
               </div>
             </form>
@@ -1333,10 +1636,10 @@ const DashboardPage = () => {
       {needs.length > 0 && (
         <section className="dashboard-needs-carousel-section">
           <div className="carousel-header">
-            <h3>Help Shelters in Need</h3>
-            <a href="/shelter-needs" className="view-all-link">
-              View all →
-            </a>
+            <h3>{t('db.carouselTitle')}</h3>
+            <Link to="/shelter-needs" className="view-all-link">
+              {t('db.viewAll')}
+            </Link>
           </div>
 
           <div className="carousel-shell">
@@ -1346,7 +1649,7 @@ const DashboardPage = () => {
               type="button"
               className="carousel-btn carousel-btn-left"
               onClick={() => scrollCarousel('left')}
-              aria-label="Scroll left"
+              aria-label={t('db.scrollLeft')}
             >
               ‹
             </button>
@@ -1354,13 +1657,13 @@ const DashboardPage = () => {
 
             <div className="carousel-track" ref={carouselRef}>
               {needs.map((need) => {
-                const shelterInfo = getNeedShelterInfo(need);
+                const shelterInfo = getNeedShelterInfo(need, t);
                 return (
                 <div key={need._carouselKey || need.id} className="carousel-card">
-                  <div className="card-priority">
-                    {need.priority === 'high' && '🔴'}
-                    {need.priority === 'medium' && '🟡'}
-                    {need.priority === 'low' && '🟢'}
+                  <div className="card-priority" aria-hidden>
+                    {String(need.priority || '').toLowerCase() === 'high' && '🔴'}
+                    {String(need.priority || '').toLowerCase() === 'medium' && '🟡'}
+                    {String(need.priority || '').toLowerCase() === 'low' && '🟢'}
                   </div>
                   <h4>{need.title}</h4>
                   {need.description && (
@@ -1386,7 +1689,7 @@ const DashboardPage = () => {
               type="button"
               className="carousel-btn carousel-btn-right"
               onClick={() => scrollCarousel('right')}
-              aria-label="Scroll right"
+              aria-label={t('db.scrollLeft')}
             >
               ›
             </button>
