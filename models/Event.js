@@ -31,6 +31,11 @@ export const Event = sequelize.define(
       type: DataTypes.DATEONLY,
       allowNull: true,
     },
+    eventTime: {
+      type: DataTypes.TIME,
+      allowNull: true,
+      field: 'event_time',
+    },
     location: {
       type: DataTypes.STRING(300),
       allowNull: true,
@@ -38,6 +43,11 @@ export const Event = sequelize.define(
     cost: {
       type: DataTypes.STRING(100),
       allowNull: true,
+    },
+    maxParticipants: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'max_participants',
     },
     status: {
       type: DataTypes.ENUM('active', 'inactive', 'cancelled', 'completed'),

@@ -8,6 +8,8 @@ import {
   updateEvent,
   updateEventStatus,
   deleteEvent,
+  joinEvent,
+  getUserEventRegistrations,
 } from '../controllers/eventController.js';
 
 const router = express.Router();
@@ -32,22 +34,33 @@ const upload = multer({
   },
 });
 
-// GET /api/events - Get all events
+const uploadImageSingle = (req, res, next) => {
+  upload.single('image')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || 'Invalid file upload' });
+    }
+    next();
+  });
+};
+
+const idParam = ':id(\\d+)';
+
+// GET /api/events — list (must stay before /:id routes)
 router.get('/', getEvents);
 
-// GET /api/events/:id - Get single event
-router.get('/:id', getEvent);
+// GET /api/events/registrations — user's event sign-ups (before /:id)
+router.get('/registrations', getUserEventRegistrations);
 
-// POST /api/events - Create new event
-router.post('/', upload.single('image'), createEvent);
+// POST /api/events — create
+router.post('/', uploadImageSingle, createEvent);
 
-// PUT /api/events/:id - Update event
-router.put('/:id', upload.single('image'), updateEvent);
+// POST /api/events/:id/join — user registers for event
+router.post(`/${idParam}/join`, joinEvent);
 
-// PUT /api/events/:id/status - Update event status
-router.put('/:id/status', updateEventStatus);
-
-// DELETE /api/events/:id - Delete event
-router.delete('/:id', deleteEvent);
+// More specific routes before generic /:id
+router.put(`/${idParam}/status`, updateEventStatus);
+router.put(`/${idParam}`, uploadImageSingle, updateEvent);
+router.delete(`/${idParam}`, deleteEvent);
+router.get(`/${idParam}`, getEvent);
 
 export default router;
