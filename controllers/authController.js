@@ -150,7 +150,6 @@ export async function login(req, res, next) {
     }
 
     if (isLegacyPlainPasswordMatch) {
-      // Upgrade legacy plain-text password to a bcrypt hash on successful login.
       user.password = await bcrypt.hash(normalizedPassword, SALT_ROUNDS);
       await user.save();
     }
