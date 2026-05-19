@@ -7,8 +7,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "build": "npm run build --prefix client",
-    "postinstall": "npm install --prefix client",
+    "build": "npm install --prefix client --include=dev && npm run build --prefix client",
+    "postinstall": "npm install --prefix client --include=dev",
     "client:build": "npm run build --prefix client",
     "db:add-need-due-date": "node scripts/add-shelter-need-due-date.mjs"
   },
