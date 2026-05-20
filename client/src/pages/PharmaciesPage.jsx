@@ -120,18 +120,38 @@ const PharmaciesPage = () => {
   const [minRating, setMinRating] = useState(0);
 
   const placesServiceRef = useRef(null);
+  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(
+    typeof window !== 'undefined' &&
+      window.google &&
+      window.google.maps &&
+      window.google.maps.places
+  );
 
-  // Initialize Places Service
+  // Initialize Places Service when Google Maps API is ready
   useEffect(() => {
-    if (typeof google !== 'undefined' && google.maps && google.maps.places) {
-      // Create a temporary map for PlacesService
+    const initPlacesService = () => {
+      if (typeof window === 'undefined' || typeof google === 'undefined' || !google.maps || !google.maps.places) {
+        return false;
+      }
+
       const tempDiv = document.createElement('div');
       const tempMap = new google.maps.Map(tempDiv, {
         center: { lat: 50.4501, lng: 30.5234 },
         zoom: 10
       });
       placesServiceRef.current = new google.maps.places.PlacesService(tempMap);
-    }
+      setGoogleMapsLoaded(true);
+      return true;
+    };
+
+    initPlacesService();
+
+    const handleLoaded = () => initPlacesService();
+    window.addEventListener('google-maps-loaded', handleLoaded);
+
+    return () => {
+      window.removeEventListener('google-maps-loaded', handleLoaded);
+    };
   }, []);
 
   // Get user location
@@ -317,7 +337,7 @@ const PharmaciesPage = () => {
     };
 
     searchPharmacies();
-  }, [cityFilter, userLocation, notify, t]);
+  }, [cityFilter, userLocation, notify, t, googleMapsLoaded]);
 
   const filteredPharmacies = useMemo(() => {
     let filtered = pharmacies;

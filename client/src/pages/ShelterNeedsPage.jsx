@@ -172,7 +172,7 @@ const ShelterNeedsPage = () => {
           <button
             type="button"
             className="shelter-needs-back-btn"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/dashboard')}
             aria-label={t('sNeeds.backAria')}
           >
             <FiArrowLeft size={18} />

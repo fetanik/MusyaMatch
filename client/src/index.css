@@ -12,3 +12,19 @@ body {
   color: var(--text-dark);
   margin: 0;
 }
+
+/* Global responsive helpers */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+img, svg, video {
+  max-width: 100%;
+  height: auto;
+}
+
+.page-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
