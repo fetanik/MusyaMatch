@@ -5,6 +5,7 @@ import BottomNav from '../components/BottomNav';
 import { useMessages } from '../components/MessagesContext';
 import '../styles/ManagerRequestsPage.css';
 import { useI18n } from '../i18n/I18nContext';
+import { resolveUploadedImageUrl } from '../utils/mediaUrl';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -142,6 +143,8 @@ const ManagerRequestsPage = () => {
     return t('chat.years', { n: parsed });
   };
 
+  const getRequestCatPhoto = (request) => resolveUploadedImageUrl(request?.catPhoto);
+
   return (
     <div className="manager-requests-page">
       <header className="requests-hero">
@@ -190,7 +193,9 @@ const ManagerRequestsPage = () => {
           <div className="requests-empty">{t('mgrReq.empty')}</div>
         ) : (
           <div className="requests-grid">
-            {visibleRequests.map((request) => (
+            {visibleRequests.map((request) => {
+              const catPhoto = getRequestCatPhoto(request);
+              return (
               <article
                 className="request-card clickable"
                 key={request.id}
@@ -205,8 +210,8 @@ const ManagerRequestsPage = () => {
                 }}
               >
                 <div className="request-cat">
-                  {request.catPhoto ? (
-                    <img src={request.catPhoto} alt={request.catName} />
+                  {catPhoto ? (
+                    <img src={catPhoto} alt={request.catName} />
                   ) : (
                     <div className="request-placeholder" aria-hidden="true">
                       <FiImage size={18} />
@@ -297,11 +302,14 @@ const ManagerRequestsPage = () => {
                   )}
                 </div>
               </article>
-            ))}
+            );
+            })}
           </div>
         )}
       </main>
-      {selectedRequest ? (
+      {selectedRequest ? (() => {
+        const selectedCatPhoto = getRequestCatPhoto(selectedRequest);
+        return (
         <div
           className="request-modal-backdrop"
           role="presentation"
@@ -323,10 +331,10 @@ const ManagerRequestsPage = () => {
               ×
             </button>
 
-            {selectedRequest.catPhoto ? (
+            {selectedCatPhoto ? (
               <img
                 className="request-modal-image"
-                src={selectedRequest.catPhoto}
+                src={selectedCatPhoto}
                 alt={selectedRequest.catName}
               />
             ) : (
@@ -393,7 +401,8 @@ const ManagerRequestsPage = () => {
             </div>
           </article>
         </div>
-      ) : null}
+        );
+      })() : null}
       <BottomNav active="requests" />
     </div>
   );

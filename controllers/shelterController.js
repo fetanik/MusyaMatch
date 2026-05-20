@@ -140,7 +140,7 @@ export async function listShelterRequests(req, res, next) {
 
     const shelterCats = await Cat.findAll({
       where: { shelterId: shelter.id },
-      attributes: ['id', 'name', 'image_url', 'breed', 'age', 'description', 'sex', 'personality'],
+      attributes: ['id', 'name', 'imageUrl', 'breed', 'age', 'description', 'sex', 'personality'],
     });
 
     const catIds = shelterCats.map((cat) => Number(cat.id)).filter((id) => id > 0);
@@ -184,7 +184,7 @@ export async function listShelterRequests(req, res, next) {
         Number(cat.id),
         {
           name: cat.name || 'Unnamed cat',
-          photo: toPublicImageUrl(cat.image_url || null, req),
+          photo: toPublicImageUrl(cat.imageUrl ?? cat.image_url ?? null, req),
           breed: cat.breed || '',
           age: cat.age ?? null,
           description: cat.description || '',
