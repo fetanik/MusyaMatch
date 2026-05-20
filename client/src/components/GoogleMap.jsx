@@ -7,6 +7,7 @@ export default function GoogleMap({ pharmacies, center }) {
   const [loadState, setLoadState] = useState(
     typeof window !== 'undefined' && window.google && window.google.maps ? 'ready' : 'pending'
   );
+  const [mapError, setMapError] = useState(false);
 
   const defaultCenter = {
     lat: 50.4501,
@@ -26,15 +27,21 @@ export default function GoogleMap({ pharmacies, center }) {
       return false;
     }
 
-    mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-      center: mapCenter,
-      zoom: 13,
-      mapTypeControl: true,
-      fullscreenControl: true,
-      zoomControl: true,
-    });
+    try {
+      mapInstanceRef.current = new google.maps.Map(mapRef.current, {
+        center: mapCenter,
+        zoom: 13,
+        mapTypeControl: true,
+        fullscreenControl: true,
+        zoomControl: true,
+      });
 
-    return true;
+      return true;
+    } catch (err) {
+      console.error('Google Maps initialization failed:', err);
+      setMapError(true);
+      return false;
+    }
   };
 
   const updateMarkers = () => {
@@ -88,6 +95,7 @@ export default function GoogleMap({ pharmacies, center }) {
 
     const handleError = () => {
       setLoadState('error');
+      setMapError(true);
     };
 
     if (typeof window !== 'undefined' && window.google && window.google.maps) {
@@ -112,6 +120,36 @@ export default function GoogleMap({ pharmacies, center }) {
     }
   }, [loadState, pharmacies, mapCenter]);
 
+  const lat = mapCenter.lat;
+  const lng = mapCenter.lng;
+  const osmIframeUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.05}%2C${lat - 0.03}%2C${lng + 0.05}%2C${lat + 0.03}&layer=mapnik&marker=${lat}%2C${lng}`;
+
+  if (loadState === 'error' || mapError) {
+    return (
+      <div
+        style={{
+          height: '400px',
+          width: '100%',
+          borderRadius: '20px',
+          overflow: 'hidden',
+          background: '#f0f4f8',
+          display: 'grid',
+          placeItems: 'center',
+          color: '#334155',
+          textAlign: 'center',
+        }}
+      >
+        <iframe
+          title="Fallback map"
+          src={osmIframeUrl}
+          style={{ border: 0, width: '100%', height: '100%' }}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       ref={mapRef}
@@ -129,11 +167,6 @@ export default function GoogleMap({ pharmacies, center }) {
       }}
     >
       {loadState === 'pending' && <span>Loading map…</span>}
-      {loadState === 'error' && (
-        <span>
-          Map is unavailable.
-        </span>
-      )}
     </div>
   );
 }
