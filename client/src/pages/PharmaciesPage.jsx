@@ -135,12 +135,21 @@ const PharmaciesPage = () => {
       }
 
       const tempDiv = document.createElement('div');
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.top = '-9999px';
+      tempDiv.style.width = '0';
+      tempDiv.style.height = '0';
+      document.body.appendChild(tempDiv);
+
       const tempMap = new google.maps.Map(tempDiv, {
         center: { lat: 50.4501, lng: 30.5234 },
         zoom: 10
       });
       placesServiceRef.current = new google.maps.places.PlacesService(tempMap);
       setGoogleMapsLoaded(true);
+      document.body.removeChild(tempDiv);
+
       return true;
     };
 

@@ -20,6 +20,7 @@ const loadGoogleMapsScript = () => {
   script.id = scriptId;
   script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&language=en&region=US`;
   script.async = true;
+  script.defer = true;
   script.onload = () => {
     window.dispatchEvent(new Event('google-maps-loaded'));
   };
