@@ -3,11 +3,12 @@ import '../styles/ManagerSettingsPage.css';
 import BottomNav from '../components/BottomNav';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { useI18n } from '../i18n/I18nContext';
+import { apiUrl } from '../utils/apiUrl';
 
 import { FiUpload, FiTrash2, FiSave } from 'react-icons/fi';
 import { FaCat } from 'react-icons/fa6';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/users`;
+const API_BASE_URL = apiUrl('/users');
 
 const ProfilePage = () => {
   const { t } = useI18n();
