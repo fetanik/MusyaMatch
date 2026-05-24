@@ -218,6 +218,8 @@ const HomePage = () => {
     };
   }, [needs, updateCarouselArrows]);
 
+  const loggedIn = isLoggedInClient();
+
   const scrollCarousel = (direction) => {
     if (carouselRef.current) {
       carouselRef.current.scrollBy({
@@ -228,9 +230,19 @@ const HomePage = () => {
   };
 
   return (
-    <Layout showGuestAuthActions showLanguageSwitcher>
+    <Layout showLanguageSwitcher>
       <div className="content-container">
         <section className="hero">
+          {!loggedIn && (
+            <div className="hero-auth-buttons">
+              <Link to="/register?mode=login" className="header-auth-btn header-auth-btn--ghost">
+                {t('layout.login')}
+              </Link>
+              <Link to="/register?mode=signup" className="header-auth-btn header-auth-btn--solid">
+                {t('layout.signup')}
+              </Link>
+            </div>
+          )}
           <div className="hero-avatar" aria-hidden>
             🐱
           </div>
